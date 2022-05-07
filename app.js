@@ -2055,7 +2055,7 @@ function parseAdjacentNumberPlaySegments(text) {
     if (!Object.keys(stakes).length) return null;
     parts.push({ lottery, numbers: selection[1].match(/\d{3}/g), direct: stakes.direct || 0, group: stakes.group || 0 });
   }
-  return parts.length >= 2 && (hasCountedPlay || hasMoneyPlay || parts.some(part => part.direct && part.group)) ? parts : null;
+  return (parts.length >= 2 || (parts.length === 1 && hasCountedPlay)) && (hasCountedPlay || hasMoneyPlay || parts.some(part => part.direct && part.group)) ? parts : null;
 }
 
 function calculateAdjacentNumberPlaySegments(text, claimed) {
