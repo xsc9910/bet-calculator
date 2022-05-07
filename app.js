@@ -2290,6 +2290,25 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
     reasons: [`全胆拖${selections.length}组（${selections.map(match => `${match[1]}拖${match[2]}`).join('、')}） × 每组${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseTwoCodeGroup3Order(text) {
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text));
+  const markers = normalized.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
+  if (markers.length > 1) return null;
+  const body = normalized.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
+    .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ')
+    .replace(/组三\s*(?:两码|二码|2码)|(?:两码|二码|2码)\s*组三/g, '组三').trim();
+  const pairs = '(\\d{2}(?:[\\s、，,.。/\\-]+\\d{2})*)';
+  const rate = '(?:各打|各|打|记|买)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)?';
+  const match = body.match(new RegExp(`^${pairs}\\s*组三\\s*(?:${rate})?$`))
+    || body.match(new RegExp(`^组三\\s*${pairs}\\s+${rate}$`))
+    || body.match(new RegExp(`^组三\\s*${pairs}(?:\\s+${rate})?$`));
+  if (!match) return null;
+  const selections = match[1].match(/\d{2}/g);
+  if (selections.some(pair => pair[0] === pair[1])) return null;
+  const stake = match[2] == null ? 10 : chineseAmount(match[2]) * (match[3] === '倍' ? 10 : /毛|角/.test(match[3] || '') ? 0.1 : 1);
+  return { selections, stake, claimed: extractClaimedAmount(normalized) };
+}
+
 function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
   if (/转圈|转子|全倒|[沾粘]边/.test(text)) return null;
   const body = text.replace(/^\s*(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*[:：]?\s*/i, '')
@@ -4637,7 +4656,34 @@ function parseScopedDanAndGroupAmounts(text) {
   return parts.some(part => part.type === 'dan') ? parts : null;
 }
 
+function parseSharedTailGroupAmount(text) {
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text));
+  const body = normalized.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const tail = body.match(/(组三|组六)\s*(?:各打|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/);
+  if (!tail) return null;
+  const lines = body.slice(0, tail.index).trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  let lottery = '';
+  const parts = [];
+  for (const line of lines) {
+    const marker = line.match(/^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*/i);
+    if (marker) lottery = marker[1];
+    const selection = (marker ? line.slice(marker[0].length) : line).trim();
+    if (!lottery || !/^\d{4,10}(?:[\s、，,.。/\-]+\d{4,10})*$/.test(selection)) return null;
+    parts.push({ lottery, selections: selection.match(/\d{4,10}/g), explicitLottery: Boolean(marker) });
+  }
+  const stake = chineseAmount(tail[2]) * (tail[3] === '倍' ? 10 : /毛|角/.test(tail[3] || '') ? 0.1 : 1);
+  if (tail[3] === '倍' && parts.some(part => !part.explicitLottery)) return null;
+  return { parts, stake, group3: tail[1] === '组三', claimed: extractClaimedAmount(normalized) };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
+  const sharedTailGroupAmount = parseSharedTailGroupAmount(text);
+  if (sharedTailGroupAmount) return { amount: Number(sharedTailGroupAmount.parts.reduce((sum, part) => sum + part.selections.length * sharedTailGroupAmount.stake * lotteryTargets(part.lottery).length, 0).toFixed(2)), claimed: sharedTailGroupAmount.claimed, confident: true,
+    reasons: [`按各行彩票归属共用${sharedTailGroupAmount.group3 ? '组三' : '组六'}金额：${sharedTailGroupAmount.parts.map(part => `${part.lottery}${part.selections.join('、')}各${sharedTailGroupAmount.stake}元`).join('；')}`] };
+  const twoCodeGroup3Order = parseTwoCodeGroup3Order(text);
+  if (twoCodeGroup3Order) return { amount: Number((twoCodeGroup3Order.selections.length * twoCodeGroup3Order.stake * lotteryTargets(text).length).toFixed(2)), claimed: twoCodeGroup3Order.claimed, confident: true,
+    reasons: [`两码组三${twoCodeGroup3Order.selections.join('、')}，每组${twoCodeGroup3Order.stake}元${lotteryTargets(text).length === 2 ? ' × 福彩体彩两边' : ''}`] };
   const scopedDanAndGroups = parseScopedDanAndGroupAmounts(text);
   if (scopedDanAndGroups) return { amount: Number(scopedDanAndGroups.reduce((sum, part) => sum + part.selections.length * part.stake * lotteryTargets(part.lottery).length, 0).toFixed(2)), claimed: extractClaimedAmount(text), confident: true,
     reasons: [`独胆与组选按盘别、号码及金额分别计算：${scopedDanAndGroups.map(part => `${part.lottery}${part.type === 'dan' ? '独胆' : part.type === 'group3' ? '组三' : '组六'} ${part.selections.join('、')}各${part.stake}元`).join('；')}`] };
@@ -5415,6 +5461,23 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const sharedTailGroupAmount = parseSharedTailGroupAmount(String(entry.original || ''));
+  if (sharedTailGroupAmount) {
+    const play = sharedTailGroupAmount.group3 ? plays.group3Multi : plays.group6Multi;
+    for (const part of sharedTailGroupAmount.parts) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      for (const selection of part.selections) {
+        const unique = [...new Set(selection)];
+        if (drawSet.size === (sharedTailGroupAmount.group3 ? 2 : 3) && drawDigits.every(digit => unique.includes(digit)) && play.prizeBySize[unique.length]) wins.push(makeWinningEntry(entry, lottery, `${unique.length}码${sharedTailGroupAmount.group3 ? '组三' : '组六'}`, selection, sharedTailGroupAmount.stake, play.prizeBySize[unique.length] / play.base, wins.length));
+      }
+    }
+    return wins;
+  }
+  const twoCodeGroup3Order = parseTwoCodeGroup3Order(String(entry.original || ''));
+  if (twoCodeGroup3Order) {
+    for (const pair of twoCodeGroup3Order.selections) if (drawSet.size === 2 && drawDigits.every(digit => pair.includes(digit))) wins.push(makeWinningEntry(entry, lottery, '两码组三', pair, twoCodeGroup3Order.stake, plays.group3Multi.prizeBySize[2] / plays.group3Multi.base, wins.length));
+    return wins;
+  }
   const scopedDanAndGroups = parseScopedDanAndGroupAmounts(text);
   if (scopedDanAndGroups) {
     for (const part of scopedDanAndGroups) {
