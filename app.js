@@ -2002,7 +2002,23 @@ function calculateSharedDirectGroupRates(text, claimed) {
 }
 
 function parseAdjacentNumberPlaySegments(text) {
-  let rest = normalizeChineseClaimedTotals(text).replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const lines = normalizeChineseClaimedTotals(text).split(/[\r\n;；]+/).map(line => line.trim()).filter(line => line && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (lines.length > 1) {
+    let inherited = '福';
+    const scoped = [];
+    for (const line of lines) {
+      const markers = line.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
+      if (markers.length > 1) break;
+      if (markers.length) inherited = markers[0];
+      const parsed = parseSharedDirectGroupRates(markers.length ? line : `${inherited} ${line}`);
+      if (!parsed) break;
+      scoped.push({ lottery: inherited, numbers: parsed.numbers, direct: parsed.direct, group: parsed.group });
+    }
+    if (scoped.length === lines.length) return scoped;
+  }
+  let rest = normalizeChineseClaimedTotals(text)
+    .replace(/(?:直选组选|组选直选|直组|单组|组直|组单)\s*(?:各打|各记|各买|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g, '直$1$2组选$1$2')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const separator = /^[\s、，,.。;；:：!！/\-]+/;
   const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*/i;
   const numbers = /^(\d{3}(?!\d)(?:[\s、，,.。/\-]+\d{3}(?!\d))*)/;
