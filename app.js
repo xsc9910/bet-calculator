@@ -1067,14 +1067,14 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
     return chineseAmount(match[1]) * (match[2] === '毛' ? 0.1 : 1);
   };
   const moneyPattern = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)';
-  // “单挑 436 439 各2米组”是单独的组选投注；不能因为同时出现
-  // “单”和“组”就被下面的“直组各N元”规则当成直、组各一份。
-  const groupOnlyRate = text.match(new RegExp(`(?:各\\s*)?${moneyPattern}\\s*(?:组选|组)(?![三六])`));
-  if (groupOnlyRate && /(?:单挑|组选)/.test(text)) {
-    const groupRate = chineseAmount(groupOnlyRate[1]) * (groupOnlyRate[2] === '毛' ? 0.1 : 1);
-    const amount = numbers.length * groupRate * lotteryFactor;
+  // “单”是直选的同义词。单挑号码后即使紧接“组福”等盘别文字，
+  // 也不能把它推断成组选，更不能落入下面的直组选双算规则。
+  const singlePickRate = text.match(new RegExp(`(?:各\\s*)?${moneyPattern}\\s*(?:组选|组)?`));
+  if (singlePickRate && /单挑/.test(text)) {
+    const directRate = chineseAmount(singlePickRate[1]) * (singlePickRate[2] === '毛' ? 0.1 : 1);
+    const amount = numbers.length * directRate * lotteryFactor;
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-      reasons: [`${numbers.length}个单挑组选号码 × 每组${groupRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+      reasons: [`${numbers.length}个单挑直选号码 × 每注${directRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
   // “直组0.5”中的小数不是倍数，而是每个玩法的金额；
   // 倍数必须写“倍”，无单位的整数仍沿用倍数规则。
