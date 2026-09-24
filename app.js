@@ -806,6 +806,21 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
     reasons: [`${sets.length}组复式号码 ×（${labels}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
+  // 三位单式组选可连续列出，例如“146，369组六各20，共40”。
+  // 有明确单位时直接按每个号码金额；无单位整数必须由原文合计反证，
+  // 否则保留人工补充，不能把“20”武断地当作金额或倍数。
+  const match = text.match(/((?:\d{3}(?:\s+|\s*[、，,。.\/\-]\s*)?)+)\s*(组六|组三)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?/);
+  if (!match) return null;
+  const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!numbers.length) return null;
+  const rate = chineseAmount(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+  const amount = Number((numbers.length * rate * lotteryFactor).toFixed(2));
+  if (!match[4] && (claimed === '' || Number(claimed) !== amount)) return null;
+  return { amount, claimed, confident: true,
+    reasons: [`${numbers.length}个${match[2]}号码各${rate}元${match[4] ? '' : '，与原文合计核对一致'}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSingleDigitBet(text, claimed, lotteryFactor) {
   // 单独写“胆4 20元”与“独胆4 20元”同义；但“胆码/胆拖”仍归胆拖玩法。
   const bareDan = text.match(/胆(?!码|拖)\s*[。.]?\s*([0-9])(?=\s*[。.]?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块|倍))/);
@@ -1492,6 +1507,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (allDanTuoBet) return allDanTuoBet;
   const danTuoBet = calculateDanTuoBet(clean, claimed, lotteryFactor);
   if (danTuoBet) return danTuoBet;
+  const listedSingleGroupBet = calculateListedSingleGroupBet(clean, claimed, lotteryFactor);
+  if (listedSingleGroupBet) return listedSingleGroupBet;
   const multiGroupBet = calculateMultiGroupBet(clean, claimed, lotteryFactor);
   if (multiGroupBet) return multiGroupBet;
 
