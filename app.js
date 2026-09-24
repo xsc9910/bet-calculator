@@ -341,7 +341,7 @@ function formatBetTime(value) {
 }
 
 function renderBetPreview() {
-  const recent = betEntries.filter(entry => entry.original).slice(-8).reverse();
+  const recent = betEntries.filter(entry => entry.original).slice().reverse();
   $('betPreviewList').innerHTML = recent.length ? recent.map(entry => {
     const anomaly = anomalyFor(entry);
     const targets = entryLotteryTargets(entry);
