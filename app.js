@@ -581,7 +581,7 @@ function normalizedSingleBetNumberSource(text) {
   const withoutTotals = text
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
     .replace(/(?<!\d)\d+\s*注/g, ' ');
-  const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(text);
+  const directGroupList = /直\s*组|组\s*直|单\s*组|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(text);
   return directGroupList
     ? withoutTotals.replace(/(?<!\d)(\d{3})(\d{3})(?!\d)/g, '$1 $2')
     : withoutTotals;
@@ -1255,7 +1255,7 @@ function calculateLeadingPlayTailRateBet(text, claimed, lotteryFactor) {
   if (!tailRate) return null;
 
   const rate = chineseAmount(tailRate[1]) * (['毛', '角'].includes(tailRate[2]) ? 0.1 : 1);
-  const both = /(?:直\s*组|组\s*直|一直一组|一单一组)/.test(leadingPlay);
+  const both = /(?:直\s*组|组\s*直|单\s*组|一直一组|一单一组)/.test(leadingPlay);
   const direct = /(?:直选|直|单)/.test(leadingPlay);
   const group = /(?:组选|组)/.test(leadingPlay);
   const playCount = both ? 2 : direct || group ? 1 : 0;
@@ -1306,14 +1306,14 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
   }
   // “直组0.5”中的小数不是倍数，而是每个玩法的金额；
   // 倍数必须写“倍”，无单位的整数仍沿用倍数规则。
-  const unitlessDecimalBoth = text.match(/(?:直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组)\s*各?(\d+\.\d+)(?!\s*(?:毛|角|元|米|块))/);
+  const unitlessDecimalBoth = text.match(/(?:直\s*组|组\s*直|单\s*组|直\s*选?\s*组|一直一组|一单一组)\s*各?(\d+\.\d+)(?!\s*(?:毛|角|元|米|块))/);
   if (unitlessDecimalBoth) {
     const bothRate = Number(unitlessDecimalBoth[1]);
     const amount = numbers.length * bothRate * 2 * lotteryFactor;
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
       reasons: [`${numbers.length}个号码 ×（直${money(bothRate)}元 + 组${money(bothRate)}元）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
-  const bothRate = readRate(text.match(new RegExp(`(?:直\\s*组|组\\s*直|直\\s*选?\\s*组|一直一组|一单一组)\\s*各(?:打)?\\s*${moneyPattern}`)));
+  const bothRate = readRate(text.match(new RegExp(`(?:直\\s*组|组\\s*直|单\\s*组|直\\s*选?\\s*组|一直一组|一单一组)\\s*各(?:打)?\\s*${moneyPattern}`)));
   if (bothRate != null) {
     const amount = numbers.length * bothRate * 2 * lotteryFactor;
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
@@ -1555,7 +1555,7 @@ function autoCalculateBet(text, allowCompound = true) {
   const numbers = extractThreeDigitNumbers(clean);
   const count = numbers.length;
   if (count) {
-    const both = /直组|直\s*选?\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
+    const both = /直组|直\s*选?\s*组|单\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
     const direct = both || /直选|直|一直|一单|单挑|\d单/.test(clean);
     const group = both || /组选|组|组六|组三/.test(clean);
     if (direct && group) {
@@ -1697,7 +1697,7 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
   const threeDigitNumbers = extractThreeDigitNumbers(text);
-  const both = /直组|直\s*(?:和|加|与)?\s*组|一直一组|一单一组|直选组选|组直/.test(text);
+  const both = /直组|直\s*(?:和|加|与)?\s*组|单\s*组|一直一组|一单一组|直选组选|组直/.test(text);
   const wantsDirect = both || /直选|直|单挑|\d单/.test(text);
   const wantsGroup = both || /组选|组六|组三|\d组|一组|两组|三组|四组|五组/.test(text);
   const directStake = playStake(text, 'direct');
