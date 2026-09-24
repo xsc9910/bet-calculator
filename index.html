@@ -119,18 +119,11 @@
         <input id="betSearchInput" type="search" placeholder="搜索序号、原文或异常">
         <label class="check-label"><input id="onlyAnomalies" type="checkbox"> 只看异常</label>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap bet-ledger-scroll">
         <table class="bet-table">
           <thead><tr><th>序号</th><th>彩票</th><th>原文</th><th>金额</th><th>原文金额</th><th>核对</th><th></th></tr></thead>
           <tbody id="betLedgerBody"></tbody>
         </table>
-      </div>
-      <div id="betPager" class="pager" aria-label="金额总表分页">
-        <span id="betPageInfo"></span>
-        <div>
-          <button id="betPrevPage" type="button">上一页</button>
-          <button id="betNextPage" type="button">下一页</button>
-        </div>
       </div>
       <div class="formula-box">
         <span>金额合计</span>

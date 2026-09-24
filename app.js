@@ -57,8 +57,6 @@ const plays = {
 let entries = loadEntries();
 let betEntries = loadBetEntries();
 let currentFilter = 'all';
-let betLedgerPage = 1;
-const BET_LEDGER_PAGE_SIZE = 10;
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => Number(value.toFixed(2)).toString();
@@ -156,10 +154,7 @@ function renderBetLedger() {
     const anomaly = anomalyFor(e);
     return (!anomalyOnly || anomaly) && (!q || `${e.record} ${e.original || ''} ${anomaly}`.toLowerCase().includes(q));
   }).sort((a, b) => Number(b.record) - Number(a.record));
-  const totalPages = Math.max(1, Math.ceil(visible.length / BET_LEDGER_PAGE_SIZE));
-  betLedgerPage = Math.min(Math.max(1, betLedgerPage), totalPages);
-  const pageEntries = visible.slice((betLedgerPage - 1) * BET_LEDGER_PAGE_SIZE, betLedgerPage * BET_LEDGER_PAGE_SIZE);
-  $('betLedgerBody').innerHTML = pageEntries.length ? pageEntries.map(e => {
+  $('betLedgerBody').innerHTML = visible.length ? visible.map(e => {
     const anomaly = anomalyFor(e);
     const targets = entryLotteryTargets(e);
     return `<tr>
@@ -172,9 +167,6 @@ function renderBetLedger() {
       <td><button class="icon-btn delete-bet" data-id="${e.id}" title="删除" aria-label="删除">×</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty-row">没有符合条件的记录</td></tr>';
-  $('betPageInfo').textContent = `第${betLedgerPage}/${totalPages}页 · 共${visible.length}条`;
-  $('betPrevPage').disabled = betLedgerPage <= 1;
-  $('betNextPage').disabled = betLedgerPage >= totalPages;
   const terms = betEntries.map(e => money(Number(e.amount) || 0));
   const total = betEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
   $('betFormulaText').textContent = `${terms.join('+')}=${money(total)}`;
@@ -1520,15 +1512,12 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
   render();
 });
 $('searchInput').oninput = render;
-$('betSearchInput').oninput = () => { betLedgerPage = 1; render(); };
-$('onlyAnomalies').onchange = () => { betLedgerPage = 1; render(); };
-$('betPrevPage').onclick = () => { if (betLedgerPage > 1) { betLedgerPage -= 1; render(); } };
-$('betNextPage').onclick = () => { betLedgerPage += 1; render(); };
+$('betSearchInput').oninput = render;
+$('onlyAnomalies').onchange = render;
 $('betPreviewList').onclick = event => {
   const detailButton = event.target.closest('.preview-detail');
   if (detailButton) {
     $('betSearchInput').value = detailButton.dataset.record;
-    betLedgerPage = 1;
     render();
     switchTab('betLedger');
     return;
@@ -1680,7 +1669,7 @@ $('exportBetData').onclick = () => {
 };
 $('resetBetData').onclick = () => {
   if (!confirm('确定清空全部投注金额记录？此操作不能撤销。')) return;
-  betEntries = []; betLedgerPage = 1; saveBetEntries(); render(); toast('投注金额记录已清空');
+  betEntries = []; saveBetEntries(); render(); toast('投注金额记录已清空');
 };
 $('ledgerBody').onclick = e => {
   const btn = e.target.closest('.delete');
