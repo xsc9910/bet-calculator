@@ -577,8 +577,10 @@ function extractClaimedAmount(text) {
 }
 
 function normalizedSingleBetNumberSource(text) {
-  // 合计只是核对金额；直组单式列表中的六码连写统一按两个三位号码处理。
-  const withoutTotals = text.replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ');
+  // 合计和“X注”都是说明文字，不是号码；直组单式列表中的六码连写统一按两个三位号码处理。
+  const withoutTotals = text
+    .replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
+    .replace(/(?<!\d)\d+\s*注/g, ' ');
   const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(text);
   return directGroupList
     ? withoutTotals.replace(/(?<!\d)(\d{3})(\d{3})(?!\d)/g, '$1 $2')
