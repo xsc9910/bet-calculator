@@ -824,7 +824,14 @@ function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
 function calculateSingleDigitBet(text, claimed, lotteryFactor) {
   // 单独写“胆4 20元”与“独胆4 20元”同义；但“胆码/胆拖”仍归胆拖玩法。
   const bareDan = text.match(/胆(?!码|拖)\s*[。.]?\s*([0-9])(?=\s*[。.]?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块|倍))/);
-  if (!/(?:独胆|毒[胆但]?|扣|独|各掉)/.test(text) && !bareDan) return null;
+  const digitBeforeDan = text.match(/(?<!\d)([0-9])\s*(?:的\s*)?胆\s*[，,。.：:]?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?(?!\s*倍)/);
+  if (!/(?:独胆|毒[胆但]?|扣|独|各掉)/.test(text) && !bareDan && !digitBeforeDan) return null;
+  if (digitBeforeDan) {
+    const stake = chineseAmount(digitBeforeDan[2]) * (['毛', '角'].includes(digitBeforeDan[3]) ? 0.1 : 1);
+    const amount = stake * lotteryFactor;
+    return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+      reasons: [`独胆${digitBeforeDan[1]}按原文固定金额${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  }
   let selected = bareDan?.[1] || text.match(/(?:独胆|毒[胆但]?|扣|独)\s*([0-9](?:[\/、，,.。\-]*[0-9])*)/)?.[1] || '';
   if (!selected) selected = text.match(/([0-9](?:[\/、，,.。\-]*[0-9])*)\s*独/)?.[1] || '';
   if (!selected && /各掉/.test(text)) selected = text.split(/福|体|各掉/)[0];
