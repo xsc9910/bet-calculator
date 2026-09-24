@@ -1,6 +1,6 @@
 {
   "private": true,
   "scripts": {
-    "test": "node tests/parser-regression.js"
+    "test": "node tests/parser-regression.js && node tests/intake-behavior.js"
   }
 }
