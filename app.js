@@ -576,6 +576,15 @@ function extractClaimedAmount(text) {
   return found.length ? found[found.length - 1] : '';
 }
 
+function normalizedSingleBetNumberSource(text) {
+  // 合计只是核对金额；直组单式列表中的六码连写统一按两个三位号码处理。
+  const withoutTotals = text.replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|元|米|块)?/g, ' ');
+  const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(text);
+  return directGroupList
+    ? withoutTotals.replace(/(?<!\d)(\d{3})(\d{3})(?!\d)/g, '$1 $2')
+    : withoutTotals;
+}
+
 function rateFromText(text) {
   const digit = text.match(/(?:各(?:打)?|打)\s*(\d+(?:\.\d+)?)\s*(毛|元|米|块)/);
   if (digit) return Number(digit[1]) * (digit[2] === '毛' ? 0.1 : 1);
@@ -1035,7 +1044,7 @@ function calculateMultilineCompound(text, claimed) {
 }
 
 function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
-  const numbers = text.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
   if (!numbers.length) return null;
 
   const readRate = match => {
@@ -1194,15 +1203,7 @@ function autoCalculateBet(text, allowCompound = true) {
     return { amount: Number(amount.toFixed(2)), claimed, confident: true, reasons };
   }
 
-  // 行尾“合计100元”等只是核对金额，不能作为三位投注号码参与计数。
-  const numberSource = clean.replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|元|米|块)?/g, ' ');
-  // 单式直组列表中偶尔会漏掉分隔符，如“910258”应视为“910、258”。
-  // 仅在明确“直组”时拆分，避免把“134789组六”这类复式号码误拆。
-  const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(clean);
-  const normalizedNumberSource = directGroupList
-    ? numberSource.replace(/(?<!\d)(\d{3})(\d{3})(?!\d)/g, '$1 $2')
-    : numberSource;
-  const numbers = normalizedNumberSource.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = normalizedSingleBetNumberSource(clean).match(/(?<!\d)\d{3}(?!\d)/g) || [];
   const count = numbers.length;
   if (count) {
     const both = /直组|直\s*选?\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
