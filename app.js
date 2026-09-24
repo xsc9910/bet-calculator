@@ -524,10 +524,9 @@ function rateFromText(text) {
   if (digit) return Number(digit[1]) * (digit[2] === '毛' ? 0.1 : 1);
   const unitlessDecimal = text.match(/(?:每注|各(?:打)?|打)\s*(0?\.\d+)(?!\d)\s*(?:元|米|块)?/);
   if (unitlessDecimal) return Number(unitlessDecimal[1]);
-  const cn = text.match(/(?:各(?:打)?|打)\s*([一二两三四五六七八九十])\s*(毛|元|米|块)/);
+  const cn = text.match(/(?:各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+)\s*(毛|元|米|块)/);
   if (!cn) return null;
-  const map = {一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
-  return map[cn[1]] * (cn[2] === '毛' ? 0.1 : 1);
+  return chineseAmount(cn[1]) * (cn[2] === '毛' ? 0.1 : 1);
 }
 
 function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
@@ -933,14 +932,19 @@ function calculateMultilineCompound(text, claimed) {
   const hasWelfareMarker = line => /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三弟/i.test(line);
   const hasSportsMarker = line => /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d])/.test(line);
   const allTargets = lotteryTargets(text);
-  let carriedPrefix = allTargets.length === 1 ? (allTargets[0] === '福彩' ? '福 ' : '体 ') : '';
+  // 首行“福+体”可只作为整条的盘别标记，后续每一行都应继承两边投注。
+  let carriedPrefix = allTargets.length === 2
+    ? '福体 '
+    : allTargets.length === 1 ? (allTargets[0] === '福彩' ? '福 ' : '体 ') : '';
   const parts = [];
   for (const line of lines) {
     const welfare = hasWelfareMarker(line);
     const sports = hasSportsMarker(line);
     if (welfare || sports) carriedPrefix = welfare && sports ? '福体 ' : welfare ? '福 ' : '体 ';
     if (!carriedPrefix) return null;
-    const result = autoCalculateBet(`${carriedPrefix}${line}`, false);
+    // 行尾合计只用于整条金额核对，不能把其中的三位数误认成投注号码。
+    const calculationLine = line.replace(/(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:毛|元|米|块)?/g, '').trim();
+    const result = autoCalculateBet(`${carriedPrefix}${calculationLine}`, false);
     if (result.amount === '' || !result.confident) return null;
     parts.push({ line, amount: Number(result.amount), reason: result.reasons.join('；') });
   }
@@ -1143,10 +1147,10 @@ function numericValue(value) {
 
 function playStake(text, kind) {
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
-  const moneyAfter = text.match(new RegExp(`${keyword}\\s*([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)`));
-  if (moneyAfter) return numericValue(moneyAfter[1]) * (moneyAfter[2] === '毛' ? 0.1 : 1);
-  const moneyBefore = text.match(new RegExp(`([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)\\s*${keyword}`));
-  if (moneyBefore) return numericValue(moneyBefore[1]) * (moneyBefore[2] === '毛' ? 0.1 : 1);
+  const moneyAfter = text.match(new RegExp(`${keyword}\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)`));
+  if (moneyAfter) return chineseAmount(moneyAfter[1]) * (moneyAfter[2] === '毛' ? 0.1 : 1);
+  const moneyBefore = text.match(new RegExp(`([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)\\s*${keyword}`));
+  if (moneyBefore) return chineseAmount(moneyBefore[1]) * (moneyBefore[2] === '毛' ? 0.1 : 1);
   const timesAfter = text.match(new RegExp(`${keyword}\\s*([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍`));
   if (timesAfter) return numericValue(timesAfter[1]) * 2;
   const decimalBefore = text.match(new RegExp(`(\\d+\\.\\d+)\\s*${keyword}`));
