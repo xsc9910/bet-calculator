@@ -1106,6 +1106,12 @@ function autoCalculateBet(text, allowCompound = true) {
     const multilineCompound = calculateMultilineCompound(clean, claimed);
     if (multilineCompound) return multilineCompound;
   }
+  // “全包组三 / 组三全包 / 打包组三”写了金额时，金额就是整项投注额，
+  // 必须在通用组三、定位等规则之前优先返回，避免被不完整玩法识别拦截。
+  if (/(?:全包\s*组三|组三\s*全包|打包\s*组三)/.test(clean) && claimed !== '') {
+    return { amount: claimed, claimed, confident: true,
+      reasons: ['已识别全包组三，原文已写明确金额，直接按原文金额计算。'] };
+  }
   // 定位含有三位数字集合时，必须先按百/十/个位做笛卡尔组合；
   // 不能先被“直各X元”的通用单式规则截获。
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
