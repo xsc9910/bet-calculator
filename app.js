@@ -193,21 +193,25 @@ function renderBetLedger() {
   const selectedEntries = entriesForBetBatch();
   const batchSelect = $('batchFilter');
   const entryBatchSelect = $('entryBatchFilter');
-  batchSelect.innerHTML = [
-    `<option value="active">当前统计（${activeBetBatch()?.label || '未命名'}）</option>`,
-    '<option value="all">全部统计</option>',
-    ...betBatches.map(batch => {
+  if (batchSelect) {
+    batchSelect.innerHTML = [
+      `<option value="active">当前统计（${activeBetBatch()?.label || '未命名'}）</option>`,
+      '<option value="all">全部统计</option>',
+      ...betBatches.map(batch => {
+        const summary = batchSummary(batch.id);
+        return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
+      })
+    ].join('');
+    if (![...batchSelect.options].some(option => option.value === currentBetBatchFilter)) currentBetBatchFilter = 'active';
+    batchSelect.value = currentBetBatchFilter;
+  }
+  if (entryBatchSelect) {
+    entryBatchSelect.innerHTML = betBatches.map(batch => {
       const summary = batchSummary(batch.id);
       return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
-    })
-  ].join('');
-  if (![...batchSelect.options].some(option => option.value === currentBetBatchFilter)) currentBetBatchFilter = 'active';
-  batchSelect.value = currentBetBatchFilter;
-  entryBatchSelect.innerHTML = betBatches.map(batch => {
-    const summary = batchSummary(batch.id);
-    return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
-  }).join('');
-  entryBatchSelect.value = activeBetBatchId;
+    }).join('');
+    entryBatchSelect.value = activeBetBatchId;
+  }
   const q = $('betSearchInput').value.trim().toLowerCase();
   const anomalyOnly = $('onlyAnomalies').checked;
   const visible = selectedEntries.filter(e => {
@@ -1576,11 +1580,13 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
 $('searchInput').oninput = render;
 $('betSearchInput').oninput = render;
 $('onlyAnomalies').onchange = render;
-$('batchFilter').onchange = event => {
+const batchFilter = $('batchFilter');
+if (batchFilter) batchFilter.onchange = event => {
   currentBetBatchFilter = event.target.value;
   render();
 };
-$('entryBatchFilter').onchange = event => {
+const entryBatchFilter = $('entryBatchFilter');
+if (entryBatchFilter) entryBatchFilter.onchange = event => {
   activeBetBatchId = event.target.value;
   localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
   currentBetBatchFilter = 'active';
@@ -1672,13 +1678,17 @@ function openBatchDialog(mode) {
   $('newBatchDialog').showModal();
   setTimeout(() => $('newBatchName').focus(), 0);
 }
-$('newBetBatch').onclick = () => openBatchDialog('new');
-$('newBetBatchFromLedger').onclick = () => openBatchDialog('new');
-$('renameBetBatch').onclick = () => openBatchDialog('rename');
-$('renameBetBatchFromLedger').onclick = () => openBatchDialog('rename');
-$('newBatchCancel').onclick = () => $('newBatchDialog').close();
-$('cancelNewBatch').onclick = () => $('newBatchDialog').close();
-$('newBatchForm').onsubmit = event => {
+const newBetBatchButton = $('newBetBatch');
+const newBetBatchFromLedgerButton = $('newBetBatchFromLedger');
+const renameBetBatchButton = $('renameBetBatch');
+const renameBetBatchFromLedgerButton = $('renameBetBatchFromLedger');
+if (newBetBatchButton) newBetBatchButton.onclick = () => openBatchDialog('new');
+if (newBetBatchFromLedgerButton) newBetBatchFromLedgerButton.onclick = () => openBatchDialog('new');
+if (renameBetBatchButton) renameBetBatchButton.onclick = () => openBatchDialog('rename');
+if (renameBetBatchFromLedgerButton) renameBetBatchFromLedgerButton.onclick = () => openBatchDialog('rename');
+if ($('newBatchCancel')) $('newBatchCancel').onclick = () => $('newBatchDialog').close();
+if ($('cancelNewBatch')) $('cancelNewBatch').onclick = () => $('newBatchDialog').close();
+if ($('newBatchForm')) $('newBatchForm').onsubmit = event => {
   event.preventDefault();
   const name = $('newBatchName').value.trim();
   if (!name) { toast('请填写批次名称'); $('newBatchName').focus(); return; }
