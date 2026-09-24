@@ -1196,7 +1196,13 @@ function autoCalculateBet(text, allowCompound = true) {
 
   // 行尾“合计100元”等只是核对金额，不能作为三位投注号码参与计数。
   const numberSource = clean.replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|元|米|块)?/g, ' ');
-  const numbers = numberSource.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  // 单式直组列表中偶尔会漏掉分隔符，如“910258”应视为“910、258”。
+  // 仅在明确“直组”时拆分，避免把“134789组六”这类复式号码误拆。
+  const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(clean);
+  const normalizedNumberSource = directGroupList
+    ? numberSource.replace(/(?<!\d)(\d{3})(\d{3})(?!\d)/g, '$1 $2')
+    : numberSource;
+  const numbers = normalizedNumberSource.match(/(?<!\d)\d{3}(?!\d)/g) || [];
   const count = numbers.length;
   if (count) {
     const both = /直组|直\s*选?\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
