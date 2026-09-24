@@ -1318,6 +1318,37 @@ function calculateWildcardFixedAmount(text, claimed, lotteryFactor) {
     reasons: [`X码定位按等号固定金额：${details.map(item => `${item.code}=${money(item.amount)}元`).join(' + ')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateMultiGroupSingleCompound(text, claimed, lotteryFactor) {
+  const parts = [];
+  let remainder = text;
+  const multiPattern = /((?:\d{4,10}(?:\s+|\s*[、，,]\s*)?)+)\s*(?:组三\s*组六|组六\s*组三)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
+  for (const match of remainder.matchAll(multiPattern)) {
+    const sets = match[1].match(/(?<!\d)\d{4,10}(?!\d)/g) || [];
+    const rate = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+    if (!sets.length) continue;
+    parts.push({ amount: sets.length * rate * 2 * lotteryFactor,
+      reason: `${sets.length}组复式号 ×（组三${rate}元 + 组六${rate}元）` });
+    remainder = remainder.replace(match[0], ' '.repeat(match[0].length));
+  }
+
+  const directGroup = calculateDirectGroupWithSingleDigit(remainder, claimed, lotteryFactor);
+  if (directGroup) parts.push({ amount: Number(directGroup.amount), reason: directGroup.reasons.join('；') });
+
+  const groupOnlyPattern = /((?:\d{3}(?:\s+|\s*[、，,]\s*)?)+)\s*各?\s*([一二两三四五六七八九十]|\d+)\s*组(?![三六])/g;
+  for (const match of remainder.matchAll(groupOnlyPattern)) {
+    const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    if (!numbers.length) continue;
+    const times = numericValue(match[2]);
+    parts.push({ amount: numbers.length * times * 2 * lotteryFactor,
+      reason: `${numbers.length}个号码各${times}组` });
+  }
+
+  if (parts.length < 2) return null;
+  const amount = parts.reduce((sum, part) => sum + Number(part.amount), 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`复式与单式分别计算：${parts.map(part => part.reason).join('；')}`] };
+}
+
 function calculateRecognizedCompoundBet(text, claimed, lotteryFactor) {
   const parts = [];
   let remainder = text;
@@ -1359,6 +1390,8 @@ function autoCalculateBet(text, allowCompound = true) {
     const multilineCompound = calculateMultilineCompound(clean, claimed);
     if (multilineCompound) return multilineCompound;
   }
+  const multiGroupSingleCompound = calculateMultiGroupSingleCompound(clean, claimed, lotteryFactor);
+  if (multiGroupSingleCompound) return multiGroupSingleCompound;
   const recognizedCompound = calculateRecognizedCompoundBet(clean, claimed, lotteryFactor);
   if (recognizedCompound) return recognizedCompound;
   // “全包组三 / 组三全包 / 打包组三”写了金额时，金额就是整项投注额，
