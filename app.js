@@ -1261,7 +1261,8 @@ function playStake(text, kind) {
   if (moneyBefore) return chineseAmount(moneyBefore[1]) * (moneyBefore[2] === '毛' ? 0.1 : 1);
   const timesAfter = text.match(new RegExp(`${keyword}\\s*([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍`));
   if (timesAfter) return numericValue(timesAfter[1]) * 2;
-  const decimalBefore = text.match(new RegExp(`(\\d+\\.\\d+)\\s*${keyword}`));
+  // 只接受常规金额小数（如0.5直）；三位号码的分隔写法“752.275直”不能当金额。
+  const decimalBefore = text.match(new RegExp(`((?:0|[1-9]\\d?)\\.\\d{1,2})\\s*${keyword}`));
   if (decimalBefore) return Number(decimalBefore[1]);
   const decimalAfter = text.match(new RegExp(`${keyword}\\s*(\\d+\\.\\d+)`));
   if (decimalAfter) return Number(decimalAfter[1]);
