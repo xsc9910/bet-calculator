@@ -776,6 +776,10 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
   const eachRate = rateFromText(text);
   const generalStake = eachRate != null ? eachRate : multiplierStake(text, 10);
   const stakeAfter = label => {
+    // “1247组六打两倍，组三打一倍”中两个组选玩法的倍率各自独立，
+    // 不能退回使用全文第一个倍率。
+    const multiplier = text.match(new RegExp(`${label}\\s*(?:各(?:打)?|打)?\\s*([一二两三四五六七八九十]|\\d+)\\s*倍`));
+    if (multiplier) return numericValue(multiplier[1]) * 10;
     const match = text.match(new RegExp(`${label}\\s*(?:各(?:打)?)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)?`));
     if (!match) return null;
     const following = text.slice((match.index || 0) + match[0].length).trimStart();
