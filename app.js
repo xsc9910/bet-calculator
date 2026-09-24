@@ -1238,7 +1238,7 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
 function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
   const countStyle = text.match(/(?:各\s*)?([一二两三四五六七八九十]|\d+)\s*(?:直|单)\s*([一二两三四五六七八九十]|\d+)\s*组/);
   const labelledStyle = text.match(/直\s*([一二两三四五六七八九十]|\d+)\s*倍?\s*组\s*([一二两三四五六七八九十]|\d+)\s*倍?/);
-  const directGroup = countStyle || labelledStyle;
+  const directGroup = labelledStyle || countStyle;
   const singleDigit = text.match(/(?<!\d)(\d)\s*(?:独胆|独|毒[胆但]?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   if (!directGroup && !singleDigit) return null;
 
