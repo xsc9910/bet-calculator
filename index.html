@@ -65,6 +65,7 @@
               <select id="entryBatchFilter"></select>
             </label>
             <button id="newBetBatch" type="button">新建批次</button>
+            <button id="renameBetBatch" type="button">重命名批次</button>
           </div>
           <label class="raw-text-label">
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
@@ -117,6 +118,7 @@
         <div><h2>投注金额总表</h2><p>仅保留你实际创建的记录，金额按计算结果自动核对。</p></div>
         <div class="actions">
           <button id="newBetBatchFromLedger" type="button">新建批次</button>
+          <button id="renameBetBatchFromLedger" type="button">重命名当前批次</button>
           <button id="copyBetFormula">复制加法合计</button>
           <button id="exportBetData">导出记录</button>
           <button id="resetBetData" class="danger">清空全部记录</button>
@@ -274,8 +276,8 @@
     <form id="newBatchForm" class="dialog-shell">
       <div class="dialog-head">
         <div>
-          <h2>新建批次</h2>
-          <p>新投注会录入这个批次，已有批次仍可随时切换继续录入。</p>
+          <h2 id="batchDialogTitle">新建批次</h2>
+          <p id="batchDialogSubtitle">新投注会录入这个批次，已有批次仍可随时切换继续录入。</p>
         </div>
         <button id="cancelNewBatch" type="button" class="dialog-close" aria-label="关闭" title="关闭">×</button>
       </div>
@@ -284,7 +286,7 @@
       </label>
       <div class="dialog-actions">
         <button id="newBatchCancel" type="button">取消</button>
-        <button type="submit" class="primary">确认新建</button>
+        <button id="batchDialogConfirm" type="submit" class="primary">确认新建</button>
       </div>
     </form>
   </dialog>

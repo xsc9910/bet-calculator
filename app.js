@@ -1659,19 +1659,39 @@ $('autoCalculate').onclick = () => {
   if (!text) { toast('请先粘贴投注原文'); return; }
   runAutoBetCalculation({ record: true });
 };
-function openNewBetBatchDialog() {
-  $('newBatchName').value = '';
+let batchDialogMode = 'new';
+function openBatchDialog(mode) {
+  batchDialogMode = mode;
+  const renaming = mode === 'rename';
+  $('batchDialogTitle').textContent = renaming ? '重命名当前批次' : '新建批次';
+  $('batchDialogSubtitle').textContent = renaming
+    ? '名称变更不会影响本批投注记录和金额。'
+    : '新投注会录入这个批次，已有批次仍可随时切换继续录入。';
+  $('batchDialogConfirm').textContent = renaming ? '确认重命名' : '确认新建';
+  $('newBatchName').value = renaming ? (activeBetBatch()?.label || '') : '';
   $('newBatchDialog').showModal();
   setTimeout(() => $('newBatchName').focus(), 0);
 }
-$('newBetBatch').onclick = openNewBetBatchDialog;
-$('newBetBatchFromLedger').onclick = openNewBetBatchDialog;
+$('newBetBatch').onclick = () => openBatchDialog('new');
+$('newBetBatchFromLedger').onclick = () => openBatchDialog('new');
+$('renameBetBatch').onclick = () => openBatchDialog('rename');
+$('renameBetBatchFromLedger').onclick = () => openBatchDialog('rename');
 $('newBatchCancel').onclick = () => $('newBatchDialog').close();
 $('cancelNewBatch').onclick = () => $('newBatchDialog').close();
 $('newBatchForm').onsubmit = event => {
   event.preventDefault();
   const name = $('newBatchName').value.trim();
   if (!name) { toast('请填写批次名称'); $('newBatchName').focus(); return; }
+  if (batchDialogMode === 'rename') {
+    const batch = activeBetBatch();
+    if (!batch) { $('newBatchDialog').close(); toast('当前批次不存在，请刷新后重试'); return; }
+    batch.label = name;
+    saveBetBatches();
+    $('newBatchDialog').close();
+    render();
+    toast(`已将当前批次重命名为${name}`);
+    return;
+  }
   const legacyChanged = assignLegacyEntriesToActiveBatch();
   if (legacyChanged) saveBetEntries();
   const nextBatch = createBetBatch(name);
