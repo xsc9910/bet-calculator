@@ -1044,9 +1044,15 @@ function calculateMultilineCompound(text, claimed) {
     parts.push({ line, amount: Number(result.amount), reason: result.reasons.join('；') });
   }
   const amount = parts.reduce((sum, part) => sum + part.amount, 0);
+  // 多行原文可能每一段都写了“合计”。这时把这些分段原金额相加，
+  // 以便总额核对，而不是错误地仅采用最后一段的金额。
+  const lineClaims = lines.map(line => extractClaimedAmount(line)).filter(value => value !== '');
+  const compoundClaimed = lineClaims.length === parts.length
+    ? Number(lineClaims.reduce((sum, value) => sum + Number(value), 0).toFixed(2))
+    : claimed;
   return {
     amount: Number(amount.toFixed(2)),
-    claimed,
+    claimed: compoundClaimed,
     confident: true,
     reasons: [`多段投注分别计算：${parts.map(part => `${part.line} = ${money(part.amount)}元`).join('；')}`]
   };
@@ -1061,6 +1067,15 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
     return chineseAmount(match[1]) * (match[2] === '毛' ? 0.1 : 1);
   };
   const moneyPattern = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|元|米|块)';
+  // “单挑 436 439 各2米组”是单独的组选投注；不能因为同时出现
+  // “单”和“组”就被下面的“直组各N元”规则当成直、组各一份。
+  const groupOnlyRate = text.match(new RegExp(`(?:各\\s*)?${moneyPattern}\\s*(?:组选|组)(?![三六])`));
+  if (groupOnlyRate && /(?:单挑|组选)/.test(text)) {
+    const groupRate = chineseAmount(groupOnlyRate[1]) * (groupOnlyRate[2] === '毛' ? 0.1 : 1);
+    const amount = numbers.length * groupRate * lotteryFactor;
+    return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+      reasons: [`${numbers.length}个单挑组选号码 × 每组${groupRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  }
   // “直组0.5”中的小数不是倍数，而是每个玩法的金额；
   // 倍数必须写“倍”，无单位的整数仍沿用倍数规则。
   const unitlessDecimalBoth = text.match(/(?:直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组)\s*各?(\d+\.\d+)(?!\s*(?:毛|元|米|块))/);
