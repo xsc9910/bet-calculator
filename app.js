@@ -639,6 +639,11 @@ function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
     const flyMoney = text.match(/双?飞\D{0,6}(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
     if (flyMoney) rate = Number(flyMoney[1]) * (['毛', '角'].includes(flyMoney[2]) ? 0.1 : 1);
   }
+  if (rate == null) {
+    // 双飞“各二十”是常用的每组明确金额；写“倍”时才走倍数规则。
+    const bareChineseMoney = text.match(/(?:各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+)(?!\s*倍)/);
+    if (bareChineseMoney) rate = chineseAmount(bareChineseMoney[1]);
+  }
   if (rate == null) return null;
 
   return {
@@ -809,6 +814,18 @@ function calculateSingleDigitBet(text, claimed, lotteryFactor) {
   amount *= lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
     reasons: [`${digits.length}个独胆 × ${money(amount / digits.length / lotteryFactor)}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
+function calculatePlainDigitPositionBet(text, claimed, lotteryFactor) {
+  const match = text.match(/定位\s*([0-9](?:\s*[-、，,]\s*[0-9])+)(?:\s*各)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(毛|角|元|米|块)?/);
+  if (!match) return null;
+  // 没写单位的阿拉伯数字无法和倍数区分；中文金额（如“二十”）按确认的金额写法处理。
+  if (!match[3] && /^\d/.test(match[2])) return null;
+  const digits = match[1].match(/\d/g) || [];
+  const rate = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  const amount = digits.length * rate * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`定位${digits.join('、')}各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculatePositionBet(text, claimed, lotteryFactor) {
@@ -990,6 +1007,26 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
     confident: true,
     reasons: [`混合玩法分段计算：${reasons.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`]
   };
+}
+
+function calculateDelimitedCompound(text, claimed) {
+  const segments = text.split(/[，,；;]/).map(segment => segment.trim()).filter(Boolean);
+  if (segments.length < 2) return null;
+  const hasLotteryMarker = value => /福彩|[福褔]|体彩|[体體]|排列三|排三|排家|排(?=\d)|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(value);
+  const targets = lotteryTargets(text);
+  const inheritedPrefix = targets.length === 1 && targets[0] === '体彩' ? '体 ' : targets.length === 1 ? '福 ' : '';
+  if (!inheritedPrefix && !segments.every(hasLotteryMarker)) return null;
+
+  const parts = [];
+  for (const segment of segments) {
+    const scoped = hasLotteryMarker(segment) ? segment : `${inheritedPrefix}${segment}`;
+    const result = autoCalculateBet(scoped, false);
+    if (result.amount === '' || !result.confident) return null;
+    parts.push({ segment, amount: Number(result.amount) });
+  }
+  const amount = parts.reduce((sum, part) => sum + part.amount, 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`分隔多玩法分别计算：${parts.map(part => `${part.segment} = ${money(part.amount)}元`).join('；')}`] };
 }
 
 function calculateInlineLotteryCompound(text, claimed) {
@@ -1310,6 +1347,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const lotteryFactor = lotteryTargets(clean).length;
 
   if (allowCompound) {
+    const delimitedCompound = calculateDelimitedCompound(clean, claimed);
+    if (delimitedCompound) return delimitedCompound;
     const inlineLotteryCompound = calculateInlineLotteryCompound(clean, claimed);
     if (inlineLotteryCompound) return inlineLotteryCompound;
     const multilineCompound = calculateMultilineCompound(clean, claimed);
@@ -1341,6 +1380,8 @@ function autoCalculateBet(text, allowCompound = true) {
   }
   // 定位含有三位数字集合时，必须先按百/十/个位做笛卡尔组合；
   // 不能先被“直各X元”的通用单式规则截获。
+  const plainDigitPositionBet = calculatePlainDigitPositionBet(clean, claimed, lotteryFactor);
+  if (plainDigitPositionBet) return plainDigitPositionBet;
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
   if (positionBet) return positionBet;
   const dashedIndividualMoneyBet = calculateDashedIndividualMoneyBet(clean, claimed, lotteryFactor);
