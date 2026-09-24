@@ -863,7 +863,7 @@ function calculatePlainDigitPositionBet(text, claimed, lotteryFactor) {
 function calculatePositionBet(text, claimed, lotteryFactor) {
   if (!/(?:定位|百位?|十位?|个位?|个)/.test(text)) return null;
   const positionNames = { 百: '百位', 百位: '百位', 十: '十位', 十位: '十位', 个: '个位', 个位: '个位' };
-  const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*(全部|\d+)/g)]
+  const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(全部|\d+)/g)]
     .map(match => ({ name: positionNames[match[1]], values: match[2] }));
   if (!positions.length) return null;
   const eachRate = rateFromText(text);
@@ -1093,7 +1093,7 @@ function calculateMultilineCompound(text, claimed) {
     const numberLine = line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[：:]?\s*/i, '');
     return /^(?=.*(?<!\d)\d{3}(?!\d))[\d\s,，.。/、\-:：]+$/.test(numberLine);
   };
-  const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*(?:全部|\d+)\s*$/.test(line);
+  const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)\s*$/.test(line);
   const isWildcardFixedLine = line => /(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])\s*[=＝]\s*\d/.test(line);
   // 号码可先发一行、玩法和金额写在下一行。将连续的纯号码行并入
   // 紧随的玩法行，避免遗漏前一行号码（也保留重复号码）。
@@ -1579,7 +1579,7 @@ function autoCalculateBet(text, allowCompound = true) {
 function requiredBetDetails(text) {
   const needs = [];
   const hasLottery = /福彩|[福褔]|体彩|[体體]|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
-  const hasNumber = /(?<!\d)\d{3}(?!\d)/.test(text) || /(?:百位?|十位?|个位?)\s*(?:全部|\d+)/.test(text) || /(?:独胆|毒|扣)\s*\d/.test(text);
+  const hasNumber = /(?<!\d)\d{3}(?!\d)/.test(text) || /(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)/.test(text) || /(?:独胆|毒|扣)\s*\d/.test(text);
   const hasPlay = /(直|组|单|飞|定位|独胆|毒|扣|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/.test(text);
   const hasRate = /(\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块)|(?:直|组|单|飞|定位)\s*(?:各\s*)?\d+\.\d+|[=＝]\s*\d/.test(text);
   if (!hasLottery) needs.push('补充彩票类型：请注明“福/福彩”或“体/体彩”。');
