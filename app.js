@@ -579,7 +579,7 @@ function extractClaimedAmount(text) {
 function normalizedSingleBetNumberSource(text) {
   // 合计和“X注”都是说明文字，不是号码；直组单式列表中的六码连写统一按两个三位号码处理。
   const withoutTotals = text
-    .replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
     .replace(/(?<!\d)\d+\s*注/g, ' ');
   const directGroupList = /直\s*组|组\s*直|直\s*选?\s*组|一直一组|一单一组|直选组选/.test(text);
   return directGroupList
@@ -1069,7 +1069,11 @@ function calculateMultilineCompound(text, claimed) {
   if (rawLines.length < 2) return null;
   const playLine = /(飞|直选|直|单|组选|组|组六|组三|定位|独胆|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/;
   const isSummaryLine = line => /^(?:\d+(?:\.\d+)?\s*[+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?$/.test(line.replace(/\s+/g, ''));
-  const isNumbersOnlyLine = line => /^(?=.*(?<!\d)\d{3}(?!\d))[\d\s,，.。/、\-]+$/.test(line);
+  const isNumbersOnlyLine = line => {
+    // 首行可能带“福/体/3D”盘别标记，去掉标记后仍应按纯号码行参与合并。
+    const numberLine = line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[：:]?\s*/i, '');
+    return /^(?=.*(?<!\d)\d{3}(?!\d))[\d\s,，.。/、\-:：]+$/.test(numberLine);
+  };
   const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*(?:全部|\d+)\s*$/.test(line);
   const isWildcardFixedLine = line => /(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])\s*[=＝]\s*\d/.test(line);
   // 号码可先发一行、玩法和金额写在下一行。将连续的纯号码行并入
@@ -1130,7 +1134,7 @@ function calculateMultilineCompound(text, claimed) {
     if (welfare || sports) carriedPrefix = welfare && sports ? '福体 ' : welfare ? '福 ' : '体 ';
     if (!carriedPrefix) return null;
     // 行尾合计只用于整条金额核对，不能把其中的三位数误认成投注号码。
-    const calculationLine = line.replace(/(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, '').trim();
+    const calculationLine = line.replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, '').trim();
     const result = autoCalculateBet(`${carriedPrefix}${calculationLine}`, false);
     if (result.amount === '' || !result.confident) return null;
     parts.push({ line, amount: Number(result.amount), reason: result.reasons.join('；') });
