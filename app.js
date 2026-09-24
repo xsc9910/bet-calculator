@@ -587,6 +587,10 @@ function normalizedSingleBetNumberSource(text) {
     : withoutTotals;
 }
 
+function extractThreeDigitNumbers(text) {
+  return normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+}
+
 function rateFromText(text) {
   const digit = text.match(/(?:各(?:打)?|打)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   if (digit) return Number(digit[1]) * (['毛', '角'].includes(digit[2]) ? 0.1 : 1);
@@ -693,7 +697,7 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   if (!fixedMatch) return null;
   const keyword = fixedMatch[1];
   if (/^转一?圈$/.test(keyword)) {
-    const numbers = text.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    const numbers = extractThreeDigitNumbers(text);
     const wantsGroup3 = /组三/.test(text);
     const wantsGroup6 = /组六/.test(text);
     const times = multiplierStake(text, 1) || 1;
@@ -1171,7 +1175,7 @@ function calculateDashedIndividualMoneyBet(text, claimed, lotteryFactor) {
 function calculateNormalizedBasicSingleBet(text, claimed, lotteryFactor) {
   // 仅处理基础三位单式；复式、定位、飞、胆拖等保留给各自的专用解析器。
   if (/(?:飞|胆拖|定位|独胆|对子|跨度|复式|复试|转圈|粘边赖|豹子|和值|组六|组三)/.test(text)) return null;
-  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = extractThreeDigitNumbers(text);
   if (!numbers.length) return null;
 
   const money = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)';
@@ -1199,7 +1203,7 @@ function calculateNormalizedBasicSingleBet(text, claimed, lotteryFactor) {
 }
 
 function calculateLeadingPlayTailRateBet(text, claimed, lotteryFactor) {
-  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = extractThreeDigitNumbers(text);
   if (!numbers.length) return null;
 
   const firstNumberIndex = text.indexOf(numbers[0]);
@@ -1222,7 +1226,7 @@ function calculateLeadingPlayTailRateBet(text, claimed, lotteryFactor) {
 }
 
 function calculateExplicitDirectGroupMoneyBet(text, claimed, lotteryFactor) {
-  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = extractThreeDigitNumbers(text);
   if (!numbers.length) return null;
 
   const valuePattern = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)';
@@ -1241,7 +1245,7 @@ function calculateExplicitDirectGroupMoneyBet(text, claimed, lotteryFactor) {
 }
 
 function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
-  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = extractThreeDigitNumbers(text);
   if (!numbers.length) return null;
 
   const readRate = match => {
@@ -1300,7 +1304,7 @@ function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
   let amount = 0;
   const reasons = [];
   if (directGroup) {
-    const numbers = text.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    const numbers = extractThreeDigitNumbers(text);
     if (!numbers.length) return null;
     const directTimes = numericValue(directGroup[1]);
     const groupTimes = numericValue(directGroup[2]);
@@ -1439,7 +1443,7 @@ function autoCalculateBet(text, allowCompound = true) {
   // 这里的“组六块”表示组六按6元，而非仅写了玩法名称。
   const compactDirectGroup = clean.match(/直\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*组六\s*(毛|角|元|米|块)/);
   if (compactDirectGroup) {
-    const numbers = clean.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    const numbers = extractThreeDigitNumbers(clean);
     if (numbers.length) {
       const directStake = chineseAmount(compactDirectGroup[1]) * (['毛', '角'].includes(compactDirectGroup[2]) ? 0.1 : 1);
       const groupStake = 6 * (['毛', '角'].includes(compactDirectGroup[3]) ? 0.1 : 1);
@@ -1504,7 +1508,7 @@ function autoCalculateBet(text, allowCompound = true) {
     return { amount: Number(amount.toFixed(2)), claimed, confident: true, reasons };
   }
 
-  const numbers = normalizedSingleBetNumberSource(clean).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const numbers = extractThreeDigitNumbers(clean);
   const count = numbers.length;
   if (count) {
     const both = /直组|直\s*选?\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
@@ -1635,7 +1639,7 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
-  const threeDigitNumbers = text.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const threeDigitNumbers = extractThreeDigitNumbers(text);
   const both = /直组|直\s*(?:和|加|与)?\s*组|一直一组|一单一组|直选组选|组直/.test(text);
   const wantsDirect = both || /直选|直|单挑|\d单/.test(text);
   const wantsGroup = both || /组选|组六|组三|\d组|一组|两组|三组|四组|五组/.test(text);
