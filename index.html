@@ -23,12 +23,12 @@
   <main>
     <section class="summary" aria-label="投注汇总">
       <article class="metric welfare">
-        <span>投注记录</span>
+        <span>当前统计记录</span>
         <strong id="betCount">0</strong>
         <small>按原顺序保存</small>
       </article>
       <article class="metric sports">
-        <span>投注总额</span>
+        <span>当前统计总额</span>
         <strong id="betTotal">0</strong>
         <small>自动汇总</small>
       </article>
@@ -72,6 +72,7 @@
             <div class="entry-footer">
               <div class="calc-actions">
                 <button id="autoCalculate" class="primary">计算并记录</button>
+                <button id="endCurrentBatch" type="button">结束当前统计</button>
                 <button id="clearBetInput">清空</button>
               </div>
               <div class="inline-amounts" aria-live="polite">
@@ -116,6 +117,9 @@
         </div>
       </div>
       <div class="filters">
+        <label class="batch-filter">统计批次
+          <select id="batchFilter"></select>
+        </label>
         <input id="betSearchInput" type="search" placeholder="搜索序号、原文或异常">
         <label class="check-label"><input id="onlyAnomalies" type="checkbox"> 只看异常</label>
       </div>

@@ -218,6 +218,7 @@ td:nth-child(5) { width: 48px; }
 .bet-preview-item:last-child { border-bottom: 0; }
 .bet-preview-meta { min-height: 42px; padding: 7px 12px; display: flex; align-items: center; gap: 9px; border-bottom: 1px dashed #7d9a8b; font-size: 14px; }
 .bet-preview-meta time { margin-right: auto; font-variant-numeric: tabular-nums; }
+.batch-tag { padding: 3px 6px; border: 1px solid #b7c6bd; border-radius: 3px; color: #50635a; background: #f2f6f3; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .bet-preview-copy { padding: 9px 12px; background: #c8f7d5; color: #10291c; font-size: 16px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .bet-preview-result { min-height: 48px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; }
 .bet-preview-result strong { margin-right: auto; color: #f02020; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -239,6 +240,8 @@ td:nth-child(5) { width: 48px; }
 .parse-need { margin-top: 6px; padding: 7px 10px; color: #b42318; font-weight: 700; background: #ffe8e6; border-left: 4px solid #e24a43; border-radius: 3px; }
 .parse-record-note { margin-top: 6px; color: #086c4e; }
 .check-label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.batch-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.batch-filter select { min-width: 190px; }
 .check-label input { width: 16px; height: 16px; }
 .bet-table td:nth-child(1) { width: 76px; }
 .bet-table td:nth-child(2) { width: 80px; }

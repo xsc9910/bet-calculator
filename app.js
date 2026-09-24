@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'lottery-checker-v1';
 const BET_STORAGE_KEY = 'lottery-bet-ledger-v1';
+const BET_BATCH_STORAGE_KEY = 'lottery-bet-batches-v1';
+const ACTIVE_BET_BATCH_KEY = 'lottery-active-batch-v1';
 
 const seedBetAmounts = [14,8,344,52,44,16,24,120,50,32,8,8,4,6,4,10,20,8,8,36,24,10,10,626,436,60,60,40,20,76,40,24,32,20,84,60,200,70,196,6,24,26,38,40,48,25,92.4,20,150.9,800,24,50,20,32,24,48,60,20,10,36,48,50,16,32,75,100,26,20,10,76,10,4,12,70,8,50,48,48,36,2,62.5,100,118,60,66,10,10,60,20,20,16,10,6,38,4,10,18,200,12,10,108.4,34,10,20,4,10,7.2,10,16,8,12,62,16,15,56,36,28,12,4,40,41,31,12,145,12,30,38,60,40,44,20,10,198,22,36,10,14,30,8,4,20,10.8,5.4,4.5,119.5,5.6,32,4,10,2,30,32,8,56,6,12,12,2,40,50,48,50,2,176,30,22,20,20,15,32,6,5.6,21,80,30,8,20,12,360,52,82,271,8,20,10,43.8,54,3.5,110,44,200,100,10,18,4,16,100,12,28,5,4,30,6,40,48,66,60,10,10,40,20,2,200,36,30,8,44,66,474,22,24,10,2,32,100,16,4,128,15,162,20,20,12,14,16,120,6,24,128,20,100,62,6,72,18,90,10,76,164,271.5,31,2,20,108,54,48,20,30,24,10,6,8,38,100,28,280,87.5,144,36,32,6,120,20,248,20,738,60,6,2,34,12,4,20,16,8,50,12,12,20,38,20,3,30,30,54,60,48,50,20,4,6,30,18,20,50,44,20,38,20,6,24,20,20,8,4,10,120,40,16,12,20,12,4,58,40,4,8,14,4,138.6,78,5.4,10,3.6,60,24,22,46.2,202,70,40,26,20,218,3,20,40,24,4];
 const seedAnomalies = {20:['多',2],24:['多',20],49:['多',0.6],115:['少',24],116:['多',24],145:['多',0.5],186:['少',0.6],219:['少',9],330:['多',0.3],345:['多',0.6]};
@@ -55,6 +57,9 @@ const plays = {
 
 let entries = loadEntries();
 let betEntries = loadBetEntries();
+let betBatches = loadBetBatches();
+let activeBetBatchId = loadActiveBetBatchId();
+let currentBetBatchFilter = 'active';
 let currentFilter = 'all';
 
 const $ = (id) => document.getElementById(id);
@@ -82,6 +87,61 @@ function loadBetEntries() {
   } catch { return []; }
 }
 function saveBetEntries() { localStorage.setItem(BET_STORAGE_KEY, JSON.stringify(betEntries)); }
+function loadBetBatches() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BET_BATCH_STORAGE_KEY));
+    return Array.isArray(saved) ? saved : [];
+  } catch { return []; }
+}
+function saveBetBatches() { localStorage.setItem(BET_BATCH_STORAGE_KEY, JSON.stringify(betBatches)); }
+function createBetBatch() {
+  const batch = {
+    id: `batch-${Date.now()}-${betBatches.length + 1}`,
+    label: `第${betBatches.length + 1}批`,
+    startedAt: new Date().toISOString(),
+    endedAt: null
+  };
+  betBatches.push(batch);
+  saveBetBatches();
+  return batch;
+}
+function loadActiveBetBatchId() {
+  const saved = localStorage.getItem(ACTIVE_BET_BATCH_KEY);
+  const active = betBatches.find(batch => batch.id === saved && !batch.endedAt);
+  if (active) return active.id;
+  const existing = betBatches.find(batch => !batch.endedAt);
+  if (existing) {
+    localStorage.setItem(ACTIVE_BET_BATCH_KEY, existing.id);
+    return existing.id;
+  }
+  const created = createBetBatch();
+  localStorage.setItem(ACTIVE_BET_BATCH_KEY, created.id);
+  return created.id;
+}
+function activeBetBatch() {
+  return betBatches.find(batch => batch.id === activeBetBatchId) || null;
+}
+function entryBatchId(entry) { return entry.batchId || activeBetBatchId; }
+function entriesForBetBatch(filter = currentBetBatchFilter) {
+  if (filter === 'all') return betEntries;
+  const batchId = filter === 'active' ? activeBetBatchId : filter;
+  return betEntries.filter(entry => entryBatchId(entry) === batchId);
+}
+function batchSummary(batchId) {
+  const rows = betEntries.filter(entry => entryBatchId(entry) === batchId);
+  return { count: rows.length, total: rows.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0) };
+}
+function batchLabel(batchId) {
+  const batch = betBatches.find(item => item.id === batchId);
+  return batch ? batch.label : '当前统计';
+}
+function assignLegacyEntriesToActiveBatch() {
+  let changed = false;
+  betEntries.forEach(entry => {
+    if (!entry.batchId) { entry.batchId = activeBetBatchId; changed = true; }
+  });
+  return changed;
+}
 
 function totals() {
   return entries.reduce((a, e) => {
@@ -93,9 +153,10 @@ function totals() {
 
 function render() {
   const sum = totals();
-  const betTotal = betEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
-  const anomalyTotal = betEntries.filter(e => anomalyFor(e)).length;
-  $('betCount').textContent = betEntries.length;
+  const activeEntries = entriesForBetBatch('active');
+  const betTotal = activeEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
+  const anomalyTotal = activeEntries.filter(e => anomalyFor(e)).length;
+  $('betCount').textContent = activeEntries.length;
   $('betTotal').textContent = money(betTotal);
   $('anomalyCount').textContent = anomalyTotal;
 
@@ -129,9 +190,22 @@ function anomalyFor(entry) {
 }
 
 function renderBetLedger() {
+  const selectedEntries = entriesForBetBatch();
+  const batchSelect = $('batchFilter');
+  const endedBatches = betBatches.filter(batch => batch.endedAt);
+  batchSelect.innerHTML = [
+    `<option value="active">当前统计（${activeBetBatch()?.label || '未命名'}）</option>`,
+    '<option value="all">全部统计</option>',
+    ...endedBatches.map(batch => {
+      const summary = batchSummary(batch.id);
+      return `<option value="${batch.id}">${batch.label}（已结束，${summary.count}条 / ${money(summary.total)}）</option>`;
+    })
+  ].join('');
+  if (![...batchSelect.options].some(option => option.value === currentBetBatchFilter)) currentBetBatchFilter = 'active';
+  batchSelect.value = currentBetBatchFilter;
   const q = $('betSearchInput').value.trim().toLowerCase();
   const anomalyOnly = $('onlyAnomalies').checked;
-  const visible = betEntries.filter(e => {
+  const visible = selectedEntries.filter(e => {
     const anomaly = anomalyFor(e);
     return (!anomalyOnly || anomaly) && (!q || `${e.record} ${e.original || ''} ${anomaly}`.toLowerCase().includes(q));
   }).sort((a, b) => Number(b.record) - Number(a.record));
@@ -148,8 +222,8 @@ function renderBetLedger() {
       <td><button class="icon-btn delete-bet" data-id="${e.id}" title="删除" aria-label="删除">×</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty-row">没有符合条件的记录</td></tr>';
-  const terms = betEntries.map(e => money(Number(e.amount) || 0));
-  const total = betEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
+  const terms = selectedEntries.map(e => money(Number(e.amount) || 0));
+  const total = selectedEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
   $('betFormulaText').textContent = `${terms.join('+')}=${money(total)}`;
 }
 
@@ -321,6 +395,7 @@ function renderBetPreview() {
     return `<article class="bet-preview-item">
       <div class="bet-preview-meta">
         <time>时间：${formatBetTime(entry.createdAt)}</time>
+        <span class="batch-tag">${batchLabel(entryBatchId(entry))}</span>
         <span class="tag ${targets.length > 1 ? 'mixed' : targets[0] === '体彩' ? 'sports' : 'welfare'}">${targets.length > 1 ? '福+体' : targets[0]}</span>
       </div>
       <div class="bet-preview-copy">${escapeHtml(entry.original)}</div>
@@ -1382,7 +1457,7 @@ function appendCurrentBetRecord({ clearAfter = false, automatic = false } = {}) 
   if (automatic && lastAutoRecordedText === original) return false;
   betEntries.push({ id: `bet-custom-${Date.now()}-${betEntries.length}`, record: betEntries.length + 1, original,
     amount: Number(amount), claimed: $('claimedBetAmount').value === '' ? '' : Number($('claimedBetAmount').value),
-    lotteries: lotteryTargets(original), createdAt: new Date().toISOString() });
+    lotteries: lotteryTargets(original), batchId: activeBetBatchId, createdAt: new Date().toISOString() });
   if (automatic) lastAutoRecordedText = original;
   saveBetEntries(); render();
   const savedRecord = betEntries.length;
@@ -1495,6 +1570,10 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
 $('searchInput').oninput = render;
 $('betSearchInput').oninput = render;
 $('onlyAnomalies').onchange = render;
+$('batchFilter').onchange = event => {
+  currentBetBatchFilter = event.target.value;
+  render();
+};
 $('betPreviewList').onclick = event => {
   const detailButton = event.target.closest('.preview-detail');
   if (detailButton) {
@@ -1567,6 +1646,27 @@ $('autoCalculate').onclick = () => {
   if (!text) { toast('请先粘贴投注原文'); return; }
   runAutoBetCalculation({ record: true });
 };
+$('endCurrentBatch').onclick = () => {
+  const batch = activeBetBatch();
+  if (!batch) { toast('当前统计初始化失败，请刷新页面后重试'); return; }
+  const summary = batchSummary(batch.id);
+  if (!summary.count) { toast('当前统计还没有记录，无需结束'); return; }
+  if (!confirm(`结束${batch.label}？\n本批共${summary.count}条，合计${money(summary.total)}元。\n结束后会保留本批记录，并开始新的当前统计。`)) return;
+
+  const legacyChanged = assignLegacyEntriesToActiveBatch();
+  batch.endedAt = new Date().toISOString();
+  batch.count = summary.count;
+  batch.total = summary.total;
+  saveBetBatches();
+  if (legacyChanged) saveBetEntries();
+
+  const nextBatch = createBetBatch();
+  activeBetBatchId = nextBatch.id;
+  localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
+  currentBetBatchFilter = 'active';
+  render();
+  toast(`${batch.label}已结束：${summary.count}条，合计${money(summary.total)}元；已开始${nextBatch.label}`);
+};
 $('manualRecordBet').onclick = () => {
   const original = $('rawBetText').value.trim();
   const amountRaw = $('manualBetAmount').value.trim();
@@ -1581,6 +1681,7 @@ $('manualRecordBet').onclick = () => {
     amount,
     claimed: '',
     lotteries: lotteryTargets(original),
+    batchId: activeBetBatchId,
     createdAt: new Date().toISOString(),
     manual: true
   });
@@ -1625,8 +1726,9 @@ $('betLedgerBody').onclick = e => {
   saveBetEntries(); render();
 };
 $('copyBetFormula').onclick = () => {
-  const terms = betEntries.map(entry => Number(entry.amount) || 0);
-  const total = betEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+  const selectedEntries = entriesForBetBatch();
+  const terms = selectedEntries.map(entry => Number(entry.amount) || 0);
+  const total = selectedEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
   renderComparedFormula($('dialogBetFormula'), terms, total);
   $('dialogBetTotal').textContent = money(total);
   $('externalBetFormula').value = '';
