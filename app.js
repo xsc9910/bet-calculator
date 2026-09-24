@@ -207,8 +207,7 @@ function renderBetLedger() {
   }
   if (entryBatchSelect) {
     entryBatchSelect.innerHTML = betBatches.map(batch => {
-      const summary = batchSummary(batch.id);
-      return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
+      return `<option value="${batch.id}">${batch.label}</option>`;
     }).join('');
     entryBatchSelect.value = activeBetBatchId;
   }

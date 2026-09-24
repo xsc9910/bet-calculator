@@ -60,13 +60,6 @@
             <button id="autoEntryTab" type="button" class="active" role="tab" aria-selected="true">自动计算</button>
             <button id="manualEntryTab" type="button" role="tab" aria-selected="false">手动录入</button>
           </div>
-          <div class="entry-batch-controls">
-            <label>录入批次
-              <select id="entryBatchFilter"></select>
-            </label>
-            <button id="newBetBatch" type="button">新建批次</button>
-            <button id="renameBetBatch" type="button">重命名批次</button>
-          </div>
           <label class="raw-text-label">
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
           </label>
@@ -98,6 +91,13 @@
           <input id="calculatedBetAmount" type="hidden">
           <input id="claimedBetAmount" type="hidden">
           <div id="betCheckStatus" class="check-status hidden" role="alert"></div>
+          <div class="entry-batch-controls">
+            <label>录入批次
+              <select id="entryBatchFilter"></select>
+            </label>
+            <button id="newBetBatch" type="button">新建批次</button>
+            <button id="renameBetBatch" type="button">重命名批次</button>
+          </div>
           <div class="parse-box">
             <h3>试算依据</h3>
             <div id="parseDetails">尚未试算</div>
@@ -292,6 +292,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260924-rename-batch"></script>
+  <script src="app.js?v=20260924-batch-layout"></script>
 </body>
 </html>
