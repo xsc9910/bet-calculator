@@ -94,10 +94,10 @@ function loadBetBatches() {
   } catch { return []; }
 }
 function saveBetBatches() { localStorage.setItem(BET_BATCH_STORAGE_KEY, JSON.stringify(betBatches)); }
-function createBetBatch() {
+function createBetBatch(label = '') {
   const batch = {
     id: `batch-${Date.now()}-${betBatches.length + 1}`,
-    label: `第${betBatches.length + 1}批`,
+    label: label || `第${betBatches.length + 1}批`,
     startedAt: new Date().toISOString(),
     endedAt: null
   };
@@ -107,9 +107,9 @@ function createBetBatch() {
 }
 function loadActiveBetBatchId() {
   const saved = localStorage.getItem(ACTIVE_BET_BATCH_KEY);
-  const active = betBatches.find(batch => batch.id === saved && !batch.endedAt);
+  const active = betBatches.find(batch => batch.id === saved);
   if (active) return active.id;
-  const existing = betBatches.find(batch => !batch.endedAt);
+  const existing = betBatches[0];
   if (existing) {
     localStorage.setItem(ACTIVE_BET_BATCH_KEY, existing.id);
     return existing.id;
@@ -192,17 +192,22 @@ function anomalyFor(entry) {
 function renderBetLedger() {
   const selectedEntries = entriesForBetBatch();
   const batchSelect = $('batchFilter');
-  const endedBatches = betBatches.filter(batch => batch.endedAt);
+  const entryBatchSelect = $('entryBatchFilter');
   batchSelect.innerHTML = [
     `<option value="active">当前统计（${activeBetBatch()?.label || '未命名'}）</option>`,
     '<option value="all">全部统计</option>',
-    ...endedBatches.map(batch => {
+    ...betBatches.map(batch => {
       const summary = batchSummary(batch.id);
-      return `<option value="${batch.id}">${batch.label}（已结束，${summary.count}条 / ${money(summary.total)}）</option>`;
+      return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
     })
   ].join('');
   if (![...batchSelect.options].some(option => option.value === currentBetBatchFilter)) currentBetBatchFilter = 'active';
   batchSelect.value = currentBetBatchFilter;
+  entryBatchSelect.innerHTML = betBatches.map(batch => {
+    const summary = batchSummary(batch.id);
+    return `<option value="${batch.id}">${batch.label}（${summary.count}条 / ${money(summary.total)}）</option>`;
+  }).join('');
+  entryBatchSelect.value = activeBetBatchId;
   const q = $('betSearchInput').value.trim().toLowerCase();
   const anomalyOnly = $('onlyAnomalies').checked;
   const visible = selectedEntries.filter(e => {
@@ -1575,6 +1580,13 @@ $('batchFilter').onchange = event => {
   currentBetBatchFilter = event.target.value;
   render();
 };
+$('entryBatchFilter').onchange = event => {
+  activeBetBatchId = event.target.value;
+  localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
+  currentBetBatchFilter = 'active';
+  render();
+  toast(`已切换至${batchLabel(activeBetBatchId)}`);
+};
 $('betPreviewList').onclick = event => {
   const detailButton = event.target.closest('.preview-detail');
   if (detailButton) {
@@ -1647,45 +1659,28 @@ $('autoCalculate').onclick = () => {
   if (!text) { toast('请先粘贴投注原文'); return; }
   runAutoBetCalculation({ record: true });
 };
-let pendingBatchEnd = null;
-$('endCurrentBatch').onclick = () => {
-  const batch = activeBetBatch();
-  if (!batch) { toast('当前统计初始化失败，请刷新页面后重试'); return; }
-  const summary = batchSummary(batch.id);
-  if (!summary.count) { toast('当前统计还没有记录，无需结束'); return; }
-  pendingBatchEnd = { batchId: batch.id, summary };
-  $('endBatchSummary').textContent = `当前共${summary.count}条，合计${money(summary.total)}元`;
-  $('endBatchName').value = '';
-  $('endBatchDialog').showModal();
-  setTimeout(() => $('endBatchName').focus(), 0);
-};
-$('endBatchCancel').onclick = () => $('endBatchDialog').close();
-$('cancelEndBatch').onclick = () => $('endBatchDialog').close();
-$('endBatchForm').onsubmit = event => {
+function openNewBetBatchDialog() {
+  $('newBatchName').value = '';
+  $('newBatchDialog').showModal();
+  setTimeout(() => $('newBatchName').focus(), 0);
+}
+$('newBetBatch').onclick = openNewBetBatchDialog;
+$('newBetBatchFromLedger').onclick = openNewBetBatchDialog;
+$('newBatchCancel').onclick = () => $('newBatchDialog').close();
+$('cancelNewBatch').onclick = () => $('newBatchDialog').close();
+$('newBatchForm').onsubmit = event => {
   event.preventDefault();
-  const name = $('endBatchName').value.trim();
-  if (!name) { toast('请填写本批统计名称'); $('endBatchName').focus(); return; }
-  const pending = pendingBatchEnd;
-  const batch = pending && betBatches.find(item => item.id === pending.batchId);
-  if (!batch || batch.id !== activeBetBatchId) { $('endBatchDialog').close(); toast('当前统计已变化，请重新操作'); return; }
-  const summary = batchSummary(batch.id);
-
+  const name = $('newBatchName').value.trim();
+  if (!name) { toast('请填写批次名称'); $('newBatchName').focus(); return; }
   const legacyChanged = assignLegacyEntriesToActiveBatch();
-  batch.label = name;
-  batch.endedAt = new Date().toISOString();
-  batch.count = summary.count;
-  batch.total = summary.total;
-  saveBetBatches();
   if (legacyChanged) saveBetEntries();
-
-  const nextBatch = createBetBatch();
+  const nextBatch = createBetBatch(name);
   activeBetBatchId = nextBatch.id;
   localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
   currentBetBatchFilter = 'active';
-  pendingBatchEnd = null;
-  $('endBatchDialog').close();
+  $('newBatchDialog').close();
   render();
-  toast(`${name}已结束：${summary.count}条，合计${money(summary.total)}元；已开始${nextBatch.label}`);
+  toast(`已新建并切换到${name}`);
 };
 $('manualRecordBet').onclick = () => {
   const original = $('rawBetText').value.trim();

@@ -60,6 +60,12 @@
             <button id="autoEntryTab" type="button" class="active" role="tab" aria-selected="true">自动计算</button>
             <button id="manualEntryTab" type="button" role="tab" aria-selected="false">手动录入</button>
           </div>
+          <div class="entry-batch-controls">
+            <label>录入批次
+              <select id="entryBatchFilter"></select>
+            </label>
+            <button id="newBetBatch" type="button">新建批次</button>
+          </div>
           <label class="raw-text-label">
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
           </label>
@@ -110,7 +116,7 @@
       <div class="panel-head">
         <div><h2>投注金额总表</h2><p>仅保留你实际创建的记录，金额按计算结果自动核对。</p></div>
         <div class="actions">
-          <button id="endCurrentBatch" type="button">结束当前统计</button>
+          <button id="newBetBatchFromLedger" type="button">新建批次</button>
           <button id="copyBetFormula">复制加法合计</button>
           <button id="exportBetData">导出记录</button>
           <button id="resetBetData" class="danger">清空全部记录</button>
@@ -264,22 +270,21 @@
     </form>
   </dialog>
 
-  <dialog id="endBatchDialog" class="formula-dialog">
-    <form id="endBatchForm" class="dialog-shell">
+  <dialog id="newBatchDialog" class="formula-dialog">
+    <form id="newBatchForm" class="dialog-shell">
       <div class="dialog-head">
         <div>
-          <h2>结束当前统计</h2>
-          <p id="endBatchSummary">本批统计信息</p>
+          <h2>新建批次</h2>
+          <p>新投注会录入这个批次，已有批次仍可随时切换继续录入。</p>
         </div>
-        <button id="cancelEndBatch" type="button" class="dialog-close" aria-label="关闭" title="关闭">×</button>
+        <button id="cancelNewBatch" type="button" class="dialog-close" aria-label="关闭" title="关闭">×</button>
       </div>
-      <label class="compare-field">本批名称
-        <input id="endBatchName" type="text" maxlength="40" autocomplete="off" placeholder="例如：9月24日晚场">
+      <label class="compare-field">批次名称
+        <input id="newBatchName" type="text" maxlength="40" autocomplete="off" placeholder="例如：9月24日晚场">
       </label>
-      <p class="dialog-note">结束后，本批记录会保留在金额总表中；投注内容将开始记录新的统计。</p>
       <div class="dialog-actions">
-        <button id="endBatchCancel" type="button">取消</button>
-        <button id="endBatchConfirm" type="submit" class="primary">确认结束并新建统计</button>
+        <button id="newBatchCancel" type="button">取消</button>
+        <button type="submit" class="primary">确认新建</button>
       </div>
     </form>
   </dialog>
