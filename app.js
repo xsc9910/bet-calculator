@@ -822,10 +822,15 @@ function calculatePlainDigitPositionBet(text, claimed, lotteryFactor) {
   // 没写单位的阿拉伯数字无法和倍数区分；中文金额（如“二十”）按确认的金额写法处理。
   if (!match[3] && /^\d/.test(match[2])) return null;
   const digits = match[1].match(/\d/g) || [];
+  // “定位2-3”表示 2×3 的一个两码定位组合；顿号/逗号才表示多个独立数字。
+  const isTwoCodeCombination = /-/.test(match[1]) && !/[、，,]/.test(match[1]);
+  const itemCount = isTwoCodeCombination ? 1 : digits.length;
   const rate = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
-  const amount = digits.length * rate * lotteryFactor;
+  const amount = itemCount * rate * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`定位${digits.join('、')}各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [isTwoCodeCombination
+      ? `两码定位${digits.join('×')}按${rate}元`
+      : `定位${digits.join('、')}各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculatePositionBet(text, claimed, lotteryFactor) {
