@@ -1115,20 +1115,40 @@ function calculateMultilineCompound(text, claimed) {
       normalizedLines.push(...pendingNumbers);
     }
   }
-  const lines = [];
+  // 定位的百、十、个位也可能先列出，玩法与倍率写在最后一行。
+  // 将连续定位行并入紧随的玩法行，和前置号码行采用相同处理。
+  const positionNormalizedLines = [];
   for (let index = 0; index < normalizedLines.length; index += 1) {
-    const line = normalizedLines[index];
+    if (!isPositionLine(normalizedLines[index])) {
+      positionNormalizedLines.push(normalizedLines[index]);
+      continue;
+    }
+    const pendingPositions = [normalizedLines[index]];
+    while (index + 1 < normalizedLines.length && isPositionLine(normalizedLines[index + 1])) {
+      index += 1;
+      pendingPositions.push(normalizedLines[index]);
+    }
+    if (normalizedLines[index + 1] && playLine.test(normalizedLines[index + 1])) {
+      index += 1;
+      positionNormalizedLines.push(`${pendingPositions.join(' ')} ${normalizedLines[index]}`);
+    } else {
+      positionNormalizedLines.push(...pendingPositions);
+    }
+  }
+  const lines = [];
+  for (let index = 0; index < positionNormalizedLines.length; index += 1) {
+    const line = positionNormalizedLines[index];
     if (isSummaryLine(line) || /^(?:合计|总计|共计|一共|共)/.test(line)) continue;
     if (!playLine.test(line) && !isWildcardFixedLine(line)) continue;
-    const nextLine = normalizedLines[index + 1];
+    const nextLine = positionNormalizedLines[index + 1];
     if (nextLine && isNumbersOnlyLine(nextLine)) {
       lines.push(`${line} ${nextLine}`);
       index += 1;
     } else if (nextLine && isPositionLine(nextLine)) {
       let combined = line;
-      while (normalizedLines[index + 1] && isPositionLine(normalizedLines[index + 1])) {
+      while (positionNormalizedLines[index + 1] && isPositionLine(positionNormalizedLines[index + 1])) {
         index += 1;
-        combined += ` ${normalizedLines[index]}`;
+        combined += ` ${positionNormalizedLines[index]}`;
       }
       lines.push(combined);
     } else if (/[\d零〇一二两三四五六七八九十百]/.test(line)) {
