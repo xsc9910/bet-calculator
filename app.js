@@ -769,7 +769,11 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
     const value = chineseAmount(match[1]);
     return value * (match[2] === '毛' ? 0.1 : 1);
   };
-  const group6Stake = hasGroup6 ? (stakeAfter('组六') ?? generalStake) : 0;
+  const chineseStakeBefore = label => {
+    const match = text.match(new RegExp(`([零〇一二两三四五六七八九十百]+)\\s*${label}`));
+    return match ? chineseAmount(match[1]) : null;
+  };
+  const group6Stake = hasGroup6 ? (stakeAfter('组六') ?? chineseStakeBefore('组六') ?? generalStake) : 0;
   const group3Stake = hasGroup3 ? (stakeAfter('组三') ?? generalStake) : 0;
   if ((hasGroup6 && group6Stake == null) || (hasGroup3 && group3Stake == null)) return null;
   const amount = sets.length * ((group6Stake || 0) + (group3Stake || 0)) * lotteryFactor;
@@ -1114,6 +1118,19 @@ function autoCalculateBet(text, allowCompound = true) {
   if (fullPackGroup3Amount != null) {
     return { amount: fullPackGroup3Amount, claimed: fullPackGroup3Amount, confident: true,
       reasons: ['已识别全包组三，原文已写明确金额，直接按原文金额计算。'] };
+  }
+  // “413.314直四块组六块”是常见的简写：直4元、组6元。
+  // 这里的“组六块”表示组六按6元，而非仅写了玩法名称。
+  const compactDirectGroup = clean.match(/直\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|元|米|块)\s*组六\s*(毛|元|米|块)/);
+  if (compactDirectGroup) {
+    const numbers = clean.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    if (numbers.length) {
+      const directStake = chineseAmount(compactDirectGroup[1]) * (compactDirectGroup[2] === '毛' ? 0.1 : 1);
+      const groupStake = 6 * (compactDirectGroup[3] === '毛' ? 0.1 : 1);
+      const amount = numbers.length * (directStake + groupStake) * lotteryFactor;
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`${numbers.length}个号码 ×（直${directStake}元 + 组六${groupStake}元）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    }
   }
   // 定位含有三位数字集合时，必须先按百/十/个位做笛卡尔组合；
   // 不能先被“直各X元”的通用单式规则截获。
