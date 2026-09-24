@@ -600,7 +600,7 @@ function rateFromText(text) {
 function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
   if (!/双?飞/.test(text)) return null;
 
-  const multiPairClause = text.match(/((?:\d{2}[\s,，、.。/\-]+)+\d{2})\s*双飞\s*(?:各(?:打)?|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)(?:钱)?/);
+  const multiPairClause = text.match(/((?:\d{2}[\s,，、.。/\-]+)+\d{2})\s*双?飞\s*(?:各(?:打)?|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)(?:钱)?/);
   if (multiPairClause) {
     const pairs = multiPairClause[1].match(/(?<!\d)\d{2}(?!\d)/g) || [];
     const stake = chineseAmount(multiPairClause[2]) * (['毛', '角'].includes(multiPairClause[3]) ? 0.1 : 1);
