@@ -180,7 +180,7 @@ td:nth-child(5) { width: 48px; }
 .entry-mode-tabs { width: fit-content; margin: -8px 0 12px; display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 5px; background: #eef2ef; }
 .entry-mode-tabs button { min-width: 82px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .entry-mode-tabs button.active { background: white; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
-.entry-batch-controls { margin: 14px 0 12px; display: flex; align-items: center; gap: 8px; }
+.entry-batch-controls { margin: 32px 0 12px; padding-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #e2e8e3; }
 .entry-batch-controls label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .entry-batch-controls select { width: min(230px, 34vw); min-width: 150px; }
 .entry-batch-controls button { min-height: 36px; white-space: nowrap; }
