@@ -812,6 +812,22 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
   const stated = explicitMoney(text);
   const allThree = ['百位', '十位', '个位'].every(label => positions.some(position => position.name === label));
 
+  // 原文可连续写多组“百、十、个”定位；每三项是一组独立复式，
+  // 不能把全部位置连乘成一组。
+  const groupedPositions = positions.length > 3 && positions.length % 3 === 0
+    && positions.every((position, index) => position.name === ['百位', '十位', '个位'][index % 3]);
+  if (groupedPositions) {
+    const combinations = Array.from({ length: positions.length / 3 }, (_, groupIndex) =>
+      positions.slice(groupIndex * 3, groupIndex * 3 + 3)
+        .reduce((total, position) => total * (position.values === '全部' ? 10 : position.values.length), 1));
+    const totalCombinations = combinations.reduce((total, count) => total + count, 0);
+    if (eachRate != null) {
+      const amount = totalCombinations * eachRate * lotteryFactor;
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`${combinations.length}组定位（${combinations.join(' + ')}注）= ${totalCombinations}注 × 每注${eachRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    }
+  }
+
   if (allThree) {
     const combinations = positions.reduce((total, position) => total * (position.values === '全部' ? 10 : position.values.length), 1);
     if (eachRate != null) {
