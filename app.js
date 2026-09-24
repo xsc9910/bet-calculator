@@ -1194,7 +1194,9 @@ function autoCalculateBet(text, allowCompound = true) {
     return { amount: Number(amount.toFixed(2)), claimed, confident: true, reasons };
   }
 
-  const numbers = clean.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  // 行尾“合计100元”等只是核对金额，不能作为三位投注号码参与计数。
+  const numberSource = clean.replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|元|米|块)?/g, ' ');
+  const numbers = numberSource.match(/(?<!\d)\d{3}(?!\d)/g) || [];
   const count = numbers.length;
   if (count) {
     const both = /直组|直\s*选?\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
