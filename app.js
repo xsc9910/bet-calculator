@@ -1139,8 +1139,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const multiGroupBet = calculateMultiGroupBet(clean, claimed, lotteryFactor);
   if (multiGroupBet) return multiGroupBet;
 
-  if (/(复式|复试|转圈|打包组三)/.test(clean) && claimed !== '') {
-    reasons.push('原文属于复式、转圈或打包组三，并已写总金额，按确认规则直接采用原文金额。');
+  if (/(复式|复试|转圈|打包\s*组三|全包\s*组三|组三\s*全包)/.test(clean) && claimed !== '') {
+    reasons.push('原文属于复式、转圈或全包组三，并已写总金额，按确认规则直接采用原文金额。');
     return { amount: claimed, claimed, confident: true, reasons };
   }
 
