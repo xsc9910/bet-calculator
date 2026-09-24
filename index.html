@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f8f4">
+  <title>投注计算台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">本地投注与核奖工具</p>
+      <h1>投注计算台</h1>
+    </div>
+    <div class="draw-strip" aria-label="开奖号码">
+      <label>福彩3D <input id="welfareDraw" placeholder="000" inputmode="numeric" maxlength="3"></label>
+      <label>排列三 <input id="sportsDraw" placeholder="000" inputmode="numeric" maxlength="3"></label>
+      <button id="applyDraws" class="primary">应用开奖</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary" aria-label="投注汇总">
+      <article class="metric welfare">
+        <span>投注记录</span>
+        <strong id="betCount">0</strong>
+        <small>按原顺序保存</small>
+      </article>
+      <article class="metric sports">
+        <span>投注总额</span>
+        <strong id="betTotal">0</strong>
+        <small>自动汇总</small>
+      </article>
+      <article class="metric total">
+        <span>金额异常</span>
+        <strong id="anomalyCount">0</strong>
+        <small>保留多 / 少标记</small>
+      </article>
+    </section>
+
+    <nav class="tabs" aria-label="页面视图">
+      <button class="tab active" data-tab="intake">投注录入</button>
+      <button class="tab" data-tab="betLedger">金额总表</button>
+      <button class="tab" data-tab="ledger">中奖清单</button>
+      <button class="tab" data-tab="calculator">核奖计算器</button>
+      <button class="tab" data-tab="odds">赔率表</button>
+    </nav>
+
+    <section id="intake" class="panel active">
+      <div class="panel-head">
+        <div>
+          <h2>粘贴投注原文</h2>
+          <p>一条一条录入；自动试算不明确时会要求确认，不会乱给金额。</p>
+        </div>
+      </div>
+      <div class="intake-layout">
+        <div class="raw-entry">
+          <div class="entry-mode-tabs" role="tablist" aria-label="录入方式">
+            <button id="autoEntryTab" type="button" class="active" role="tab" aria-selected="true">自动计算</button>
+            <button id="manualEntryTab" type="button" role="tab" aria-selected="false">手动录入</button>
+          </div>
+          <label class="raw-text-label">
+            <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
+          </label>
+          <div id="autoEntryPanel" class="entry-mode-panel">
+            <label class="switch-control entry-auto-mode">
+              <input id="autoMode" type="checkbox">
+              <span class="switch-track" aria-hidden="true"><span></span></span>
+              <span>自动计算</span>
+            </label>
+            <div class="entry-footer">
+              <div class="calc-actions">
+                <button id="autoCalculate" class="primary">计算并记录</button>
+                <button id="clearBetInput">清空</button>
+              </div>
+              <div class="inline-amounts" aria-live="polite">
+                <span>原金额 <strong id="claimedAmountDisplay">--</strong></span>
+                <span>计算金额 <strong id="calculatedAmountDisplay">--</strong></span>
+              </div>
+            </div>
+          </div>
+          <div id="manualEntryPanel" class="entry-mode-panel hidden">
+            <div class="manual-entry">
+              <label>金额
+                <input id="manualBetAmount" type="number" min="0" step="0.01" placeholder="请输入金额">
+              </label>
+              <button id="manualRecordBet" type="button">确认录入</button>
+            </div>
+          </div>
+          <input id="calculatedBetAmount" type="hidden">
+          <input id="claimedBetAmount" type="hidden">
+          <div id="betCheckStatus" class="check-status hidden" role="alert"></div>
+          <div class="parse-box">
+            <h3>试算依据</h3>
+            <div id="parseDetails">尚未试算</div>
+          </div>
+        </div>
+        <aside class="bet-preview" aria-label="投注内容">
+          <div class="bet-preview-head">
+            <h3>投注内容</h3>
+            <span>最新记录</span>
+          </div>
+          <div id="betPreviewList" class="bet-preview-list"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="betLedger" class="panel">
+      <div class="panel-head">
+        <div><h2>投注金额总表</h2><p>仅保留你实际创建的记录，金额按计算结果自动核对。</p></div>
+        <div class="actions">
+          <button id="copyBetFormula">复制加法合计</button>
+          <button id="exportBetData">导出记录</button>
+          <button id="resetBetData" class="danger">清空全部记录</button>
+        </div>
+      </div>
+      <div class="filters">
+        <input id="betSearchInput" type="search" placeholder="搜索序号、原文或异常">
+        <label class="check-label"><input id="onlyAnomalies" type="checkbox"> 只看异常</label>
+      </div>
+      <div class="table-wrap">
+        <table class="bet-table">
+          <thead><tr><th>序号</th><th>彩票</th><th>原文</th><th>金额</th><th>原文金额</th><th>核对</th><th></th></tr></thead>
+          <tbody id="betLedgerBody"></tbody>
+        </table>
+      </div>
+      <div id="betPager" class="pager" aria-label="金额总表分页">
+        <span id="betPageInfo"></span>
+        <div>
+          <button id="betPrevPage" type="button">上一页</button>
+          <button id="betNextPage" type="button">下一页</button>
+        </div>
+      </div>
+      <div class="formula-box">
+        <span>金额合计</span>
+        <code id="betFormulaText"></code>
+      </div>
+    </section>
+
+    <section id="ledger" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>当前中奖清单</h2>
+          <p>按顶部开奖号自动查找命中记录，重复号码不去重。</p>
+        </div>
+        <div class="actions">
+          <button id="copyFormula">复制加法合计</button>
+          <button id="exportData">导出数据</button>
+          <button id="resetData" class="danger">清空中奖记录</button>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="segmented" role="group" aria-label="彩票筛选">
+          <button class="filter active" data-filter="all">全部</button>
+          <button class="filter" data-filter="福彩">福彩</button>
+          <button class="filter" data-filter="体彩">体彩</button>
+        </div>
+        <input id="searchInput" type="search" placeholder="搜索条号、号码或玩法">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>条目</th><th>彩票</th><th>命中内容</th><th>购买金额</th><th>赔率</th><th>中奖金额</th><th></th></tr></thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </div>
+      <div class="formula-box">
+        <span>当前合计</span>
+        <code id="formulaText"></code>
+      </div>
+    </section>
+
+    <section id="calculator" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>新增核奖</h2>
+          <p>每组号码按输入顺序计算，重复输入会分别兑奖。</p>
+        </div>
+      </div>
+      <form id="calcForm" class="calc-grid">
+        <label>彩票
+          <select id="lottery">
+            <option value="福彩">福彩3D</option>
+            <option value="体彩">排列三</option>
+          </select>
+        </label>
+        <label>玩法
+          <select id="playType"></select>
+        </label>
+        <label>开奖号码
+          <input id="drawNumber" placeholder="000" inputmode="numeric" maxlength="3" required>
+        </label>
+        <label class="wide">投注号码 / 胆码
+          <textarea id="picks" rows="4" placeholder="例：850 805 058；独胆可填58；双飞填05" required></textarea>
+        </label>
+        <label>每项投注金额
+          <div class="money-input"><input id="stake" type="number" min="0" step="0.1" value="2" required><span>元</span></div>
+        </label>
+        <label>原文或备注
+          <input id="note" placeholder="可选">
+        </label>
+        <div id="customOdds" class="custom-odds hidden">
+          <label>基准金额<input id="customBase" type="number" min="0.1" step="0.1" value="10"></label>
+          <label>基准奖金<input id="customPrize" type="number" min="0" step="0.1" value="0"></label>
+          <label>命中次数<input id="customHits" type="number" min="0" step="1" value="1"></label>
+        </div>
+        <div class="calc-actions wide">
+          <button type="submit" class="primary">计算中奖</button>
+          <button type="button" id="clearCalc">清空</button>
+        </div>
+      </form>
+      <div id="calcResult" class="result-box empty">等待计算</div>
+    </section>
+
+    <section id="odds" class="panel">
+      <div class="panel-head">
+        <div><h2>当前赔率表</h2><p>每项按“本金 / 奖金”显示，奖金按实际投注金额同比例计算。</p></div>
+      </div>
+      <div id="oddsGrid" class="odds-grid"></div>
+      <div class="rules">
+        <h3>已确认规则</h3>
+        <ul>
+          <li>号码不去重，出现几次就按几次计算。</li>
+          <li>一条复式命中多个号码时分别兑奖。</li>
+          <li>粘边赖多胆同时命中几个胆，就按几次中奖。</li>
+          <li>组六和防组三按两个独立项目计算。</li>
+          <li>“打包组三”按组三全包处理；只写总金额时直接采用原文金额。</li>
+          <li>“三b复试”按3D复式；“毒、扣、独胆”均按独胆处理。</li>
+          <li>未标明彩票时按福彩3D，未标明组三或组六时按组六，未标明直选或组选时按组选。</li>
+          <li>福彩3D与体彩排列三分别使用本页对应的赔率表核奖。</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="betFormulaDialog" class="formula-dialog">
+    <form method="dialog" class="dialog-shell">
+      <div class="dialog-head">
+        <div>
+          <h2>金额合计与对比</h2>
+          <p>当前金额总表</p>
+        </div>
+        <button value="cancel" class="dialog-close" aria-label="关闭" title="关闭">×</button>
+      </div>
+      <div class="comparison-totals">
+        <div id="currentTotalBox" class="dialog-current-total">
+          <span>当前合计</span>
+          <strong id="dialogBetTotal">0</strong>
+        </div>
+        <div id="externalTotalBox" class="dialog-current-total external">
+          <span>外部合计</span>
+          <strong id="dialogExternalTotal">--</strong>
+        </div>
+      </div>
+      <span class="formula-preview-label">当前算式</span>
+      <code id="dialogBetFormula" class="dialog-formula">0</code>
+      <label class="compare-field">粘贴其他金额合计
+        <textarea id="externalBetFormula" rows="4" placeholder="例如：14+8+20=42，或直接填写42"></textarea>
+      </label>
+      <span class="formula-preview-label">外部算式对比</span>
+      <code id="externalFormulaPreview" class="dialog-formula muted">等待输入</code>
+      <div id="betCompareResult" class="compare-result neutral">等待输入其他金额合计</div>
+      <div class="dialog-actions">
+        <button id="compareBetFormula" value="none" type="button">开始对比</button>
+        <button id="copyBetFormulaConfirm" value="none" type="button" class="primary">复制当前加法合计</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
