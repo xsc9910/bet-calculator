@@ -1902,7 +1902,7 @@ function renderBetParseDetails(result, detectedLotteries, recordMessage = '') {
     if (className) row.className = className;
     details.append(row);
   };
-  add(result.confident ? '已完成试算' : '需要人工补充', result.confident ? 'parse-state-success' : 'parse-state-warning');
+  add(result.confident ? '已完成试算' : '无法自动计算，见下方具体原因', result.confident ? 'parse-state-success' : 'parse-state-warning');
   add(`识别彩票：${detectedLotteries.length > 1 ? '福彩 + 体彩' : detectedLotteries[0]}`);
   result.reasons.forEach(reason => add(reason));
   if (!result.confident) {
