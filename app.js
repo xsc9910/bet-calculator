@@ -891,8 +891,17 @@ function calculateDanTuoBet(text, claimed, lotteryFactor) {
   const match = text.match(/(?:胆)?\s*(\d+)\s*拖\s*(\d+)/);
   if (!match || !/组六|组三/.test(text)) return null;
   const label = /组三/.test(text) ? '组三' : '组六';
-  const stated = text.match(new RegExp(`([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*${label}`));
-  const stake = stated ? chineseAmount(stated[1]) : multiplierStake(text, 10);
+  // 金额可与玩法紧连，例如“胆2拖178三十组六”。不能以宽泛正则取值，
+  // 否则“六”既属于中文金额又属于“组六”时会造成匹配歧义。
+  const labelIndex = text.lastIndexOf(label);
+  const danTuoEnd = match.index + match[0].length;
+  const amountText = labelIndex > danTuoEnd
+    ? text.slice(danTuoEnd, labelIndex)
+      .replace(/(?:福彩|[福褔]|体彩|[体體]|各|打|按|共|合计|总计|元|米|块|毛|倍|\s)/g, '')
+    : '';
+  const stake = amountText && /^(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)$/.test(amountText)
+    ? chineseAmount(amountText)
+    : multiplierStake(text, 10);
   if (stake == null) return null;
   const amount = stake * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
@@ -1125,6 +1134,33 @@ function calculateWildcardFixedAmount(text, claimed, lotteryFactor) {
     reasons: [`X码定位按等号固定金额：${details.map(item => `${item.code}=${money(item.amount)}元`).join(' + ')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateRecognizedCompoundBet(text, claimed, lotteryFactor) {
+  const parts = [];
+  let remainder = text;
+
+  // 先取出胆拖复式段，避免其中的“组三/组六”干扰后续单式直组识别。
+  const danTuoPattern = /(?:(?:福彩|[福褔]|体彩|[体體])\s*)?胆?\s*\d+\s*拖\s*\d+\s*(?:各|打|按)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|元|米|块)?\s*(?:组六|组三)/g;
+  for (const match of remainder.matchAll(danTuoPattern)) {
+    const result = calculateDanTuoBet(match[0], claimed, lotteryFactor);
+    if (!result) continue;
+    parts.push(result);
+    remainder = remainder.replace(match[0], ' '.repeat(match[0].length));
+  }
+
+  // 再取“号码列表 + N单/直 + N组”的单式段，例如：170-180各三单两组。
+  const directGroupPattern = /(?:\d{3}(?:\s*[-、，,.。\s]+\s*\d{3})+)\s*各?\s*[零〇一二两三四五六七八九十\d]+\s*(?:直|单)\s*[零〇一二两三四五六七八九十\d]+\s*组/g;
+  for (const match of remainder.matchAll(directGroupPattern)) {
+    const result = calculateDirectGroupWithSingleDigit(match[0], claimed, lotteryFactor);
+    if (!result) continue;
+    parts.push(result);
+  }
+
+  if (parts.length < 2) return null;
+  const amount = parts.reduce((sum, part) => sum + Number(part.amount), 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`组合玩法分别计算：${parts.map(part => part.reasons.join('；')).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   const clean = text.replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0');
   const claimed = extractClaimedAmount(clean);
@@ -1135,6 +1171,8 @@ function autoCalculateBet(text, allowCompound = true) {
     const multilineCompound = calculateMultilineCompound(clean, claimed);
     if (multilineCompound) return multilineCompound;
   }
+  const recognizedCompound = calculateRecognizedCompoundBet(clean, claimed, lotteryFactor);
+  if (recognizedCompound) return recognizedCompound;
   // “全包组三 / 组三全包 / 打包组三”写了金额时，金额就是整项投注额，
   // 必须在通用组三、定位等规则之前优先返回，避免被不完整玩法识别拦截。
   const fullPackGroup3Amount = /(?:全包\s*组三|组三\s*全包|打包\s*组三)/.test(clean)
