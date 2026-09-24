@@ -100,7 +100,7 @@
         <aside class="bet-preview" aria-label="投注内容">
           <div class="bet-preview-head">
             <h3>投注内容</h3>
-            <span>全部记录</span>
+            <span>当前统计</span>
           </div>
           <div id="betPreviewList" class="bet-preview-list"></div>
         </aside>
@@ -260,6 +260,26 @@
       <div class="dialog-actions">
         <button id="compareBetFormula" value="none" type="button">开始对比</button>
         <button id="copyBetFormulaConfirm" value="none" type="button" class="primary">复制当前加法合计</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="endBatchDialog" class="formula-dialog">
+    <form id="endBatchForm" class="dialog-shell">
+      <div class="dialog-head">
+        <div>
+          <h2>结束当前统计</h2>
+          <p id="endBatchSummary">本批统计信息</p>
+        </div>
+        <button id="cancelEndBatch" type="button" class="dialog-close" aria-label="关闭" title="关闭">×</button>
+      </div>
+      <label class="compare-field">本批名称
+        <input id="endBatchName" type="text" maxlength="40" autocomplete="off" placeholder="例如：9月24日晚场">
+      </label>
+      <p class="dialog-note">结束后，本批记录会保留在金额总表中；投注内容将开始记录新的统计。</p>
+      <div class="dialog-actions">
+        <button id="endBatchCancel" type="button">取消</button>
+        <button id="endBatchConfirm" type="submit" class="primary">确认结束并新建统计</button>
       </div>
     </form>
   </dialog>

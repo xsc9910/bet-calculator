@@ -156,6 +156,7 @@ td:nth-child(5) { width: 48px; }
 .formula-operator { padding: 0 2px; color: var(--muted); }
 .formula-term.diff, .formula-total.diff { padding: 2px 3px; border-radius: 3px; background: #ffd8d4; color: var(--red); font-weight: 800; }
 .compare-field { display: grid; gap: 7px; color: var(--muted); font-size: 13px; }
+.dialog-note { margin: -2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .compare-result { min-height: 54px; padding: 12px 14px; border-radius: 5px; line-height: 1.7; white-space: pre-wrap; }
 .compare-result.neutral { color: var(--muted); background: #f0f3f1; }
 .compare-result.ok { color: var(--green); background: var(--green-soft); }

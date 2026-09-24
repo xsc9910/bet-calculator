@@ -388,7 +388,8 @@ function formatBetTime(value) {
 }
 
 function renderBetPreview() {
-  const recent = betEntries.filter(entry => entry.original).slice().reverse();
+  // 投注内容只显示当前统计；结束统计后此处会自然清空，历史记录仍保留在金额总表。
+  const recent = entriesForBetBatch('active').filter(entry => entry.original).slice().reverse();
   $('betPreviewList').innerHTML = recent.length ? recent.map(entry => {
     const anomaly = anomalyFor(entry);
     const targets = entryLotteryTargets(entry);
@@ -1646,14 +1647,31 @@ $('autoCalculate').onclick = () => {
   if (!text) { toast('请先粘贴投注原文'); return; }
   runAutoBetCalculation({ record: true });
 };
+let pendingBatchEnd = null;
 $('endCurrentBatch').onclick = () => {
   const batch = activeBetBatch();
   if (!batch) { toast('当前统计初始化失败，请刷新页面后重试'); return; }
   const summary = batchSummary(batch.id);
   if (!summary.count) { toast('当前统计还没有记录，无需结束'); return; }
-  if (!confirm(`结束${batch.label}？\n本批共${summary.count}条，合计${money(summary.total)}元。\n结束后会保留本批记录，并开始新的当前统计。`)) return;
+  pendingBatchEnd = { batchId: batch.id, summary };
+  $('endBatchSummary').textContent = `当前共${summary.count}条，合计${money(summary.total)}元`;
+  $('endBatchName').value = '';
+  $('endBatchDialog').showModal();
+  setTimeout(() => $('endBatchName').focus(), 0);
+};
+$('endBatchCancel').onclick = () => $('endBatchDialog').close();
+$('cancelEndBatch').onclick = () => $('endBatchDialog').close();
+$('endBatchForm').onsubmit = event => {
+  event.preventDefault();
+  const name = $('endBatchName').value.trim();
+  if (!name) { toast('请填写本批统计名称'); $('endBatchName').focus(); return; }
+  const pending = pendingBatchEnd;
+  const batch = pending && betBatches.find(item => item.id === pending.batchId);
+  if (!batch || batch.id !== activeBetBatchId) { $('endBatchDialog').close(); toast('当前统计已变化，请重新操作'); return; }
+  const summary = batchSummary(batch.id);
 
   const legacyChanged = assignLegacyEntriesToActiveBatch();
+  batch.label = name;
   batch.endedAt = new Date().toISOString();
   batch.count = summary.count;
   batch.total = summary.total;
@@ -1664,8 +1682,10 @@ $('endCurrentBatch').onclick = () => {
   activeBetBatchId = nextBatch.id;
   localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
   currentBetBatchFilter = 'active';
+  pendingBatchEnd = null;
+  $('endBatchDialog').close();
   render();
-  toast(`${batch.label}已结束：${summary.count}条，合计${money(summary.total)}元；已开始${nextBatch.label}`);
+  toast(`${name}已结束：${summary.count}条，合计${money(summary.total)}元；已开始${nextBatch.label}`);
 };
 $('manualRecordBet').onclick = () => {
   const original = $('rawBetText').value.trim();
