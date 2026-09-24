@@ -1079,6 +1079,29 @@ function calculateMultilineCompound(text, claimed) {
   };
 }
 
+function calculateLeadingPlayTailRateBet(text, claimed, lotteryFactor) {
+  const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!numbers.length) return null;
+
+  const firstNumberIndex = text.indexOf(numbers[0]);
+  if (firstNumberIndex < 0) return null;
+  const leadingPlay = text.slice(0, firstNumberIndex);
+  const tailRate = text.match(/(?:\d+\s*注\s*)?(?:各|每(?:注|个)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|元|米|块)/);
+  if (!tailRate) return null;
+
+  const rate = chineseAmount(tailRate[1]) * (tailRate[2] === '毛' ? 0.1 : 1);
+  const both = /(?:直\s*组|组\s*直|一直一组|一单一组)/.test(leadingPlay);
+  const direct = /(?:直选|直|单)/.test(leadingPlay);
+  const group = /(?:组选|组)/.test(leadingPlay);
+  const playCount = both ? 2 : direct || group ? 1 : 0;
+  if (!playCount) return null;
+
+  const amount = numbers.length * rate * playCount * lotteryFactor;
+  const label = both ? `直${rate}元 + 组${rate}元` : direct ? `直选${rate}元` : `组选${rate}元`;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${numbers.length}注 ×（${label}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateExplicitDirectGroupMoneyBet(text, claimed, lotteryFactor) {
   const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
   if (!numbers.length) return null;
@@ -1256,6 +1279,8 @@ function autoCalculateBet(text, allowCompound = true) {
   // 不能先被“直各X元”的通用单式规则截获。
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
   if (positionBet) return positionBet;
+  const leadingPlayTailRateBet = calculateLeadingPlayTailRateBet(clean, claimed, lotteryFactor);
+  if (leadingPlayTailRateBet) return leadingPlayTailRateBet;
   const explicitDirectGroupMoneyBet = calculateExplicitDirectGroupMoneyBet(clean, claimed, lotteryFactor);
   if (explicitDirectGroupMoneyBet) return explicitDirectGroupMoneyBet;
   const explicitEachMoneyBet = calculateExplicitEachMoneyBet(clean, claimed, lotteryFactor);
