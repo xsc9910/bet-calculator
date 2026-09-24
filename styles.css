@@ -242,8 +242,11 @@ td:nth-child(5) { width: 48px; }
 .parse-record-note { margin-top: 6px; color: #086c4e; }
 .check-label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .batch-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
-.batch-filter select { min-width: 190px; }
+.batch-filter select { width: min(420px, 42vw); min-width: 260px; }
 .check-label input { width: 16px; height: 16px; }
+#betLedger .filters { align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; }
+#betLedger #betSearchInput { width: 190px; flex: 0 1 190px; }
+#betLedger .check-label { flex: 0 0 auto; white-space: nowrap; }
 .bet-table td:nth-child(1) { width: 76px; }
 .bet-table td:nth-child(2) { width: 80px; }
 .bet-table td:nth-child(3) { min-width: 280px; max-width: 560px; white-space: pre-wrap; }
@@ -288,6 +291,10 @@ td:nth-child(5) { width: 48px; }
   .summary { grid-template-columns: 1fr; }
   .metric { min-height: 98px; }
   .panel-head, .filters { align-items: stretch; flex-direction: column; }
+  #betLedger .filters { align-items: stretch; flex-wrap: wrap; }
+  .batch-filter { justify-content: space-between; }
+  .batch-filter select { width: min(100%, 420px); }
+  #betLedger #betSearchInput { width: 100%; flex-basis: auto; }
   #searchInput { width: 100%; }
   .calc-grid { grid-template-columns: 1fr; padding: 15px; }
   .intake-layout { grid-template-columns: 1fr; }
