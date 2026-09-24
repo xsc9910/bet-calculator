@@ -1,6 +1,5 @@
 const STORAGE_KEY = 'lottery-checker-v1';
 const BET_STORAGE_KEY = 'lottery-bet-ledger-v1';
-const CONFIRMED_TEST_CLEANUP_KEY = 'lottery-confirmed-test-cleanup-v1';
 
 const seedBetAmounts = [14,8,344,52,44,16,24,120,50,32,8,8,4,6,4,10,20,8,8,36,24,10,10,626,436,60,60,40,20,76,40,24,32,20,84,60,200,70,196,6,24,26,38,40,48,25,92.4,20,150.9,800,24,50,20,32,24,48,60,20,10,36,48,50,16,32,75,100,26,20,10,76,10,4,12,70,8,50,48,48,36,2,62.5,100,118,60,66,10,10,60,20,20,16,10,6,38,4,10,18,200,12,10,108.4,34,10,20,4,10,7.2,10,16,8,12,62,16,15,56,36,28,12,4,40,41,31,12,145,12,30,38,60,40,44,20,10,198,22,36,10,14,30,8,4,20,10.8,5.4,4.5,119.5,5.6,32,4,10,2,30,32,8,56,6,12,12,2,40,50,48,50,2,176,30,22,20,20,15,32,6,5.6,21,80,30,8,20,12,360,52,82,271,8,20,10,43.8,54,3.5,110,44,200,100,10,18,4,16,100,12,28,5,4,30,6,40,48,66,60,10,10,40,20,2,200,36,30,8,44,66,474,22,24,10,2,32,100,16,4,128,15,162,20,20,12,14,16,120,6,24,128,20,100,62,6,72,18,90,10,76,164,271.5,31,2,20,108,54,48,20,30,24,10,6,8,38,100,28,280,87.5,144,36,32,6,120,20,248,20,738,60,6,2,34,12,4,20,16,8,50,12,12,20,38,20,3,30,30,54,60,48,50,20,4,6,30,18,20,50,44,20,38,20,6,24,20,20,8,4,10,120,40,16,12,20,12,4,58,40,4,8,14,4,138.6,78,5.4,10,3.6,60,24,22,46.2,202,70,40,26,20,218,3,20,40,24,4];
 const seedAnomalies = {20:['多',2],24:['多',20],49:['多',0.6],115:['少',24],116:['多',24],145:['多',0.5],186:['少',0.6],219:['少',9],330:['多',0.3],345:['多',0.6]};
@@ -78,26 +77,8 @@ function saveEntries() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entrie
 function loadBetEntries() {
   try {
     const saved = JSON.parse(localStorage.getItem(BET_STORAGE_KEY));
-    if (!Array.isArray(saved)) return [];
-    let retainedEntries = saved.filter(entry => !/^bet-\d+$/.test(String(entry.id || '')));
-    if (localStorage.getItem(CONFIRMED_TEST_CLEANUP_KEY) !== '1') {
-      retainedEntries = retainedEntries.filter(entry => {
-        const compactOriginal = String(entry.original || '').replace(/\s+/g, '');
-        const isConfirmedTestEntry = Number(entry.amount) === 12 && [
-          '直组各一倍123456789',
-          '123456789直组各一倍',
-          '一直一组123456789'
-        ].includes(compactOriginal);
-        return !isConfirmedTestEntry;
-      });
-      localStorage.setItem(CONFIRMED_TEST_CLEANUP_KEY, '1');
-    }
-    const actualEntries = retainedEntries
-      .map((entry, index) => ({ ...entry, record: index + 1 }));
-    if (actualEntries.length !== saved.length || actualEntries.some((entry, index) => entry.record !== saved[index]?.record)) {
-      localStorage.setItem(BET_STORAGE_KEY, JSON.stringify(actualEntries));
-    }
-    return actualEntries;
+    // 加载只读取，不筛除、不重排、更不回写，避免代码更新影响用户历史记录。
+    return Array.isArray(saved) ? saved : [];
   } catch { return []; }
 }
 function saveBetEntries() { localStorage.setItem(BET_STORAGE_KEY, JSON.stringify(betEntries)); }
