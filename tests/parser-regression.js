@@ -72,4 +72,8 @@ for (const [name, text, expected] of cases) {
   if (!passed) console.log(JSON.stringify(result));
   failed ||= !passed;
 }
+const unclear = autoCalculateBet('福123 456定位各20');
+const unclearPassed = !unclear.confident && unclear.needs.some(need => need.includes('未写单位或“倍”'));
+console.log(`${unclearPassed ? 'PASS' : 'FAIL'} 不明确金额给出具体原因`);
+failed ||= !unclearPassed;
 process.exitCode = failed ? 1 : 0;

@@ -1579,14 +1579,27 @@ function autoCalculateBet(text, allowCompound = true) {
 function requiredBetDetails(text) {
   const needs = [];
   const hasLottery = /福彩|[福褔]|体彩|[体體]|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
-  const hasNumber = /(?<!\d)\d{3}(?!\d)/.test(text) || /(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)/.test(text) || /(?:独胆|毒|扣)\s*\d/.test(text);
-  const hasPlay = /(直|组|单|飞|定位|独胆|毒|扣|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/.test(text);
+  const threeDigitNumbers = extractThreeDigitNumbers(text);
+  const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(全部|\d+)/g)];
+  const hasNumber = threeDigitNumbers.length > 0 || positions.length > 0 || /(?:独胆|毒|扣)\s*\d/.test(text);
+  const playMatches = text.match(/直选|直组|组选|组六|组三|单挑|单|双飞|飞|定位|独胆|毒|扣|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值/g) || [];
+  const hasPlay = playMatches.length > 0;
   const hasRate = /(\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块)|(?:直|组|单|飞|定位)\s*(?:各\s*)?\d+\.\d+|[=＝]\s*\d/.test(text);
   if (!hasLottery) needs.push('补充彩票类型：请注明“福/福彩”或“体/体彩”。');
-  if (!hasNumber) needs.push('补充号码：请写明三位号码、定位数字或对应胆码。');
+  if (!hasNumber) needs.push('未找到可投注号码：请写明三位号码、百/十/个位定位数字或胆码。');
   if (!hasPlay) needs.push('补充玩法：例如直、组、组三、组六、定位、双飞等。');
-  if (!hasRate) needs.push('补充金额或倍数：请写“×倍”或“×元/米/毛”。');
-  if (!needs.length) needs.push('写法存在组合歧义：请改为“号码 + 玩法 + 金额/倍数”，或切换到手动录入填写计算金额。');
+  if (!hasRate) {
+    const found = [threeDigitNumbers.length ? `${threeDigitNumbers.length}个三位号码` : '', positions.length ? `${positions.length}个定位字段` : '', playMatches.length ? `玩法“${[...new Set(playMatches)].join('、')}”` : ''].filter(Boolean).join('、');
+    needs.push(`已识别${found || '投注内容'}，但没有找到金额或倍数；请补“1倍”或“每个2元”。`);
+  }
+  const bareAmounts = [...text.matchAll(/(?:各|打)\s*(\d+(?:\.\d+)?)(?!\s*(?:倍|毛|角|元|米|块))/g)].map(match => match[1]);
+  if (bareAmounts.length) needs.push(`“${bareAmounts.map(value => `各/打${value}`).join('、')}”未写单位或“倍”，无法确认它是金额还是倍数。`);
+  const unitlessPlayAmounts = [...text.matchAll(/(?:直组|直|组|单|飞)\s*(0?\.\d+)(?!\s*(?:毛|角|元|米|块))/g)].map(match => match[1]);
+  if (unitlessPlayAmounts.length) needs.push(`“${unitlessPlayAmounts.map(value => `玩法${value}`).join('、')}”未写单位，无法确认是每项金额还是简写倍率。`);
+  if (!needs.length) {
+    const found = [threeDigitNumbers.length ? `${threeDigitNumbers.length}个三位号码` : '', positions.length ? `${positions.length}个定位字段` : '', playMatches.length ? `玩法“${[...new Set(playMatches)].join('、')}”` : ''].filter(Boolean).join('、');
+    needs.push(`已识别${found}，但这些信息没有组成可唯一计算的投注段；请把对应号码、玩法和金额写在同一段。`);
+  }
   return needs;
 }
 
@@ -1893,8 +1906,8 @@ function renderBetParseDetails(result, detectedLotteries, recordMessage = '') {
   add(`识别彩票：${detectedLotteries.length > 1 ? '福彩 + 体彩' : detectedLotteries[0]}`);
   result.reasons.forEach(reason => add(reason));
   if (!result.confident) {
-    add('待补充信息', 'parse-needs-heading');
-    add('请补充以下内容后再自动计算，或切换到“手动录入”直接填写金额：', 'parse-needs-title');
+    add('无法自动计算的具体原因', 'parse-needs-heading');
+    add('以下是本次原文实际缺失或存在歧义的内容：', 'parse-needs-title');
     (result.needs || ['请补充完整投注写法和计算金额。']).forEach(need => add(`• ${need}`, 'parse-need'));
   }
   if (recordMessage) add(recordMessage, 'parse-record-note');
