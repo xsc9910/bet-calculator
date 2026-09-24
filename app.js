@@ -1792,20 +1792,20 @@ let pasteCalcTimer;
 let pastePending = false;
 $('rawBetText').oninput = event => {
   rawInputVersion += 1;
-  if (!$('autoMode').checked || currentEntryMode !== 'auto') return;
+  if (currentEntryMode !== 'auto') return;
   clearTimeout(autoCalcTimer);
   if (pastePending || event.inputType === 'insertFromPaste') return;
   autoCalcTimer = setTimeout(() => runAutoBetCalculation({ record: false }), 300);
 };
 $('rawBetText').onpaste = () => {
-  if (!$('autoMode').checked || currentEntryMode !== 'auto') return;
+  if (currentEntryMode !== 'auto') return;
   pastePending = true;
   clearTimeout(autoCalcTimer);
   clearTimeout(pasteCalcTimer);
   pasteCalcTimer = setTimeout(() => {
     pastePending = false;
     clearTimeout(autoCalcTimer);
-    runAutoBetCalculation({ record: true });
+    runAutoBetCalculation({ record: $('autoMode').checked });
   }, 120);
 };
 $('autoCalculate').onclick = () => {
