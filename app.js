@@ -1015,7 +1015,8 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
 }
 
 function calculateDelimitedCompound(text, claimed) {
-  const segments = text.split(/[，,；;]/).map(segment => segment.trim()).filter(Boolean);
+  // 中文句号也常用于分隔同一条中的不同玩法。
+  const segments = text.split(/[，,；;。]/).map(segment => segment.trim()).filter(Boolean);
   if (segments.length < 2) return null;
   const hasLotteryMarker = value => /福彩|[福褔]|体彩|[体體]|排列三|排三|排家|排(?=\d)|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(value);
   const targets = lotteryTargets(text);
@@ -1331,10 +1332,29 @@ function calculateMultiGroupSingleCompound(text, claimed, lotteryFactor) {
     remainder = remainder.replace(match[0], ' '.repeat(match[0].length));
   }
 
-  const directGroup = calculateDirectGroupWithSingleDigit(remainder, claimed, lotteryFactor);
-  if (directGroup) parts.push({ amount: Number(directGroup.amount), reason: directGroup.reasons.join('；') });
+  // 一条原文可把双飞、单式直组、纯组选连在一起写。每一段先从剩余原文
+  // 中取出并擦除，避免后续玩法把别段号码重复计入。
+  const flyPattern = /(?:双飞|双)\s*(\d{2})\s*(?:各\s*)?([一二两三四五六七八九十]|\d+)\s*倍\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
+  for (const match of remainder.matchAll(flyPattern)) {
+    const amount = chineseAmount(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+    parts.push({ amount: amount * lotteryFactor,
+      reason: `双飞${match[1]} ${match[2]}倍，原文明确金额${amount}元` });
+    remainder = remainder.replace(match[0], ' '.repeat(match[0].length));
+  }
 
-  const groupOnlyPattern = /((?:\d{3}(?:\s+|\s*[、，,]\s*)?)+)\s*各?\s*([一二两三四五六七八九十]|\d+)\s*组(?![三六])/g;
+  const directGroupPattern = /((?:\d{3}(?:\s+|\s*[、，,。.\-]\s*)?)+)\s*([一二两三四五六七八九十]|\d+)\s*(?:单|直)\s*([一二两三四五六七八九十]|\d+)\s*组/g;
+  for (const match of remainder.matchAll(directGroupPattern)) {
+    const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    if (!numbers.length) continue;
+    const directTimes = numericValue(match[2]);
+    const groupTimes = numericValue(match[3]);
+    const amount = numbers.length * (directTimes + groupTimes) * 2 * lotteryFactor;
+    parts.push({ amount,
+      reason: `${numbers.length}个号码 ×（${directTimes}单${directTimes * 2}元 + ${groupTimes}组${groupTimes * 2}元）` });
+    remainder = remainder.replace(match[0], ' '.repeat(match[0].length));
+  }
+
+  const groupOnlyPattern = /((?:\d{3}(?:\s+|\s*[、，,。.\-]\s*)?)+)\s*各?\s*([一二两三四五六七八九十]|\d+)\s*组(?![三六])/g;
   for (const match of remainder.matchAll(groupOnlyPattern)) {
     const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
     if (!numbers.length) continue;
