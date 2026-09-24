@@ -1099,6 +1099,20 @@ function calculateMultilineCompound(text, claimed) {
   };
 }
 
+function calculateDashedIndividualMoneyBet(text, claimed, lotteryFactor) {
+  // “直815--2，组158--4”中的双横线是明确单项金额分隔符。
+  const items = [...text.matchAll(/(直选|直|单|组选|组)\s*(\d{3})\s*(?:-{2,}|—{2,}|–{2,})\s*(\d+(?:\.\d+)?)/g)];
+  if (!items.length) return null;
+  const details = items.map(match => ({
+    play: /^(?:直选|直|单)$/.test(match[1]) ? '直' : '组',
+    number: match[2],
+    amount: Number(match[3])
+  }));
+  const amount = details.reduce((sum, item) => sum + item.amount, 0) * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`双横线单项金额：${details.map(item => `${item.play}${item.number}=${item.amount}元`).join(' + ')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateNormalizedBasicSingleBet(text, claimed, lotteryFactor) {
   // 仅处理基础三位单式；复式、定位、飞、胆拖等保留给各自的专用解析器。
   if (/(?:飞|胆拖|定位|独胆|对子|跨度|复式|复试|转圈|粘边赖|豹子|和值|组六|组三)/.test(text)) return null;
@@ -1329,6 +1343,8 @@ function autoCalculateBet(text, allowCompound = true) {
   // 不能先被“直各X元”的通用单式规则截获。
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
   if (positionBet) return positionBet;
+  const dashedIndividualMoneyBet = calculateDashedIndividualMoneyBet(clean, claimed, lotteryFactor);
+  if (dashedIndividualMoneyBet) return dashedIndividualMoneyBet;
   const normalizedBasicSingleBet = calculateNormalizedBasicSingleBet(clean, claimed, lotteryFactor);
   if (normalizedBasicSingleBet) return normalizedBasicSingleBet;
   const leadingPlayTailRateBet = calculateLeadingPlayTailRateBet(clean, claimed, lotteryFactor);
