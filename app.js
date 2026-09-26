@@ -1551,6 +1551,27 @@ function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
     reasons: [`组合玩法分段计算：${reasons.join('；')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateItemizedWildcardMoney(text, claimed) {
+  if (!/定位/.test(text)) return null;
+  const source = text.replace(/(?:合计|共计|总计|共)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
+  const pattern = /(?<![0-9Xx])([0-9Xx]{3})(?![0-9Xx])\s*[，,：:]?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
+  const matches = [...source.matchAll(pattern)];
+  if (!matches.length || matches.some(match => !/[Xx]/.test(match[1]))) return null;
+  const remainder = source.replace(pattern, ' ').replace(/福彩|福|体彩|体|排列三|排三|排|3\s*D|三地|定位/gi, '').replace(/[\s，,。.;；、：:]/g, '');
+  if (remainder) return null;
+  let amount = 0;
+  const details = matches.map(match => {
+    const prefix = source.slice(0, match.index);
+    const markers = [...prefix.matchAll(/福彩|福|体彩|体|排列三|排三|排|3\s*D|三地/gi)];
+    const lottery = markers.length ? lotteryTargets(markers[markers.length - 1][0])[0] : lotteryTargets(source)[0];
+    const stake = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+    amount += stake;
+    return `${lottery}${match[1].toUpperCase()} ${stake}元`;
+  });
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`定位逐项按明确金额相加：${details.join(' + ')}；不重复乘彩票数量`] };
+}
+
 function calculateWildcardFixedAmount(text, claimed, lotteryFactor) {
   const normalized = /定位/.test(text) ? text.replace(
     /(?<![0-9Xx])([0-9Xx]{3})(?![0-9Xx])\s*(?:定位\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g,
@@ -1828,6 +1849,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
+  const itemizedWildcardMoney = calculateItemizedWildcardMoney(clean, claimed);
+  if (itemizedWildcardMoney) return itemizedWildcardMoney;
   const unitlessDecimalStake = clean.match(/(?:直组|单组|直选|组选|直|组|各(?:打)?|打)[ \t]*(?:0?\.\d+)(?![\d.]|\s*(?:倍|毛|角|元|米|块))/)
     || clean.match(/(?<![\d.])0?\.\d+[ \t]*(?:直组|单组)(?!\s*(?:倍|毛|角|元|米|块))/);
   if (unitlessDecimalStake) {
