@@ -172,12 +172,12 @@ function render() {
       <td class="win-number">${money(Number(e.odds) || 0)}</td>
       <td class="win-number">${money(Number(e.prize) || 0)}</td>
       <td><button class="icon-btn delete" data-id="${e.id}" title="删除" aria-label="删除">×</button></td>
-    </tr>`).join('') : '<tr><td colspan="5" class="empty-row">没有符合条件的记录</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="7" class="empty-row">没有符合条件的记录</td></tr>';
 
-  const formulaEntries = currentFilter === 'all' ? entries : entries.filter(e => e.lottery === currentFilter);
+  const formulaEntries = visible;
   const values = formulaEntries.map(e => money(Number(e.prize) || 0));
   const total = formulaEntries.reduce((n, e) => n + (Number(e.prize) || 0), 0);
-  $('formulaText').textContent = values.length ? `${values.join(' + ')} = ${money(total)}` : '0';
+  $('formulaText').textContent = `${values.length ? values.join('+') : '0'}=${money(total)}`;
   renderBetLedger();
   renderBetPreview();
 }

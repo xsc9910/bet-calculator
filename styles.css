@@ -130,6 +130,7 @@ td:nth-child(5) { width: 48px; }
 .formula-box span { flex: 0 0 auto; color: var(--muted); }
 .formula-box code { word-break: break-word; line-height: 1.7; font-family: Consolas, monospace; }
 #betFormulaText { font-size: 18px; font-weight: 700; line-height: 1.9; }
+#formulaText { min-width: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
 .pager { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); }
 .pager > div { display: flex; gap: 8px; }
 .pager button { min-width: 78px; }
