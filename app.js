@@ -901,7 +901,8 @@ function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
 }
 
 function calculateSingleDigitBet(text, claimed, lotteryFactor) {
-  const sharedDan = text.match(/(?<!\d)([0-9](?:[\s、，,/]+[0-9])+)\s*(?:独胆|胆)\s*各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
+  const sharedDan = text.match(/(?<!\d)([0-9](?:[\s、，,/]+[0-9])+)\s*(?:独胆|胆)\s*各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/)
+    || text.match(/(?:独胆|胆|独)\s*([0-9](?:[\s、，,/\-]+[0-9])+)\s*各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
   if (sharedDan) {
     const count = sharedDan[1].match(/\d/g).length;
     const rate = chineseAmount(sharedDan[2]) * (sharedDan[3] === '倍' ? 10 : ['毛', '角'].includes(sharedDan[3]) ? 0.1 : 1);
