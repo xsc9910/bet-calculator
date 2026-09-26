@@ -561,7 +561,8 @@ function showResult(result, values) {
 }
 
 function normalizeStatedArithmeticTotals(text) {
-  return text.replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2');
+  return text.replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2')
+    .replace(/(^|\n|(?<=[元米块毛角]))[ \t]*(?:\d+(?:\.\d+)?\s*\\?[*×xX+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)(?=\s*(?:元|米|块|毛|角)?\s*(?:$|\n))/g, '$1 合计$2');
 }
 
 function extractClaimedAmount(text) {
@@ -1268,7 +1269,8 @@ function calculateMultilineCompound(text, claimed) {
   const isSummaryLine = line => /^(?:\d+(?:\.\d+)?\s*[+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?$/.test(line.replace(/\s+/g, ''));
   const isNumbersOnlyLine = line => {
     // 首行可能带“福/体/3D”盘别标记，去掉标记后仍应按纯号码行参与合并。
-    const numberLine = line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[：:]?\s*/i, '');
+    const numberLine = line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[：:]?\s*/i, '')
+      .replace(/(?<!\d)\d+\s*注/g, ' ').trim();
     return /^(?=.*(?<!\d)\d{3,10}(?!\d))[\d\s,，.。/、\-:：]+$/.test(numberLine);
   };
   const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)\s*$/.test(
