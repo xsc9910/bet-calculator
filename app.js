@@ -836,6 +836,9 @@ function calculateStickyBet(text, claimed, lotteryFactor) {
 }
 
 function calculateMultiGroupBet(text, claimed, lotteryFactor) {
+  const sharedGroupText = /组选/.test(text) && /组三/.test(text) && !/组六/.test(text)
+    ? text.replace(/组选/g, '组六') : text;
+  text = sharedGroupText;
   const hasGroup6 = /组六/.test(text);
   const hasGroup3 = /组三/.test(text) && !/打包组三|组三全包|粘边赖组三/.test(text);
   if (!hasGroup6 && !hasGroup3) return null;
@@ -846,9 +849,14 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
   const sharedGroupMoney = text.match(/(?:组六\s*组三|组三\s*组六)\s*各\s*(\d+(?:\.\d+)?)(?![\d.]|\s*倍)/);
   const generalStake = eachRate ?? (sharedGroupMoney ? Number(sharedGroupMoney[1]) : multiplierStake(text, 10))
     ?? (hasGroup6 !== hasGroup3 ? explicitMoney(text) : null);
+  const firstTimes = text.search(/([一二两三四五六七八九十]|\d+)\s*倍/);
+  const firstGroup = text.search(/组三|组六/);
+  const usesLeadingTimes = firstTimes >= 0 && firstTimes < firstGroup;
   const stakeAfter = label => {
     // “1247组六打两倍，组三打一倍”中两个组选玩法的倍率各自独立，
     // 不能退回使用全文第一个倍率。
+    const multiplierBefore = usesLeadingTimes && text.match(new RegExp(`([一二两三四五六七八九十]|\\d+)\\s*倍\\s*${label}`));
+    if (multiplierBefore) return numericValue(multiplierBefore[1]) * 10;
     const multiplier = text.match(new RegExp(`${label}\\s*(?:各(?:打)?|打)?\\s*([一二两三四五六七八九十]|\\d+)\\s*倍`));
     if (multiplier) return numericValue(multiplier[1]) * 10;
     const match = text.match(new RegExp(`${label}\\s*(?:各(?:打)?)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)?`));
