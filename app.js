@@ -2468,7 +2468,7 @@ function renderBetParseDetails(result, detectedLotteries, recordMessage = '') {
   if (recordMessage) add(recordMessage, 'parse-record-note');
 }
 
-function runAutoBetCalculation({ record = false } = {}) {
+function runAutoBetCalculation({ record = false, allowMismatch = false } = {}) {
   const text = $('rawBetText').value.trim();
   if (!text) {
     lastAutoRecordedText = '';
@@ -2486,15 +2486,14 @@ function runAutoBetCalculation({ record = false } = {}) {
   updateBetCheck();
   const amountMismatch = result.confident && result.amount !== '' && result.claimed !== ''
     && result.claimed != null && Math.round(Number(result.amount) * 100) !== Math.round(Number(result.claimed) * 100);
-  if (amountMismatch) {
-    renderBetParseDetails(result, detectedLotteries, '金额不一致，未记录。请核对原文，或切换“手动录入”填写确认后的金额。');
-    if (record) toast('金额不一致，未记录。请查看试算依据，或切换手动录入确认金额。');
+  if (amountMismatch && !(record && allowMismatch)) {
+    renderBetParseDetails(result, detectedLotteries, '金额不一致，未自动记录。核对后可点击“计算并记录”，按计算金额录入并保留原文多/少差额。');
     return;
   }
   if (record && result.confident && result.amount !== '') {
     const recorded = appendCurrentBetRecord({ automatic: true });
     renderBetParseDetails(result, detectedLotteries, recorded
-      ? `已自动记录为第${betEntries.length}条。`
+      ? `已记录为第${betEntries.length}条。${amountMismatch ? `按计算金额${money(Number(result.amount))}录入，原金额${money(Number(result.claimed))}，原文${anomalyFor({ amount: result.amount, claimed: result.claimed })}已保留。` : ''}`
       : '本条已在金额总表中。');
     if (recorded) {
       const recordedText = text;
@@ -2640,7 +2639,7 @@ $('rawBetText').onpaste = () => {
 $('autoCalculate').onclick = () => {
   const text = $('rawBetText').value.trim();
   if (!text) { toast('请先粘贴投注原文'); return; }
-  runAutoBetCalculation({ record: true });
+  runAutoBetCalculation({ record: true, allowMismatch: true });
 };
 let batchDialogMode = 'new';
 function openBatchDialog(mode) {
