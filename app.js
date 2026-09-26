@@ -2363,6 +2363,12 @@ function runAutoBetCalculation({ record = false } = {}) {
   const detectedLotteries = lotteryTargets(text);
   renderBetParseDetails(result, detectedLotteries);
   updateBetCheck();
+  const amountMismatch = result.confident && result.amount !== '' && result.claimed !== ''
+    && result.claimed != null && Math.round(Number(result.amount) * 100) !== Math.round(Number(result.claimed) * 100);
+  if (amountMismatch) {
+    renderBetParseDetails(result, detectedLotteries, '金额不一致，未记录。请核对原文，或切换“手动录入”填写确认后的金额。');
+    return;
+  }
   if (record && result.confident && result.amount !== '') {
     const recorded = appendCurrentBetRecord({ automatic: true });
     renderBetParseDetails(result, detectedLotteries, recorded
