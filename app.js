@@ -1824,9 +1824,9 @@ function ambiguousOriginalStake(text) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = text.replace(/各\s*(\d+(?:\.\d+)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '各$1元 合计$2元')
-    .replace(/(一直一组|一单一组|直组|单组)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '$1 合计$2元')
+    .replace(/((?:一直一组|一单一组|直组|单组)(?:\s*各?\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '$1 合计$2元')
     .replace(/((?:福彩|福|体彩|体|排三|排列三|3D)?\s*(?:双飞|飞))\s*\r?\n(?=\s*\d{2}(?!\d))/gi, '$1 ')
-    .replace(/单挑\s*(\d{3}(?:[.、\s\-]+\d{3})*)\s*\r?\n\s*(一直一组|一单一组|直组|单组)/g, '$1 $2');
+    .replace(/单挑\s*[:：]?\s*(\d{3}(?:[.、\s\-]+\d{3})*)\s*\r?\n\s*(一直一组|一单一组|直组|单组)/g, '$1 $2');
   text = normalizeStatedArithmeticTotals(text);
   text = text.replace(/(直选|组选|组六|组三|直组|单组)\s+((?<!\d)\d{3,10}(?:[ \t.、,，/\-]+\d{3,10})*)[ \t]+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$2 $1各$3$4');
   text = normalizeEachStakeWording(text);
