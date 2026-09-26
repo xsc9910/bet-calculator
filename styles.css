@@ -253,11 +253,13 @@ td:nth-child(5) { width: 48px; }
 #betLedger .filters { align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; }
 #betLedger #betSearchInput { width: 190px; flex: 0 1 190px; }
 #betLedger .check-label { flex: 0 0 auto; white-space: nowrap; }
-.bet-table td:nth-child(1) { width: 76px; }
-.bet-table td:nth-child(2) { width: 80px; }
-.bet-table td:nth-child(3) { min-width: 280px; max-width: 560px; white-space: pre-wrap; }
-.bet-table td:nth-child(4), .bet-table td:nth-child(5) { width: 130px; }
-.bet-table td:nth-child(6) { width: 110px; }
+.bet-table { table-layout: fixed; min-width: 960px; }
+.bet-table th:nth-child(1), .bet-table td:nth-child(1) { width: 76px; }
+.bet-table th:nth-child(2), .bet-table td:nth-child(2) { width: 80px; }
+.bet-table td:nth-child(3) { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; }
+.bet-table th:nth-child(4), .bet-table th:nth-child(5), .bet-table td:nth-child(4), .bet-table td:nth-child(5) { width: 130px; overflow-wrap: anywhere; }
+.bet-table th:nth-child(6), .bet-table td:nth-child(6) { width: 110px; }
+.bet-table th:nth-child(7), .bet-table td:nth-child(7) { width: 58px; }
 .anomaly { color: var(--red); font-weight: 700; }
 .matched { color: var(--green); }
 .muted { color: var(--muted); }
