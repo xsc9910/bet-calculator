@@ -1836,6 +1836,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeStatedArithmeticTotals(text);
   text = text.replace(/(直选|组选|组六|组三|直组|单组)\s+((?<!\d)\d{3,10}(?:[ \t.、,，/\-]+\d{3,10})*)[ \t]+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$2 $1各$3$4');
   text = normalizeEachStakeWording(text);
+  text = text.replace(/(?<![零〇一二两三四五六七八九十百])(组选|组(?!三|六)|直选|直|单)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(组选|组(?!三|六)|直选|直|单)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g,
+    (match, first, a, second, b, unit) => (/组/.test(first) !== /组/.test(second)) ? `${first}${a}${unit} ${second}${b}${unit}` : match);
   text = text.replace(/[沾粘]边(?:赖)?/g, '粘边赖');
   text = text.replace(/(?:直选|直|单)\s*(?:和|与|、)\s*(?:组选|组)(?![三六])/g, '直组');
   text = text.replace(/(直选|组选|直组|单组|直|单|组)\s*(?:每个|个)\s*(?:打\s*)?(?=[零〇一二两三四五六七八九十百\d])/g, '$1各');
