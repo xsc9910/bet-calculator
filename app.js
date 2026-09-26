@@ -560,8 +560,13 @@ function showResult(result, values) {
   };
 }
 
+function normalizeStatedArithmeticTotals(text) {
+  return text.replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2');
+}
+
 function extractClaimedAmount(text) {
-  const clean = text.replace(/&#x20;|&nbsp;/gi, ' ');
+  const clean = normalizeStatedArithmeticTotals(text.replace(/&#x20;|&nbsp;/gi, ' '))
+    .replace(/(?:共|合计|总计|共计)?\s*\d+\s*注/g, ' ');
   const arithmeticTotal = [...clean.matchAll(/(?:^|\n)\s*(?:合计|总计|共计)?\s*(?:\d+(?:\.\d+)?\s*[+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*(?=$|\n)/g)];
   if (arithmeticTotal.length) {
     const last = arithmeticTotal[arithmeticTotal.length - 1];
@@ -578,7 +583,7 @@ function extractClaimedAmount(text) {
 
 function normalizedSingleBetNumberSource(text) {
   // Metadata is never a pick; preserve longer selections without splitting them.
-  const withoutTotals = text
+  const withoutTotals = normalizeStatedArithmeticTotals(text)
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块|注)?/g, ' ')
     .replace(/(?<!\d)\d+\s*注/g, ' ')
     .replace(/(?:注数|总注数)\s*[:：=＝]?\s*\d+/g, ' ')
@@ -1810,6 +1815,7 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = normalizeStatedArithmeticTotals(text);
   text = normalizeEachStakeWording(text);
   text = text.replace(/[沾粘]边(?:赖)?/g, '粘边赖');
   text = text.replace(/(?:直选|直|单)\s*(?:和|与|、)\s*(?:组选|组)(?![三六])/g, '直组');
