@@ -1840,6 +1840,8 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
+    (match, number, times, play) => `${number} ${play === '单' ? '直' : play}${times}倍`);
   text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
   text = text.replace(/((?:双飞|飞)\s*\d{2}|(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx]))\s*[，,]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1 $2$3');
   text = text.replace(/各\s*(\d+(?:\.\d+)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '各$1元 合计$2元')
