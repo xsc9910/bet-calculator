@@ -1780,6 +1780,8 @@ function calculateExplicitGroup3And6Money(text, claimed, lotteryFactor) {
 
 function ambiguousOriginalStake(text) {
   text = text.replace(/&#x(?:20|9);|&#(?:32|9);|&nbsp;/gi, ' ');
+  // Commas inside a clearly priced selection list are not missing-rate boundaries.
+  text = text.replace(/(?:独胆|独|双飞|飞)\s*\d{1,2}(?:\s*[，,、\-]\s*\d{1,2})+\s*各\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍)/g, clause => clause.replace(/[，,]/g, '、'));
   const unrecognizedSegment = text.split(/[；;\r\n]+/).map(segment => segment.trim()).find(segment => {
     const withoutMetadata = segment.replace(/\d+\s*(?:注|期)/g, '')
       .replace(/福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]/gi, '')
@@ -1825,6 +1827,7 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
   text = text.replace(/各\s*(\d+(?:\.\d+)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '各$1元 合计$2元')
     .replace(/((?:一直一组|一单一组|直组|单组)(?:\s*各?\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '$1 合计$2元')
     .replace(/((?:福彩|福|体彩|体|排三|排列三|3D)?\s*(?:双飞|飞))\s*\r?\n(?=\s*\d{2}(?!\d))/gi, '$1 ')
