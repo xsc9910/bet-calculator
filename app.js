@@ -1816,6 +1816,7 @@ function ambiguousOriginalStake(text) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeStatedArithmeticTotals(text);
+  text = text.replace(/(直选|组选|组六|组三|直组|单组)\s+((?<!\d)\d{3,10}(?:[ \t.、,，/\-]+\d{3,10})*)[ \t]+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$2 $1各$3$4');
   text = normalizeEachStakeWording(text);
   text = text.replace(/[沾粘]边(?:赖)?/g, '粘边赖');
   text = text.replace(/(?:直选|直|单)\s*(?:和|与|、)\s*(?:组选|组)(?![三六])/g, '直组');
