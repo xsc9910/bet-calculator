@@ -180,15 +180,17 @@ td:nth-child(5) { width: 48px; }
 .entry-mode-tabs { width: fit-content; margin: -8px 0 12px; display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 5px; background: #eef2ef; }
 .entry-mode-tabs button { min-width: 82px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .entry-mode-tabs button.active { background: white; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
-.entry-batch-controls { margin: 32px 0 12px; padding-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #e2e8e3; }
-.entry-batch-controls label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
-.entry-batch-controls select { width: min(230px, 34vw); min-width: 150px; }
+.entry-batch-controls { margin: 32px 0 12px; padding-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid #e2e8e3; }
+.entry-batch-controls label { display: flex; flex: 1 1 240px; min-width: 0; max-width: 100%; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.entry-batch-controls select { flex: 1 1 150px; width: 100%; min-width: 0; max-width: 230px; }
 .entry-batch-controls button { min-height: 36px; white-space: nowrap; }
 .raw-text-label { display: block !important; }
 .entry-mode-panel.hidden { display: none; }
-.entry-footer { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.entry-footer { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .entry-footer .calc-actions { flex: 0 0 auto; align-items: center; }
-.raw-entry .entry-auto-mode { position: absolute; z-index: 1; top: 64px; right: 30px; display: inline-flex; width: auto; padding: 5px 8px; gap: 7px; border-radius: 5px; background: rgba(255,255,255,.92); color: var(--ink); font-size: 13px; font-weight: 700; }
+.entry-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.raw-entry .entry-auto-mode { display: inline-flex; width: auto; margin-left: auto; padding: 5px 0; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.raw-entry .entry-auto-mode.hidden { display: none; }
 .inline-amounts { display: flex; justify-content: flex-end; gap: 24px; color: var(--muted); }
 .inline-amounts span { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
 .inline-amounts strong { min-width: 42px; color: var(--ink); font-size: 18px; font-variant-numeric: tabular-nums; text-align: right; }
@@ -307,8 +309,8 @@ td:nth-child(5) { width: 48px; }
   .amount-fields { grid-template-columns: 1fr; }
   .entry-footer { align-items: stretch; flex-direction: column; }
   .entry-batch-controls { align-items: stretch; flex-direction: column; }
-  .entry-batch-controls label { justify-content: space-between; }
-  .entry-batch-controls select { width: 100%; }
+  .entry-batch-controls label { flex: 0 1 auto; justify-content: space-between; }
+  .entry-batch-controls select { width: 100%; max-width: none; }
   .inline-amounts { justify-content: flex-start; }
   .manual-entry { align-items: center; }
   .calc-grid label, .calc-grid .wide, .custom-odds { grid-column: 1; }

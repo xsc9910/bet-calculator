@@ -56,19 +56,21 @@
       </div>
       <div class="intake-layout">
         <div class="raw-entry">
+          <div class="entry-toolbar">
           <div class="entry-mode-tabs" role="tablist" aria-label="录入方式">
             <button id="autoEntryTab" type="button" class="active" role="tab" aria-selected="true">自动计算</button>
             <button id="manualEntryTab" type="button" role="tab" aria-selected="false">手动录入</button>
+          </div>
+            <label id="entryAutoControl" class="switch-control entry-auto-mode">
+              <input id="autoMode" type="checkbox">
+              <span class="switch-track" aria-hidden="true"><span></span></span>
+              <span>自动计算</span>
+            </label>
           </div>
           <label class="raw-text-label">
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
           </label>
           <div id="autoEntryPanel" class="entry-mode-panel">
-            <label class="switch-control entry-auto-mode">
-              <input id="autoMode" type="checkbox">
-              <span class="switch-track" aria-hidden="true"><span></span></span>
-              <span>自动计算</span>
-            </label>
             <div class="entry-footer">
               <div class="calc-actions">
                 <button id="autoCalculate" class="primary">计算并记录</button>
