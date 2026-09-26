@@ -594,7 +594,12 @@ function extractThreeDigitNumbers(text) {
   return normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{3}(?!\d)/g) || [];
 }
 
+function normalizeEachStakeWording(text) {
+  return text.replace(/(?:各\s*(?:个|注)|每\s*(?:个|注)|个个)\s*(?:打\s*)?(?=[零〇一二两三四五六七八九十百\d])/g, '各');
+}
+
 function rateFromText(text) {
+  text = normalizeEachStakeWording(text);
   const digit = text.match(/(?:各(?:打)?|打)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   if (digit) return Number(digit[1]) * (['毛', '角'].includes(digit[2]) ? 0.1 : 1);
   const unitlessDecimal = text.match(/(?:每注|各(?:打)?|打)\s*(0?\.\d+)(?!\d)\s*(?:元|米|块)?/);
@@ -1778,6 +1783,7 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = normalizeEachStakeWording(text);
   text = text.replace(/[沾粘]边(?:赖)?/g, '粘边赖');
   text = text.replace(/(?:直选|直|单)\s*(?:和|与|、)\s*(?:组选|组)(?![三六])/g, '直组');
   text = text.replace(/(直选|组选|直组|单组|直|单|组)\s*(?:每个|个)\s*(?:打\s*)?(?=[零〇一二两三四五六七八九十百\d])/g, '$1各');
@@ -2063,6 +2069,7 @@ function numericValue(value) {
 }
 
 function playStake(text, kind) {
+  text = normalizeEachStakeWording(text);
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
   const leadingTimes = text.match(new RegExp(`([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍\\s*${keyword}`));
   if (leadingTimes) return numericValue(leadingTimes[1]) * 2;
