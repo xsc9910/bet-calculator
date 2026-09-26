@@ -77,6 +77,7 @@
                 <button id="clearBetInput">清空</button>
               </div>
               <div class="inline-amounts" aria-live="polite">
+                <span>注数 <strong id="actualNoteCountDisplay">--</strong></span>
                 <span>原金额 <strong id="claimedAmountDisplay">--</strong></span>
                 <span>计算金额 <strong id="calculatedAmountDisplay">--</strong></span>
               </div>
@@ -294,6 +295,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260926-compound-summary"></script>
+  <script src="app.js?v=20260926-actual-note-count"></script>
 </body>
 </html>

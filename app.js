@@ -2282,7 +2282,17 @@ function rebuildWinningEntries() {
   return automaticEntries.length;
 }
 
+function updateActualInputNoteCount() {
+  const text = $('rawBetText').value.trim();
+  const source = normalizedSingleBetNumberSource(text);
+  const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)位?\s*[:：]?\s*\d|独胆|胆|双?飞|对子|跨度|粘边|全包|和值|组三|组六|[Xx]/.test(text)
+    || /(?<!\d)\d{4,}(?!\d)/.test(source);
+  const count = unsupported ? 0 : extractThreeDigitNumbers(text).length;
+  $('actualNoteCountDisplay').textContent = count ? String(count) : '--';
+}
+
 function updateBetCheck() {
+  updateActualInputNoteCount();
   const amountRaw = $('calculatedBetAmount').value;
   const claimedRaw = $('claimedBetAmount').value;
   const status = $('betCheckStatus');
@@ -2382,6 +2392,7 @@ function runAutoBetCalculation({ record = false } = {}) {
       autoClearInputTimer = setTimeout(() => {
         if (rawInputVersion !== recordedVersion || $('rawBetText').value.trim() !== recordedText) return;
         $('rawBetText').value = '';
+        updateActualInputNoteCount();
         lastAutoRecordedText = '';
       }, 1000);
     }
@@ -2498,6 +2509,7 @@ let pasteCalcTimer;
 let pastePending = false;
 $('rawBetText').oninput = event => {
   rawInputVersion += 1;
+  updateActualInputNoteCount();
   if (currentEntryMode !== 'auto') return;
   clearTimeout(autoCalcTimer);
   if (pastePending || event.inputType === 'insertFromPaste') return;
