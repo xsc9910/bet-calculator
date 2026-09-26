@@ -960,6 +960,11 @@ function calculatePlainDigitPositionBet(text, claimed, lotteryFactor) {
       : `定位${digits.join('、')}各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function normalizePositionSelectionLists(text) {
+  return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*[,，、][ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
+    (match, label, digits) => `${label}${digits.replace(/\D/g, '')}`);
+}
+
 function calculatePositionBet(text, claimed, lotteryFactor) {
   if (!/(?:定位|百位?|十位?|个位?|个)/.test(text)) return null;
   const positionNames = { 百: '百位', 百位: '百位', 十: '十位', 十位: '十位', 个: '个位', 个位: '个位' };
@@ -1848,6 +1853,8 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = normalizePositionSelectionLists(text);
+  text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/[－﹣]/g, '-');
   text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
     (match, number, times, play) => `${number} ${play === '单' ? '直' : play}${times}倍`);
@@ -2228,7 +2235,7 @@ function makeWinningEntry(entry, lottery, playName, hit, stake, odds, index) {
 }
 
 function scanEntryForDraw(entry, lottery, draw) {
-  const text = String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖');
+  const text = normalizePositionSelectionLists(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖'));
   if (!entryLotteryTargets(entry).includes(lottery) || !/^\d{3}$/.test(draw)) return [];
   const wins = [];
   const drawDigits = draw.split('');
