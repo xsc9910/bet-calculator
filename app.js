@@ -1416,6 +1416,19 @@ function calculateDashedIndividualMoneyBet(text, claimed, lotteryFactor) {
     reasons: [`双横线单项金额：${details.map(item => `${item.play}${item.number}=${item.amount}元`).join(' + ')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateItemizedSingleMoney(text, claimed, lotteryFactor) {
+  const source = text.replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
+  const pattern = /(?<!\d)(\d{3}(?:[ \t、,，.\-]+\d{3})*)\s*(直选|直|单|组选|组(?!三|六))\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
+  const matches = [...source.matchAll(pattern)];
+  if (matches.length < 2) return null;
+  const remainder = source.replace(pattern, '').replace(/福彩|福|体彩|体|排列三|排三|排|3\s*D|三地/gi, '').replace(/[\s。.;；、,，:：]/g, '');
+  if (remainder) return null;
+  const parts = matches.map(match => ({ numbers: match[1].match(/\d{3}/g), play: match[2], rate: chineseAmount(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1) }));
+  const amount = parts.reduce((sum, part) => sum + part.numbers.length * part.rate, 0) * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`单式分别按本段金额：${parts.map(part => `${part.numbers.join('、')}${part.play}各${part.rate}元 = ${Number((part.numbers.length * part.rate).toFixed(2))}元`).join('；')}`] };
+}
+
 function calculateNormalizedBasicSingleBet(text, claimed, lotteryFactor) {
   // 仅处理基础三位单式；复式、定位、飞、胆拖等保留给各自的专用解析器。
   if (/(?:飞|胆拖|定位|独胆|对子|跨度|复式|复试|转圈|粘边赖|豹子|和值|组六|组三)/.test(text)) return null;
@@ -2017,6 +2030,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (trailingDirectGroupMoney) return trailingDirectGroupMoney;
   const explicitDirectGroupMoneyBet = calculateExplicitDirectGroupMoneyBet(clean, claimed, lotteryFactor);
   if (explicitDirectGroupMoneyBet) return explicitDirectGroupMoneyBet;
+  const itemizedSingleMoney = calculateItemizedSingleMoney(clean, claimed, lotteryFactor);
+  if (itemizedSingleMoney) return itemizedSingleMoney;
   const normalizedBasicSingleBet = calculateNormalizedBasicSingleBet(clean, claimed, lotteryFactor);
   if (normalizedBasicSingleBet) return normalizedBasicSingleBet;
   const leadingPlayTailRateBet = calculateLeadingPlayTailRateBet(clean, claimed, lotteryFactor);
