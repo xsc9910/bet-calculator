@@ -1085,6 +1085,13 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
 }
 
 function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
+  const listed = text.match(/(?<!\d)(\d{2}(?:[\s、,，.\/\-]+\d{2})*)\s*组三\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
+  if (listed && !/直|单|飞|拖|组六/.test(text)) {
+    const pairs = listed[1].match(/\d{2}/g);
+    const rate = chineseAmount(listed[2]) * (listed[3] === '倍' ? 10 : ['毛', '角'].includes(listed[3]) ? 0.1 : 1);
+    return { amount: Number((pairs.length * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
+      reasons: [`两码组三${pairs.length}组（${pairs.join('、')}） × 每组${rate}元`] };
+  }
   if (!/二码组三/.test(text)) return null;
   const scrubbed = text
     .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
@@ -1841,6 +1848,7 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = text.replace(/[－﹣]/g, '-');
   text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
     (match, number, times, play) => `${number} ${play === '单' ? '直' : play}${times}倍`);
   text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
