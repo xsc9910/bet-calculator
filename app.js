@@ -867,7 +867,7 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
   const amount = sets.length * ((group6Stake || 0) + (group3Stake || 0)) * lotteryFactor;
   const labels = [hasGroup6 ? `组六${group6Stake}元` : '', hasGroup3 ? `组三${group3Stake}元` : ''].filter(Boolean).join(' + ');
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${sets.length}组复式号码 ×（${labels}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [`${sets.length}组完整组选号码（${sets.join('、')}） ×（${labels}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；按明确的组三/组六计价，不按直选复式或拆成三位单式`] };
 }
 
 function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
