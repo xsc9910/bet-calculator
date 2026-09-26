@@ -1267,7 +1267,7 @@ function calculateMultilineCompound(text, claimed) {
   let rawLines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
     .filter(line => !/^(?:直选|直|组选|组)\s*\d+\s*注$/.test(line));
   if (rawLines.length < 2) return null;
-  const playLine = /(飞|直选|直|单|组选|组|组六|组三|定位|独胆|胆|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/;
+  const playLine = /(飞|直选|直|单|组选|组|组六|组三|定位|百位|十位|个位|独胆|胆|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/;
   // 逗号之后的纯号码可属于下一行的玩法，不能套用逗号之前的倍率。
   rawLines = rawLines.flatMap((line, index) => {
     const split = line.match(/^(.*)[，,；;]\s*(\d{3}(?:[\s、.\-]+\d{3})*)$/);
