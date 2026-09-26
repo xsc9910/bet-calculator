@@ -975,6 +975,12 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
 
   if (allThree) {
     const combinations = positions.reduce((total, position) => total * (position.values === '全部' ? 10 : position.values.length), 1);
+    if (eachRate != null && !/(?:直选|直|复式|复试)/.test(text) && positions.length === 3
+      && positions.filter(position => position.values.length === 1).length >= 2 && positions.every(position => position.values !== '全部')) {
+      const itemCount = positions.reduce((sum, position) => sum + new Set(position.values).size, 0);
+      return { amount: Number((itemCount * eachRate * lotteryFactor).toFixed(2)), claimed, confident: true,
+        reasons: [`一码定位分别投注：${positions.map(position => `${position.name}${position.values}`).join('、')}，共${itemCount}项 × 每项${eachRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写直选，不按三位组合连乘`] };
+    }
     if (eachRate != null) {
       const amount = combinations * eachRate * lotteryFactor;
       return { amount: Number(amount.toFixed(2)), claimed, confident: true,
@@ -2429,6 +2435,7 @@ function runAutoBetCalculation({ record = false } = {}) {
     && result.claimed != null && Math.round(Number(result.amount) * 100) !== Math.round(Number(result.claimed) * 100);
   if (amountMismatch) {
     renderBetParseDetails(result, detectedLotteries, '金额不一致，未记录。请核对原文，或切换“手动录入”填写确认后的金额。');
+    if (record) toast('金额不一致，未记录。请查看试算依据，或切换手动录入确认金额。');
     return;
   }
   if (record && result.confident && result.amount !== '') {
