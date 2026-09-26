@@ -646,7 +646,7 @@ function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
     .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
     .replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:元|米)?/g, ' ')
     .replace(/[（(]\s*\d+(?:\.\d+)?\s*[）)]/g, ' ')
-    .replace(/(?:各(?:打)?|打)?\s*(?:\d+(?:\.\d+)?|[一二两三四五六七八九十]+)\s*(?:倍|元|米|块|毛)/g, ' ');
+    .replace(/(?:各(?:打)?|打)?\s*(?:\d+(?:\.\d+)?|[一二两三四五六七八九十]+)\s*(?:倍|元|米|块|毛|角)/g, ' ');
   const pairs = withoutMetadata.match(/(?<!\d)\d{2}(?!\d)/g) || [];
   if (!pairs.length) return null;
 
@@ -1828,6 +1828,7 @@ function ambiguousOriginalStake(text) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
+  text = text.replace(/((?:双飞|飞)\s*\d{2}|(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx]))\s*[，,]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1 $2$3');
   text = text.replace(/各\s*(\d+(?:\.\d+)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '各$1元 合计$2元')
     .replace(/((?:一直一组|一单一组|直组|单组)(?:\s*各?\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '$1 合计$2元')
     .replace(/((?:福彩|福|体彩|体|排三|排列三|3D)?\s*(?:双飞|飞))\s*\r?\n(?=\s*\d{2}(?!\d))/gi, '$1 ')
@@ -1914,12 +1915,12 @@ function autoCalculateBet(text, allowCompound = true) {
     }
   }
 
-  const wildcardCodes = clean.match(/(?<![0-9Xx])(?:\d{2}[Xx]|\d[Xx]\d|[Xx]\d{2})(?![0-9Xx])/g) || [];
+  const wildcardCodes = (clean.match(/(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])/g) || []).filter(code => /\d/.test(code) && /[Xx]/.test(code));
   const wildcardMoney = clean.match(/各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   if (wildcardCodes.length && /定位/.test(clean) && wildcardMoney && !/(飞|组|单|直|胆拖|跨度)/.test(clean)) {
     const rate = chineseAmount(wildcardMoney[1]) * (['毛', '角'].includes(wildcardMoney[2]) ? 0.1 : 1);
     return { amount: Number((wildcardCodes.length * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
-      reasons: [`两码定位${wildcardCodes.length}注 × 每注${rate}元`] };
+      reasons: [`定位${wildcardCodes.length}项（${wildcardCodes.map(code => code.toUpperCase()).join('、')}） × 每项${rate}元`] };
   }
 
   const purchaseOrTwoCodeFixedMoney = calculatePurchaseOrTwoCodeFixedMoney(clean, claimed, lotteryFactor);
