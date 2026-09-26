@@ -1140,7 +1140,8 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
 function calculateDelimitedCompound(text, claimed) {
   if (/\r?\n/.test(text)) return null;
   // 中文句号也常用于分隔同一条中的不同玩法。
-  const segments = text.split(/[，,；;。、]/).map(segment => segment.trim()).filter(Boolean);
+  const segments = text.split(/[，,；;。、]/).map(segment => segment.trim()).filter(segment => segment
+    && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(segment));
   for (let index = 0; index + 1 < segments.length; index += 1) {
     if (/(?:独胆|胆)\s*\d$/.test(segments[index]) && /^\d+(?:\.\d+)?$/.test(segments[index + 1])) {
       segments.splice(index, 2, `${segments[index]} ${segments[index + 1]}元`);
