@@ -463,6 +463,17 @@ function runStandaloneFormulaComparison() {
   result.textContent = lines.join('\n');
 }
 
+function resizeStandaloneFormulaInputs() {
+  document.querySelectorAll('#standaloneCurrentFormula, #standaloneExternalFormula').forEach(textarea => {
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.max(110, textarea.scrollHeight)}px`;
+  });
+}
+
+['standaloneCurrentFormula', 'standaloneExternalFormula'].forEach(id => {
+  if ($(id)) $(id).addEventListener('input', resizeStandaloneFormulaInputs);
+});
+
 if ($('runStandaloneCompare')) $('runStandaloneCompare').onclick = runStandaloneFormulaComparison;
 if ($('clearStandaloneCompare')) $('clearStandaloneCompare').onclick = () => {
   $('standaloneCurrentFormula').value = '';
@@ -474,7 +485,9 @@ if ($('clearStandaloneCompare')) $('clearStandaloneCompare').onclick = () => {
   $('standaloneCurrentPreview').className = 'dialog-formula muted'; $('standaloneCurrentPreview').textContent = '等待输入';
   $('standaloneExternalPreview').className = 'dialog-formula muted'; $('standaloneExternalPreview').textContent = '等待输入';
   $('standaloneCompareResult').className = 'compare-result neutral'; $('standaloneCompareResult').textContent = '请输入两份金额合计后开始对比';
+  resizeStandaloneFormulaInputs();
 };
+resizeStandaloneFormulaInputs();
 
 function formatBetTime(value) {
   if (!value) return '历史记录';
