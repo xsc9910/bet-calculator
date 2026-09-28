@@ -169,7 +169,7 @@ td:nth-child(5) { width: 48px; }
 .standalone-compare-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .standalone-formula-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .standalone-formula-previews > div { display: grid; gap: 7px; }
-.standalone-compare .dialog-formula { max-height: none; overflow: visible; }
+.standalone-compare .dialog-formula { display: block; height: auto; max-height: none; overflow: visible; }
 
 @media (max-width: 560px) {
   .comparison-totals { grid-template-columns: 1fr; }
