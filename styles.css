@@ -184,14 +184,20 @@ td:nth-child(5) { width: 48px; }
 .multi-hint { margin: 8px 0 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .multi-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .multi-summary { margin-top: 14px; padding: 10px 12px; border-radius: 5px; background: #f0f5f1; color: var(--ink); font-size: 13px; line-height: 1.6; }
-.multi-results { max-height: 550px; margin-top: 12px; display: grid; align-content: start; gap: 10px; overflow-y: auto; }
-.multi-result { padding: 11px 12px; border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 5px; background: #fff; }
+.multi-results { max-height: 550px; margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 10px; overflow-y: auto; }
+.multi-result { min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 5px; background: #fff; }
 .multi-result.blocked, .multi-result.mismatch { border-left-color: var(--red); background: #fff8f7; }
 .multi-result.recorded { opacity: .65; border-left-color: #8b9b90; }
-.multi-result-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.multi-result-top strong { min-width: 0; flex: 1; overflow-wrap: anywhere; }
-.multi-result-top span { color: var(--muted); white-space: nowrap; }
-.multi-result.blocked .multi-result-top span, .multi-result.mismatch .multi-result-top span { color: var(--red); font-weight: 700; }
+.multi-result-top { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(72px, max-content); align-items: start; gap: 8px; font-size: 13px; }
+.multi-result-top input[type="checkbox"] { width: 18px; height: 18px; min-width: 18px; padding: 0; margin: 0; }
+.multi-result-heading { min-width: 0; display: grid; gap: 3px; line-height: 1.45; }
+.multi-result-heading strong { overflow-wrap: anywhere; }
+.multi-result-heading span { color: var(--muted); }
+.multi-result.blocked .multi-result-heading span, .multi-result.mismatch .multi-result-heading span { color: var(--red); font-weight: 700; }
+.multi-result-calculated { min-width: 72px; display: grid; justify-items: end; gap: 2px; text-align: right; font-variant-numeric: tabular-nums; }
+.multi-result-calculated span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.multi-result-calculated strong { color: var(--green); font-size: 20px; line-height: 1.2; white-space: nowrap; }
+.multi-result.blocked .multi-result-calculated strong { color: var(--muted); }
 .multi-result pre { margin: 9px 0; font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .multi-result-amounts { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .multi-result-reason { margin-top: 8px; padding: 8px; color: var(--red); background: var(--red-soft); font-size: 13px; line-height: 1.5; }
