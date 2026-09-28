@@ -163,10 +163,17 @@ td:nth-child(5) { width: 48px; }
 .compare-result.ok { color: var(--green); background: var(--green-soft); }
 .compare-result.warn { color: var(--red); background: var(--red-soft); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.standalone-compare { display: grid; gap: 16px; padding: 20px; background: white; border: 1px solid var(--line); border-radius: 7px; }
+.standalone-compare-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.standalone-compare-fields textarea { min-height: 110px; resize: vertical; }
+.standalone-compare-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.standalone-formula-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.standalone-formula-previews > div { display: grid; gap: 7px; }
 
 @media (max-width: 560px) {
   .comparison-totals { grid-template-columns: 1fr; }
   .dialog-shell { padding: 16px; }
+  .standalone-compare-fields, .standalone-formula-previews { grid-template-columns: 1fr; }
 }
 
 .intake-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); gap: 16px; }

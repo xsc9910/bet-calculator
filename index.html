@@ -45,6 +45,7 @@
       <button class="tab" data-tab="ledger">中奖清单</button>
       <button class="tab" data-tab="calculator">核奖计算器</button>
       <button class="tab" data-tab="odds">赔率表</button>
+      <button class="tab" data-tab="compare">合计对比</button>
     </nav>
 
     <section id="intake" class="panel active">
@@ -251,6 +252,50 @@
           <li>未标明彩票时按福彩3D，未标明组三或组六时按组六，未标明直选或组选时按组选。</li>
           <li>福彩3D与体彩排列三分别使用本页对应的赔率表核奖。</li>
         </ul>
+      </div>
+    </section>
+
+    <section id="compare" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>合计对比</h2>
+          <p>手动粘贴两份金额合计，比较总额及加数差异。</p>
+        </div>
+      </div>
+      <div class="standalone-compare">
+        <div class="comparison-totals">
+          <div id="standaloneCurrentTotalBox" class="dialog-current-total">
+            <span>当前合计</span>
+            <strong id="standaloneCurrentTotal">--</strong>
+          </div>
+          <div id="standaloneExternalTotalBox" class="dialog-current-total external">
+            <span>对比合计</span>
+            <strong id="standaloneExternalTotal">--</strong>
+          </div>
+        </div>
+        <div class="standalone-compare-fields">
+          <label class="compare-field">当前合计
+            <textarea id="standaloneCurrentFormula" rows="5" placeholder="例如：14+8+20=42，或直接填写42"></textarea>
+          </label>
+          <label class="compare-field">对比合计
+            <textarea id="standaloneExternalFormula" rows="5" placeholder="例如：14+8+18=40，或直接填写40"></textarea>
+          </label>
+        </div>
+        <div class="standalone-compare-actions">
+          <button id="runStandaloneCompare" type="button" class="primary">开始对比</button>
+          <button id="clearStandaloneCompare" type="button">清空</button>
+        </div>
+        <div class="standalone-formula-previews">
+          <div>
+            <span class="formula-preview-label">当前算式</span>
+            <code id="standaloneCurrentPreview" class="dialog-formula muted">等待输入</code>
+          </div>
+          <div>
+            <span class="formula-preview-label">对比算式</span>
+            <code id="standaloneExternalPreview" class="dialog-formula muted">等待输入</code>
+          </div>
+        </div>
+        <div id="standaloneCompareResult" class="compare-result neutral">请输入两份金额合计后开始对比</div>
       </div>
     </section>
   </main>
