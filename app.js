@@ -2654,15 +2654,6 @@ function multiSourceFingerprint(source) {
   return `${source.length}-${hash >>> 0}`;
 }
 
-function multiResultExplanation(item) {
-  if (!item.result.confident) return '存在未确认的玩法或金额，不能自动记录。';
-  if (item.mismatch) return `计算金额${money(Number(item.result.amount))}元，与原报${money(Number(item.result.claimed))}元不一致。`;
-  const numbers = extractThreeDigitNumbers(item.body);
-  const repeated = [...new Set(numbers.filter((number, index) => numbers.indexOf(number) !== index))];
-  if (repeated.length) return `${repeated.join('、')}重复出现，已按原文逐注分别计算。`;
-  return '已按原文识别出的玩法、注数和投注额度计算。';
-}
-
 function renderMultiBetPreview() {
   const host = $('multiBetResults');
   host.replaceChildren();
@@ -2689,13 +2680,9 @@ function renderMultiBetPreview() {
     const heading = document.createElement('div');
     heading.className = 'multi-result-heading';
     const title = document.createElement('strong');
-    const statusTitle = item.recorded ? '已记录'
-      : !item.result.confident ? '待人工处理'
-      : item.mismatch ? `原报${anomalyFor({amount: item.result.amount, claimed: item.result.claimed})}`
-      : '原报正确';
-    title.textContent = `第${index + 1}条｜合计：${item.result.amount === '' ? '--' : money(Number(item.result.amount))}元｜${statusTitle}`;
+    title.textContent = `第${index + 1}条${item.sender ? ` · ${item.sender}` : ''}${item.time ? ` · ${item.time}` : ''}`;
     const state = document.createElement('span');
-    state.textContent = `${item.sender ? item.sender : '未标注发送人'}${item.time ? ` · ${item.time}` : ''}`;
+    state.textContent = item.recorded ? '已记录' : !item.result.confident ? '需人工处理' : item.mismatch ? '金额不一致' : '可记录';
     heading.append(title, state);
     const calculated = document.createElement('div');
     calculated.className = 'multi-result-calculated';
@@ -2707,29 +2694,10 @@ function renderMultiBetPreview() {
     top.append(checkbox, heading, calculated);
     const body = document.createElement('pre');
     body.textContent = item.body;
-    const originalLine = document.createElement('div');
-    originalLine.className = 'multi-result-line multi-result-original';
-    const originalLabel = document.createElement('b');
-    originalLabel.textContent = '原文：';
-    originalLine.append(originalLabel, body);
-    const calculationLine = document.createElement('div');
-    calculationLine.className = 'multi-result-line';
-    const calculationLabel = document.createElement('b');
-    calculationLabel.textContent = '核算：';
-    const calculationText = document.createElement('span');
-    calculationText.textContent = item.result.reasons?.join('；') || '等待确认投注玩法。';
-    calculationLine.append(calculationLabel, calculationText);
-    const explanationLine = document.createElement('div');
-    explanationLine.className = 'multi-result-line';
-    const explanationLabel = document.createElement('b');
-    explanationLabel.textContent = '说明：';
-    const explanationText = document.createElement('span');
-    explanationText.textContent = multiResultExplanation(item);
-    explanationLine.append(explanationLabel, explanationText);
     const amounts = document.createElement('div');
     amounts.className = 'multi-result-amounts';
     amounts.textContent = `彩票：${item.lotteries.join(' + ')}  ·  原金额：${item.result.claimed === '' || item.result.claimed == null ? '--' : money(Number(item.result.claimed))}${item.mismatch ? `  ·  ${anomalyFor({amount: item.result.amount, claimed: item.result.claimed})}` : ''}`;
-    card.append(top, originalLine, calculationLine, explanationLine, amounts);
+    card.append(top, body, amounts);
     if (!item.result.confident) {
       const why = document.createElement('div');
       why.className = 'multi-result-reason';
