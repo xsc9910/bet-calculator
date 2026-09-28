@@ -181,6 +181,22 @@ td:nth-child(5) { width: 48px; }
 .entry-mode-tabs { width: fit-content; margin: -8px 0 12px; display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 5px; background: #eef2ef; }
 .entry-mode-tabs button { min-width: 82px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .entry-mode-tabs button.active { background: white; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
+.multi-hint { margin: 8px 0 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.multi-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.multi-summary { margin-top: 14px; padding: 10px 12px; border-radius: 5px; background: #f0f5f1; color: var(--ink); font-size: 13px; line-height: 1.6; }
+.multi-results { max-height: 550px; margin-top: 12px; display: grid; align-content: start; gap: 10px; overflow-y: auto; }
+.multi-result { padding: 11px 12px; border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 5px; background: #fff; }
+.multi-result.blocked, .multi-result.mismatch { border-left-color: var(--red); background: #fff8f7; }
+.multi-result.recorded { opacity: .65; border-left-color: #8b9b90; }
+.multi-result-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.multi-result-top strong { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.multi-result-top span { color: var(--muted); white-space: nowrap; }
+.multi-result.blocked .multi-result-top span, .multi-result.mismatch .multi-result-top span { color: var(--red); font-weight: 700; }
+.multi-result pre { margin: 9px 0; font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.multi-result-amounts { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.multi-result-reason { margin-top: 8px; padding: 8px; color: var(--red); background: var(--red-soft); font-size: 13px; line-height: 1.5; }
+.multi-manual-button { margin-top: 8px; min-height: 31px; font-size: 12px; }
+.chat-source { display: block; margin-bottom: 4px; color: #62776a; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .entry-batch-controls { margin: 32px 0 12px; padding-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid #e2e8e3; }
 .entry-batch-controls label { display: flex; flex: 1 1 240px; min-width: 0; max-width: 100%; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .entry-batch-controls select { flex: 1 1 150px; width: 100%; min-width: 0; max-width: 230px; }

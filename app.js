@@ -215,7 +215,7 @@ function renderBetLedger() {
   const anomalyOnly = $('onlyAnomalies').checked;
   const visible = selectedEntries.filter(e => {
     const anomaly = anomalyFor(e);
-    return (!anomalyOnly || anomaly) && (!q || `${e.record} ${e.original || ''} ${anomaly}`.toLowerCase().includes(q));
+    return (!anomalyOnly || anomaly) && (!q || `${e.record} ${e.original || ''} ${e.sender || ''} ${e.messageTime || ''} ${anomaly}`.toLowerCase().includes(q));
   }).sort((a, b) => Number(b.record) - Number(a.record));
   $('betLedgerBody').innerHTML = visible.length ? visible.map(e => {
     const anomaly = anomalyFor(e);
@@ -223,7 +223,7 @@ function renderBetLedger() {
     return `<tr>
       <td>第${e.record}条</td>
       <td><span class="tag ${targets.length > 1 ? 'mixed' : targets[0] === '体彩' ? 'sports' : 'welfare'}">${targets.length > 1 ? '福+体' : targets[0]}</span></td>
-      <td>${e.original ? escapeHtml(e.original) : '<span class="muted">历史金额记录</span>'}</td>
+      <td>${e.sender || e.messageTime ? `<small class="chat-source">${escapeHtml([e.sender, e.messageTime].filter(Boolean).join(' · '))}</small>` : ''}${e.original ? escapeHtml(e.original) : '<span class="muted">历史金额记录</span>'}</td>
       <td><span class="readonly-amount">${money(Number(e.amount) || 0)}</span></td>
       <td><span class="readonly-amount ${e.claimed === '' || e.claimed == null ? 'muted' : ''}">${e.claimed === '' || e.claimed == null ? '--' : money(Number(e.claimed))}</span></td>
       <td class="${anomaly ? 'anomaly' : 'matched'}">${anomaly || '相符'}</td>
@@ -407,7 +407,7 @@ function renderBetPreview() {
         <span class="batch-tag">${batchLabel(entryBatchId(entry))}</span>
         <span class="tag ${targets.length > 1 ? 'mixed' : targets[0] === '体彩' ? 'sports' : 'welfare'}">${targets.length > 1 ? '福+体' : targets[0]}</span>
       </div>
-      <div class="bet-preview-copy">${escapeHtml(entry.original)}</div>
+      <div class="bet-preview-copy">${entry.sender || entry.messageTime ? `<small class="chat-source">${escapeHtml([entry.sender, entry.messageTime].filter(Boolean).join(' · '))}</small>` : ''}${escapeHtml(entry.original)}</div>
       <div class="bet-preview-result">
         <strong>${money(Number(entry.amount) || 0)}</strong>
         <span class="${anomaly ? 'preview-anomaly' : 'preview-ok'}">${anomaly || '金额相符'}</span>
@@ -2589,23 +2589,205 @@ $('betPreviewList').onclick = event => {
 $('calculatedBetAmount').oninput = updateBetCheck;
 $('claimedBetAmount').oninput = updateBetCheck;
 let currentEntryMode = 'auto';
+let multiPreview = [];
+let multiPreviewSource = '';
+const multiRecordedKeys = new Set();
+
+function isChatTimeLine(line) {
+  return /^(?:\d{4}年\d{1,2}月\d{1,2}日|\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}(?::\d{2})?$/.test(line.trim());
+}
+
+function isChatSenderLine(line) {
+  const value = line.trim();
+  return value.length > 0 && value.length <= 40 && !/\d{3}|直选|组选|组六|组三|独胆|双飞|\d+\s*(?:米|元|倍|块|毛|角)/i.test(value);
+}
+
+function splitMultiBetMessages(source) {
+  const input = source.replace(/\r\n?/g, '\n').replace(/&#x20;|&nbsp;/gi, ' ').trim();
+  if (!input) return [];
+  const lines = input.split('\n');
+  const timed = lines.some(isChatTimeLine);
+  let chunks = [];
+  if (timed) {
+    let current = {sender: '', time: '', body: []};
+    const push = () => {
+      const body = current.body.join('\n').trim();
+      if (body) chunks.push({sender: current.sender, time: current.time, body});
+    };
+    for (const line of lines) {
+      if (isChatTimeLine(line)) {
+        let sender = '';
+        while (current.body.length && !current.body[current.body.length - 1].trim()) current.body.pop();
+        const candidate = current.body[current.body.length - 1] || '';
+        if (isChatSenderLine(candidate)) sender = current.body.pop().trim();
+        push();
+        current = {sender, time: line.trim(), body: []};
+      } else current.body.push(line);
+    }
+    push();
+  } else {
+    chunks = input.split(/\n\s*\n+/).map(body => ({sender: '', time: '', body: body.trim()}));
+  }
+  const joined = [];
+  for (const chunk of chunks) {
+    if (/^(?:共计?|合计|总计|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/.test(chunk.body) && joined.length && (!chunk.sender || chunk.sender === joined[joined.length - 1].sender)) {
+      joined[joined.length - 1].body += `\n${chunk.body}`;
+    } else if (/^(?:福|福彩|体|体彩|排三|排列三|3D|三D)\s*$/i.test(chunk.body)) {
+      joined.push({...chunk, prefixOnly: true});
+    } else if (joined.length && joined[joined.length - 1].prefixOnly && (!chunk.sender || chunk.sender === joined[joined.length - 1].sender)) {
+      const preceding = joined[joined.length - 1];
+      preceding.body += `\n${chunk.body}`;
+      preceding.prefixOnly = false;
+      preceding.sender = chunk.sender || preceding.sender;
+      preceding.time = chunk.time || preceding.time;
+    } else joined.push(chunk);
+  }
+  return joined;
+}
+
+function multiSourceFingerprint(source) {
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${source.length}-${hash >>> 0}`;
+}
+
+function renderMultiBetPreview() {
+  const host = $('multiBetResults');
+  host.replaceChildren();
+  const pending = multiPreview.filter(item => !item.recorded);
+  const ready = pending.filter(item => item.result.confident && item.result.amount !== '');
+  const blocked = pending.length - ready.length;
+  const selected = ready.filter(item => item.selected);
+  const selectedTotal = selected.reduce((sum, item) => sum + Number(item.result.amount), 0);
+  $('multiBetSummary').textContent = multiPreview.length
+    ? `拆出${multiPreview.length}条；可计算${ready.length}条，待人工处理${blocked}条；当前选中${selected.length}条，计算金额合计${money(selectedTotal)}。`
+    : '尚未拆分';
+  $('recordMultiBets').disabled = selected.length === 0;
+  multiPreview.forEach((item, index) => {
+    const card = document.createElement('article');
+    card.className = `multi-result ${item.recorded ? 'recorded' : !item.result.confident ? 'blocked' : item.mismatch ? 'mismatch' : 'ready'}`;
+    const top = document.createElement('div');
+    top.className = 'multi-result-top';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = item.selected;
+    checkbox.disabled = item.recorded || !item.result.confident || item.result.amount === '';
+    checkbox.setAttribute('aria-label', `选择第${index + 1}条`);
+    checkbox.onchange = () => { item.selected = checkbox.checked; renderMultiBetPreview(); };
+    const heading = document.createElement('strong');
+    heading.textContent = `第${index + 1}条${item.sender ? ` · ${item.sender}` : ''}${item.time ? ` · ${item.time}` : ''}`;
+    const state = document.createElement('span');
+    state.textContent = item.recorded ? '已记录' : !item.result.confident ? '需人工处理' : item.mismatch ? '金额不一致' : '可记录';
+    top.append(checkbox, heading, state);
+    const body = document.createElement('pre');
+    body.textContent = item.body;
+    const amounts = document.createElement('div');
+    amounts.className = 'multi-result-amounts';
+    amounts.textContent = `彩票：${item.lotteries.join(' + ')}  ·  计算金额：${item.result.amount === '' ? '--' : money(Number(item.result.amount))}  ·  原金额：${item.result.claimed === '' || item.result.claimed == null ? '--' : money(Number(item.result.claimed))}${item.mismatch ? `  ·  ${anomalyFor({amount: item.result.amount, claimed: item.result.claimed})}` : ''}`;
+    card.append(top, body, amounts);
+    if (!item.result.confident) {
+      const why = document.createElement('div');
+      why.className = 'multi-result-reason';
+      why.textContent = (item.result.needs || item.result.reasons || ['无法确认投注玩法或金额']).join('；');
+      card.append(why);
+      if (!item.recorded) {
+        const manualButton = document.createElement('button');
+        manualButton.type = 'button';
+        manualButton.className = 'multi-manual-button';
+        manualButton.textContent = '转到单条手动处理';
+        manualButton.onclick = () => {
+          $('rawBetText').value = item.body;
+          $('manualBetAmount').value = '';
+          setEntryMode('manual');
+          $('rawBetText').focus();
+        };
+        card.append(manualButton);
+      }
+    }
+    host.append(card);
+  });
+}
+
+$('multiBetText').oninput = () => {
+  multiPreview = [];
+  multiPreviewSource = '';
+  renderMultiBetPreview();
+};
+$('parseMultiBets').onclick = () => {
+  const source = $('multiBetText').value.trim();
+  if (!source) { toast('请先粘贴聊天记录'); return; }
+  const chunks = splitMultiBetMessages(source);
+  const fingerprint = multiSourceFingerprint(source);
+  multiPreview = chunks.map((chunk, index) => {
+    const result = autoCalculateBet(chunk.body);
+    const mismatch = result.confident && result.amount !== '' && result.claimed !== '' && result.claimed != null
+      && Math.round(Number(result.amount) * 100) !== Math.round(Number(result.claimed) * 100);
+    const recordKey = `${activeBetBatchId}|${fingerprint}|${index}|${chunk.body}`;
+    const recorded = multiRecordedKeys.has(recordKey);
+    return {...chunk, result, mismatch, lotteries: lotteryTargets(chunk.body), selected: !recorded && result.confident && result.amount !== '' && !mismatch, recorded, recordKey};
+  });
+  multiPreviewSource = source;
+  renderMultiBetPreview();
+};
+$('recordMultiBets').onclick = () => {
+  if (!multiPreview.length || multiPreviewSource !== $('multiBetText').value.trim()) { toast('内容已变化，请重新拆分试算'); return; }
+  const chosen = multiPreview.filter(item => item.selected && !item.recorded && item.result.confident && item.result.amount !== '');
+  if (!chosen.length) { toast('请先选择可记录的条目'); return; }
+  for (const item of chosen) {
+    betEntries.push({
+      id: `bet-multi-${Date.now()}-${betEntries.length}`,
+      record: betEntries.length + 1,
+      original: item.body,
+      amount: Number(item.result.amount),
+      claimed: item.result.claimed === '' || item.result.claimed == null ? '' : Number(item.result.claimed),
+      lotteries: item.lotteries,
+      batchId: activeBetBatchId,
+      createdAt: new Date().toISOString(),
+      sender: item.sender,
+      messageTime: item.time
+    });
+    item.recorded = true;
+    item.selected = false;
+    multiRecordedKeys.add(item.recordKey);
+  }
+  saveBetEntries();
+  render();
+  renderMultiBetPreview();
+  toast(`已记录${chosen.length}条，未选中及待处理条目仍保留`);
+};
+$('clearMultiBets').onclick = () => {
+  $('multiBetText').value = '';
+  multiPreview = [];
+  multiPreviewSource = '';
+  multiRecordedKeys.clear();
+  renderMultiBetPreview();
+};
 function setEntryMode(mode) {
   currentEntryMode = mode;
   const automatic = mode === 'auto';
+  const manual = mode === 'manual';
+  const multiple = mode === 'multi';
   $('autoEntryTab').classList.toggle('active', automatic);
-  $('manualEntryTab').classList.toggle('active', !automatic);
+  $('manualEntryTab').classList.toggle('active', manual);
+  $('multiEntryTab').classList.toggle('active', multiple);
   $('autoEntryTab').setAttribute('aria-selected', String(automatic));
-  $('manualEntryTab').setAttribute('aria-selected', String(!automatic));
+  $('manualEntryTab').setAttribute('aria-selected', String(manual));
+  $('multiEntryTab').setAttribute('aria-selected', String(multiple));
+  $('singleRawTextWrapper').classList.toggle('hidden', multiple);
   $('autoEntryPanel').classList.toggle('hidden', !automatic);
   $('entryAutoControl').classList.toggle('hidden', !automatic);
-  $('manualEntryPanel').classList.toggle('hidden', automatic);
-  $('rawBetText').placeholder = automatic
-    ? '把一整条投注原文粘贴到这里'
-    : '填写需要手动记录的投注原文';
+  $('manualEntryPanel').classList.toggle('hidden', !manual);
+  $('multiEntryPanel').classList.toggle('hidden', !multiple);
+  $('betCheckStatus').classList.toggle('hidden', multiple);
+  $('singleParseBox').classList.toggle('hidden', multiple);
+  $('rawBetText').placeholder = automatic ? '把一整条投注原文粘贴到这里' : '填写需要手动记录的投注原文';
   clearTimeout(autoCalcTimer);
   clearTimeout(pasteCalcTimer);
   pastePending = false;
-  if (!automatic) {
+  if (manual) {
     $('calculatedBetAmount').value = '';
     $('claimedBetAmount').value = '';
     setPlainParseDetails('请填写人工计算金额');
@@ -2615,6 +2797,7 @@ function setEntryMode(mode) {
 }
 $('autoEntryTab').onclick = () => setEntryMode('auto');
 $('manualEntryTab').onclick = () => setEntryMode('manual');
+$('multiEntryTab').onclick = () => setEntryMode('multi');
 $('autoMode').checked = localStorage.getItem('lottery-auto-mode') === '1';
 $('autoMode').onchange = () => {
   localStorage.setItem('lottery-auto-mode', $('autoMode').checked ? '1' : '0');

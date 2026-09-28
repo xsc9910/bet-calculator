@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7f8f4">
   <title>投注计算台</title>
-  <link rel="stylesheet" href="styles.css?v=20260927-winning-addition">
+  <link rel="stylesheet" href="styles.css?v=20260928-multi-entry">
 </head>
 <body>
   <header class="topbar">
@@ -51,7 +51,7 @@
       <div class="panel-head">
         <div>
           <h2>粘贴投注原文</h2>
-          <p>一条一条录入；自动试算不明确时会要求确认，不会乱给金额。</p>
+          <p>支持单条或整段聊天记录；试算不明确时会提示补充，不会乱给金额。</p>
         </div>
       </div>
       <div class="intake-layout">
@@ -60,6 +60,7 @@
           <div class="entry-mode-tabs" role="tablist" aria-label="录入方式">
             <button id="autoEntryTab" type="button" class="active" role="tab" aria-selected="true">自动计算</button>
             <button id="manualEntryTab" type="button" role="tab" aria-selected="false">手动录入</button>
+            <button id="multiEntryTab" type="button" role="tab" aria-selected="false">多条录入</button>
           </div>
             <label id="entryAutoControl" class="switch-control entry-auto-mode">
               <input id="autoMode" type="checkbox">
@@ -67,7 +68,7 @@
               <span>自动计算</span>
             </label>
           </div>
-          <label class="raw-text-label">
+          <label id="singleRawTextWrapper" class="raw-text-label">
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
           </label>
           <div id="autoEntryPanel" class="entry-mode-panel">
@@ -91,6 +92,19 @@
               <button id="manualRecordBet" type="button">确认录入</button>
             </div>
           </div>
+          <div id="multiEntryPanel" class="entry-mode-panel hidden">
+            <label class="raw-text-label">
+              <textarea id="multiBetText" rows="11" placeholder="粘贴多条聊天记录；可含昵称、日期时间和多行投注正文。无聊天头时请用空行分隔每条。"></textarea>
+            </label>
+            <p class="multi-hint">先拆分、逐条试算，再选择记录。昵称和时间不参与计算；不明确的条目不会录入。</p>
+            <div class="multi-actions">
+              <button id="parseMultiBets" type="button" class="primary">拆分并试算</button>
+              <button id="recordMultiBets" type="button" disabled>记录选中条目</button>
+              <button id="clearMultiBets" type="button">清空</button>
+            </div>
+            <div id="multiBetSummary" class="multi-summary" aria-live="polite">尚未拆分</div>
+            <div id="multiBetResults" class="multi-results"></div>
+          </div>
           <input id="calculatedBetAmount" type="hidden">
           <input id="claimedBetAmount" type="hidden">
           <div id="betCheckStatus" class="check-status hidden" role="alert"></div>
@@ -101,7 +115,7 @@
             <button id="newBetBatch" type="button">新建批次</button>
             <button id="renameBetBatch" type="button">重命名批次</button>
           </div>
-          <div class="parse-box">
+          <div id="singleParseBox" class="parse-box">
             <h3>试算依据</h3>
             <div id="parseDetails">尚未试算</div>
           </div>
@@ -295,6 +309,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260927-winning-addition"></script>
+  <script src="app.js?v=20260928-multi-entry"></script>
 </body>
 </html>
