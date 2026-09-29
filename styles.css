@@ -166,6 +166,12 @@ td:nth-child(5) { width: 48px; }
 .standalone-compare { display: grid; gap: 16px; padding: 20px; background: white; border: 1px solid var(--line); border-radius: 7px; }
 .standalone-compare-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .standalone-compare-fields textarea { min-height: 110px; height: 110px; overflow-y: hidden; resize: none; }
+.standalone-editor { position: relative; display: block; background: white; border-radius: 5px; }
+.standalone-editor textarea { position: relative; z-index: 1; display: block; background: transparent; line-height: 1.45; overflow-wrap: break-word; }
+.standalone-highlight { position: absolute; inset: 0; padding: 10px 11px; border: 1px solid transparent; color: var(--ink); font: inherit; line-height: 1.45; white-space: pre-wrap; overflow-wrap: break-word; pointer-events: none; }
+.standalone-editor.has-highlights textarea { color: transparent; caret-color: var(--ink); }
+.standalone-highlight .diff { border-radius: 2px; color: #9d201b; background: #ffd8d4; }
+.standalone-formula-previews .diff { border-radius: 2px; color: #9d201b; background: #ffd8d4; font-weight: 700; }
 .standalone-compare-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .standalone-formula-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .standalone-formula-previews > div { display: grid; gap: 7px; }

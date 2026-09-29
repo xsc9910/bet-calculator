@@ -388,34 +388,95 @@ function formulaComparison() {
 }
 
 function parseStandaloneFormula(value) {
-  const normalized = String(value || '').trim().replace(/[，,]/g, '+').replace(/[＝]/g, '=');
-  if (!normalized) return null;
-  const [left, ...rightParts] = normalized.split('=');
-  const leftNumbers = (left.match(/\d+(?:\.\d+)?/g) || []).map(Number);
-  const hasTermList = /\+/.test(left) || leftNumbers.length > 1;
-  if (hasTermList && !leftNumbers.length) return null;
-  if (hasTermList) {
-    const terms = leftNumbers;
-    const total = terms.reduce((sum, value) => sum + value, 0);
-    const rightNumbers = rightParts.join('=').match(/\d+(?:\.\d+)?/g) || [];
-    return { terms, total, declaredTotal: rightNumbers.length ? Number(rightNumbers[rightNumbers.length - 1]) : null };
+  const raw = String(value || '');
+  const normalized = raw.replace(/[，,＋]/g, '+').replace(/－/g, '-').replace(/＝/g, '=');
+  if (!normalized.trim()) return null;
+  const equalsAt = normalized.indexOf('=');
+  const left = equalsAt < 0 ? normalized : normalized.slice(0, equalsAt);
+  const right = equalsAt < 0 ? '' : normalized.slice(equalsAt + 1);
+  const matches = [...left.matchAll(/\d+(?:\.\d+)?/g)];
+  const invalid = (message, start, end) => ({ error: message, ranges: [{ start, end: Math.max(start + 1, end) }] });
+  if (!matches.length) return invalid('没有识别到金额数字，请输入加减算式或单个金额。', 0, raw.length);
+
+  const terms = [];
+  const termRanges = [];
+  let previousEnd = 0;
+  for (const [index, match] of matches.entries()) {
+    const gap = left.slice(previousEnd, match.index);
+    const compact = gap.replace(/\s/g, '');
+    if (index === 0) {
+      if (compact && !/^[+-]$/.test(compact)) return invalid(`首项前有无法识别的内容“${gap.trim()}”。`, previousEnd, match.index);
+    } else if (!/^[+-]$/.test(compact)) {
+      return invalid(compact ? `第${index + 1}项前的“${gap.trim()}”不是加号或减号。` : `第${index + 1}项前缺少加号或减号。`, previousEnd, match.index);
+    }
+    const decimals = match[0].split('.')[1] || '';
+    if (decimals.length > 2) return invalid(`金额“${match[0]}”超过两位小数，请先确认。`, match.index, match.index + match[0].length);
+    const sign = compact === '-' ? -1 : 1;
+    terms.push(sign * Number(match[0]));
+    termRanges.push({ start: match.index, end: match.index + match[0].length });
+    previousEnd = match.index + match[0].length;
   }
-  const numbers = (normalized.match(/\d+(?:\.\d+)?/g) || []).map(Number);
-  if (!numbers.length) return null;
-  return { terms: [], total: numbers[numbers.length - 1], declaredTotal: null };
+  const tail = left.slice(previousEnd);
+  if (tail.trim()) return invalid(`算式末尾的“${tail.trim()}”没有对应金额。`, previousEnd, left.length);
+  if (normalized.indexOf('=', equalsAt + 1) >= 0) return invalid('只能有一个等号，请检查合计。', equalsAt + 1, raw.length);
+  let declaredTotal = null;
+  let declaredRange = null;
+  if (equalsAt >= 0) {
+    const declared = right.match(/^\s*([+-]?\d+(?:\.\d+)?)\s*(?:元|米|块)?\s*$/);
+    if (!declared) return invalid('等号后应只有一个金额；请删除多余文字或数字。', equalsAt + 1, raw.length);
+    if ((declared[1].split('.')[1] || '').length > 2) return invalid('等号后的金额超过两位小数，请先确认。', equalsAt + 1, raw.length);
+    declaredTotal = Number(declared[1]);
+    const offset = right.indexOf(declared[1]);
+    declaredRange = { start: equalsAt + 1 + offset, end: equalsAt + 1 + offset + declared[1].length };
+  }
+  const totalCents = terms.reduce((sum, term) => sum + Math.round(term * 100), 0);
+  return { raw, terms: terms.length > 1 ? terms : [], total: totalCents / 100, declaredTotal, declaredRange, termRanges };
 }
 
+function renderStandaloneMarkedText(id, raw, ranges) {
+  const editor = $(`standalone${id}Editor`);
+  const highlight = $(`standalone${id}Highlight`);
+  const preview = $(`standalone${id}Preview`);
+  const sorted = ranges.slice().sort((a, b) => a.start - b.start || a.end - b.end);
+  const fill = target => {
+    target.replaceChildren();
+    let offset = 0;
+    for (const range of sorted) {
+      if (range.start < offset || range.start >= raw.length) continue;
+      target.append(document.createTextNode(raw.slice(offset, range.start)));
+      const marked = document.createElement('span');
+      marked.className = 'diff';
+      marked.textContent = raw.slice(range.start, range.end);
+      target.append(marked);
+      offset = range.end;
+    }
+    target.append(document.createTextNode(raw.slice(offset)));
+  };
+  fill(highlight);
+  fill(preview);
+  editor.classList.toggle('has-highlights', Boolean(raw));
+  preview.classList.toggle('muted', !raw);
+  if (!raw) preview.textContent = '等待输入';
+}
+
+let standaloneComparisonStarted = false;
 function runStandaloneFormulaComparison() {
+  standaloneComparisonStarted = true;
   const current = parseStandaloneFormula($('standaloneCurrentFormula').value);
   const external = parseStandaloneFormula($('standaloneExternalFormula').value);
   const result = $('standaloneCompareResult');
-  if (!current || !external) {
+  const currentRaw = $('standaloneCurrentFormula').value;
+  const externalRaw = $('standaloneExternalFormula').value;
+  if (!current || !external || current.error || external.error) {
     result.className = 'compare-result warn';
-    result.textContent = '请在两侧输入可识别的金额或加法合计。';
-    $('standaloneCurrentTotal').textContent = current ? money(current.total) : '--';
-    $('standaloneExternalTotal').textContent = external ? money(external.total) : '--';
-    $('standaloneCurrentPreview').textContent = current ? `${current.terms.join('+') || money(current.total)}=${money(current.total)}` : '等待输入';
-    $('standaloneExternalPreview').textContent = external ? `${external.terms.join('+') || money(external.total)}=${money(external.total)}` : '等待输入';
+    result.textContent = [!currentRaw.trim() ? '请填写当前合计。' : current?.error ? `当前合计：${current.error}` : '',
+      !externalRaw.trim() ? '请填写对比合计。' : external?.error ? `对比合计：${external.error}` : ''].filter(Boolean).join('\n');
+    $('standaloneCurrentTotal').textContent = current && !current.error ? money(current.total) : '--';
+    $('standaloneExternalTotal').textContent = external && !external.error ? money(external.total) : '--';
+    $('standaloneCurrentTotalBox').classList.remove('diff');
+    $('standaloneExternalTotalBox').classList.remove('diff');
+    renderStandaloneMarkedText('Current', currentRaw, current?.ranges || []);
+    renderStandaloneMarkedText('External', externalRaw, external?.ranges || []);
     return;
   }
   const totalDiff = Number((external.total - current.total).toFixed(2));
@@ -424,14 +485,12 @@ function runStandaloneFormulaComparison() {
   $('standaloneExternalTotal').textContent = money(external.total);
   $('standaloneCurrentTotalBox').classList.toggle('diff', totalsDiffer);
   $('standaloneExternalTotalBox').classList.toggle('diff', totalsDiffer);
-  renderComparedFormula($('standaloneCurrentPreview'), current.terms, current.total, new Set(), totalsDiffer);
-  renderComparedFormula($('standaloneExternalPreview'), external.terms, external.total, new Set(), totalsDiffer);
+  let currentFlags = new Set();
+  let externalFlags = new Set();
   const lines = [`当前合计：${money(current.total)}　对比合计：${money(external.total)}`];
   let mismatch = totalsDiffer;
   if (current.terms.length && external.terms.length) {
-    const { currentFlags, externalFlags } = sequenceDifference(current.terms, external.terms);
-    renderComparedFormula($('standaloneCurrentPreview'), current.terms, current.total, currentFlags, totalsDiffer);
-    renderComparedFormula($('standaloneExternalPreview'), external.terms, external.total, externalFlags, totalsDiffer);
+    ({ currentFlags, externalFlags } = sequenceDifference(current.terms, external.terms));
     const counts = values => values.reduce((map, value) => {
       const key = money(value); map.set(key, (map.get(key) || 0) + 1); return map;
     }, new Map());
@@ -458,6 +517,12 @@ function runStandaloneFormulaComparison() {
   if (external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0) {
     mismatch = true; lines.push(`对比算式自身不一致：加数合计${money(external.total)}，等号后为${money(external.declaredTotal)}`);
   }
+  const markedRanges = (parsed, flags) => [
+    ...[...flags].map(index => parsed.termRanges[index]),
+    ...(parsed.declaredTotal != null && Number((parsed.declaredTotal - parsed.total).toFixed(2)) !== 0 ? [parsed.declaredRange] : [])
+  ].filter(Boolean);
+  renderStandaloneMarkedText('Current', currentRaw, markedRanges(current, currentFlags));
+  renderStandaloneMarkedText('External', externalRaw, markedRanges(external, externalFlags));
   lines.push(totalDiff === 0 ? '总金额一致' : `对比合计${totalDiff > 0 ? '多' : '少'}${money(Math.abs(totalDiff))}`);
   result.className = `compare-result ${mismatch ? 'warn' : 'ok'}`;
   result.textContent = lines.join('\n');
@@ -471,11 +536,15 @@ function resizeStandaloneFormulaInputs() {
 }
 
 ['standaloneCurrentFormula', 'standaloneExternalFormula'].forEach(id => {
-  if ($(id)) $(id).addEventListener('input', resizeStandaloneFormulaInputs);
+  if ($(id)) $(id).oninput = () => {
+    resizeStandaloneFormulaInputs();
+    if (standaloneComparisonStarted) runStandaloneFormulaComparison();
+  };
 });
 
 if ($('runStandaloneCompare')) $('runStandaloneCompare').onclick = runStandaloneFormulaComparison;
 if ($('clearStandaloneCompare')) $('clearStandaloneCompare').onclick = () => {
+  standaloneComparisonStarted = false;
   $('standaloneCurrentFormula').value = '';
   $('standaloneExternalFormula').value = '';
   $('standaloneCurrentTotal').textContent = '--';
@@ -485,6 +554,8 @@ if ($('clearStandaloneCompare')) $('clearStandaloneCompare').onclick = () => {
   $('standaloneCurrentPreview').className = 'dialog-formula muted'; $('standaloneCurrentPreview').textContent = '等待输入';
   $('standaloneExternalPreview').className = 'dialog-formula muted'; $('standaloneExternalPreview').textContent = '等待输入';
   $('standaloneCompareResult').className = 'compare-result neutral'; $('standaloneCompareResult').textContent = '请输入两份金额合计后开始对比';
+  renderStandaloneMarkedText('Current', '', []);
+  renderStandaloneMarkedText('External', '', []);
   resizeStandaloneFormulaInputs();
 };
 resizeStandaloneFormulaInputs();
