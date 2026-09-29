@@ -64,6 +64,8 @@ let currentFilter = 'all';
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => Number(value.toFixed(2)).toString();
+const sumMoney = values => values.reduce((sum, value) => sum + Math.round((Number(value) || 0) * 100), 0) / 100;
+const signedMoneyFormula = values => values.map((value, index) => `${index && Number(value) >= 0 ? '+' : ''}${money(Number(value) || 0)}`).join('');
 const normalize3 = (value) => String(value).replace(/\D/g, '').slice(0, 3).padStart(3, '0');
 const tokens = (value) => value.split(/[\s,，.。+\-\/\\*;；:：]+/).map(v => v.trim()).filter(Boolean);
 
@@ -129,7 +131,7 @@ function entriesForBetBatch(filter = currentBetBatchFilter) {
 }
 function batchSummary(batchId) {
   const rows = betEntries.filter(entry => entryBatchId(entry) === batchId);
-  return { count: rows.length, total: rows.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0) };
+  return { count: rows.length, total: sumMoney(rows.map(entry => entry.amount)) };
 }
 function batchLabel(batchId) {
   const batch = betBatches.find(item => item.id === batchId);
@@ -154,7 +156,7 @@ function totals() {
 function render() {
   const sum = totals();
   const activeEntries = entriesForBetBatch('active');
-  const betTotal = activeEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
+  const betTotal = sumMoney(activeEntries.map(entry => entry.amount));
   const anomalyTotal = activeEntries.filter(e => anomalyFor(e)).length;
   $('betCount').textContent = activeEntries.length;
   $('betTotal').textContent = money(betTotal);
@@ -230,9 +232,9 @@ function renderBetLedger() {
       <td><button class="icon-btn delete-bet" data-id="${e.id}" title="删除" aria-label="删除">×</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty-row">没有符合条件的记录</td></tr>';
-  const terms = selectedEntries.map(e => money(Number(e.amount) || 0));
-  const total = selectedEntries.reduce((n, e) => n + (Number(e.amount) || 0), 0);
-  $('betFormulaText').textContent = `${terms.join('+')}=${money(total)}`;
+  const terms = selectedEntries.map(e => Number(e.amount) || 0);
+  const total = sumMoney(selectedEntries.map(entry => entry.amount));
+  $('betFormulaText').textContent = `${terms.length ? signedMoneyFormula(terms) : '0'}=${money(total)}`;
 }
 
 function sequenceDifference(currentTerms, externalTerms) {
@@ -275,12 +277,12 @@ function renderComparedFormula(element, terms, total, flaggedIndexes = new Set()
     if (index) {
       const operator = document.createElement('span');
       operator.className = 'formula-operator';
-      operator.textContent = '+';
+      operator.textContent = Number(value) < 0 ? '-' : '+';
       element.append(operator);
     }
     const term = document.createElement('span');
     term.className = `formula-term${flaggedIndexes.has(index) ? ' diff' : ''}`;
-    term.textContent = money(Number(value) || 0);
+    term.textContent = money(index ? Math.abs(Number(value) || 0) : Number(value) || 0);
     element.append(term);
   });
   const equals = document.createElement('span');
@@ -304,8 +306,8 @@ function resetFormulaComparison() {
 function formulaComparison() {
   const input = $('externalBetFormula').value.trim();
   const result = $('betCompareResult');
-  const currentTerms = betEntries.map(entry => Number(entry.amount) || 0);
-  const currentTotal = currentTerms.reduce((sum, value) => sum + value, 0);
+  const currentTerms = entriesForBetBatch().map(entry => Number(entry.amount) || 0);
+  const currentTotal = sumMoney(currentTerms);
   if (!input) {
     resetFormulaComparison();
     renderComparedFormula($('dialogBetFormula'), currentTerms, currentTotal);
@@ -314,38 +316,28 @@ function formulaComparison() {
     return;
   }
 
-  const normalized = input.replace(/[，,]/g, '').replace(/＋/g, '+');
-  const [left, ...rightParts] = normalized.split(/[=＝]/);
-  const leftNumbers = (left.match(/\d+(?:\.\d+)?/g) || []).map(Number);
-  const hasTermList = /\+/.test(left) || leftNumbers.length > 1;
-  let externalTerms = [];
-  let externalTotal;
-  let declaredTotal = null;
-
-  if (hasTermList) {
-    externalTerms = leftNumbers;
-    externalTotal = externalTerms.reduce((sum, value) => sum + value, 0);
-    const rightNumbers = rightParts.join('=').match(/\d+(?:\.\d+)?/g) || [];
-    if (rightNumbers.length) declaredTotal = Number(rightNumbers[rightNumbers.length - 1]);
-  } else {
-    const allNumbers = (normalized.match(/\d+(?:\.\d+)?/g) || []).map(Number);
-    if (!allNumbers.length) {
-      resetFormulaComparison();
-      renderComparedFormula($('dialogBetFormula'), currentTerms, currentTotal);
-      result.className = 'compare-result warn';
-      result.textContent = '没有识别到可比较的金额';
-      return;
-    }
-    externalTotal = allNumbers[allNumbers.length - 1];
+  const parsed = parseStandaloneFormula(input);
+  if (!parsed || parsed.error) {
+    resetFormulaComparison();
+    renderComparedFormula($('dialogBetFormula'), currentTerms, currentTotal);
+    result.className = 'compare-result warn';
+    result.textContent = parsed?.error || '没有识别到可比较的金额';
+    return;
   }
+  const externalTerms = parsed.terms;
+  const externalTotal = parsed.total;
+  const declaredTotal = parsed.declaredTotal;
+  const hasTermList = externalTerms.length > 0;
 
   const lines = [`当前合计：${money(currentTotal)}　外部合计：${money(externalTotal)}`];
   const totalDiff = Number((externalTotal - currentTotal).toFixed(2));
   const totalsDiffer = totalDiff !== 0;
+  const declaredMismatch = declaredTotal != null && Number((declaredTotal - externalTotal).toFixed(2)) !== 0;
   $('dialogExternalTotal').textContent = money(externalTotal);
   $('currentTotalBox').classList.toggle('diff', totalsDiffer);
   $('externalTotalBox').classList.toggle('diff', totalsDiffer);
-  lines.push(totalDiff === 0 ? '总金额一致' : `外部合计${totalDiff > 0 ? '多' : '少'}${money(Math.abs(totalDiff))}`);
+  lines.push(totalDiff === 0 ? (declaredMismatch ? '逐项金额一致，但等号后标注不一致' : '总金额一致')
+    : `外部合计${totalDiff > 0 ? '多' : '少'}${money(Math.abs(totalDiff))}`);
 
   let termMismatch = false;
   if (hasTermList) {
@@ -373,14 +365,14 @@ function formulaComparison() {
     termMismatch = missing.length > 0 || extra.length > 0;
     lines.push(missing.length ? `外部缺少：${missing.join('、')}` : '外部没有缺少加数');
     lines.push(extra.length ? `外部多出：${extra.join('、')}` : '外部没有多出加数');
-    if (declaredTotal != null && Number((declaredTotal - externalTotal).toFixed(2)) !== 0) {
-      termMismatch = true;
-      lines.push(`外部算式自身不一致：加数合计${money(externalTotal)}，等号后为${money(declaredTotal)}`);
-    }
   } else {
     renderComparedFormula($('dialogBetFormula'), currentTerms, currentTotal, new Set(), totalsDiffer);
     $('externalFormulaPreview').className = 'dialog-formula';
     renderComparedFormula($('externalFormulaPreview'), [], externalTotal, new Set(), totalsDiffer);
+  }
+  if (declaredMismatch) {
+    termMismatch = true;
+    lines.push(`外部算式自身不一致：逐项计算${money(externalTotal)}，等号后为${money(declaredTotal)}`);
   }
 
   result.className = `compare-result ${totalDiff === 0 && !termMismatch ? 'ok' : 'warn'}`;
@@ -389,7 +381,9 @@ function formulaComparison() {
 
 function parseStandaloneFormula(value) {
   const raw = String(value || '');
-  const normalized = raw.replace(/[，,＋]/g, '+').replace(/[－−–—]/g, '-').replace(/＝/g, '=');
+  const commaAt = raw.search(/[，,]/);
+  if (commaAt >= 0) return { error: '逗号可能表示千分位或分隔项，无法确定金额；请去掉千分位逗号，或把分隔逗号改成加号。', ranges: [{ start: commaAt, end: commaAt + 1 }] };
+  const normalized = raw.replace(/＋/g, '+').replace(/[－−–—]/g, '-').replace(/＝/g, '=');
   if (!normalized.trim()) return null;
   const equalsAt = normalized.indexOf('=');
   const left = equalsAt < 0 ? normalized : normalized.slice(0, equalsAt);
@@ -508,10 +502,12 @@ function runStandaloneFormulaComparison() {
   let externalFlags = new Set();
   const lines = [`当前合计：${money(current.total)}（${current.terms.length || 1}项）　对比合计：${money(external.total)}（${external.terms.length || 1}项）`];
   let mismatch = totalsDiffer;
-  if (current.declaredTotal != null && Number((current.declaredTotal - current.total).toFixed(2)) !== 0) {
+  const currentDeclaredMismatch = current.declaredTotal != null && Number((current.declaredTotal - current.total).toFixed(2)) !== 0;
+  const externalDeclaredMismatch = external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0;
+  if (currentDeclaredMismatch) {
     mismatch = true; lines.push(`当前算式自身不一致：逐项计算${money(current.total)}，等号后填写${money(current.declaredTotal)}，相差${money(Math.abs(current.total - current.declaredTotal))}`);
   }
-  if (external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0) {
+  if (externalDeclaredMismatch) {
     mismatch = true; lines.push(`对比算式自身不一致：逐项计算${money(external.total)}，等号后填写${money(external.declaredTotal)}，相差${money(Math.abs(external.total - external.declaredTotal))}`);
   }
   if (current.terms.length && external.terms.length) {
@@ -544,7 +540,8 @@ function runStandaloneFormulaComparison() {
   ].filter(Boolean);
   renderStandaloneMarkedText('Current', currentRaw, markedRanges(current, currentFlags));
   renderStandaloneMarkedText('External', externalRaw, markedRanges(external, externalFlags));
-  lines.push(totalDiff === 0 ? '总金额一致' : `对比合计${totalDiff > 0 ? '多' : '少'}${money(Math.abs(totalDiff))}`);
+  lines.push(totalDiff === 0 ? (currentDeclaredMismatch || externalDeclaredMismatch ? '逐项金额一致，但等号后标注不一致' : '总金额一致')
+    : `对比合计${totalDiff > 0 ? '多' : '少'}${money(Math.abs(totalDiff))}`);
   result.className = `compare-result ${mismatch ? 'warn' : 'ok'}`;
   result.textContent = lines.join('\n');
 }
@@ -771,9 +768,13 @@ function extractClaimedAmount(text) {
     /(?:合计|总计|共计|一共|共)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)?/g,
     /(?:计)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)/g
   ];
-  let found = [];
-  for (const pattern of patterns) found.push(...[...clean.matchAll(pattern)].map(m => Number(m[1])));
-  return found.length ? found[found.length - 1] : '';
+  let found = null;
+  for (const pattern of patterns) {
+    for (const match of clean.matchAll(pattern)) {
+      if (!found || match.index >= found.index) found = { index: match.index, amount: Number(match[1]) };
+    }
+  }
+  return found ? found.amount : '';
 }
 
 function normalizedSingleBetNumberSource(text) {
@@ -1844,7 +1845,7 @@ function calculateMultiGroupSingleCompound(text, claimed, lotteryFactor) {
 
   // 一条原文可把双飞、单式直组、纯组选连在一起写。每一段先从剩余原文
   // 中取出并擦除，避免后续玩法把别段号码重复计入。
-  const flyPattern = /(?:双飞|双)\s*(\d{2})\s*(?:各\s*)?([一二两三四五六七八九十]|\d+)\s*倍\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
+  const flyPattern = /(?:双飞|双)\s*(\d{2})\s*(?:各\s*)?([一二两三四五六七八九十]|\d+)\s*倍\s*(?:合计\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g;
   for (const match of remainder.matchAll(flyPattern)) {
     const amount = chineseAmount(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
     parts.push({ amount: amount * lotteryFactor,
@@ -3144,7 +3145,7 @@ $('betLedgerBody').onclick = e => {
 $('copyBetFormula').onclick = () => {
   const selectedEntries = entriesForBetBatch();
   const terms = selectedEntries.map(entry => Number(entry.amount) || 0);
-  const total = selectedEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+  const total = sumMoney(terms);
   renderComparedFormula($('dialogBetFormula'), terms, total);
   $('dialogBetTotal').textContent = money(total);
   $('externalBetFormula').value = '';
