@@ -389,7 +389,7 @@ function formulaComparison() {
 
 function parseStandaloneFormula(value) {
   const raw = String(value || '');
-  const normalized = raw.replace(/[，,＋]/g, '+').replace(/－/g, '-').replace(/＝/g, '=');
+  const normalized = raw.replace(/[，,＋]/g, '+').replace(/[－−–—]/g, '-').replace(/＝/g, '=');
   if (!normalized.trim()) return null;
   const equalsAt = normalized.indexOf('=');
   const left = equalsAt < 0 ? normalized : normalized.slice(0, equalsAt);
@@ -431,6 +431,25 @@ function parseStandaloneFormula(value) {
   }
   const totalCents = terms.reduce((sum, term) => sum + Math.round(term * 100), 0);
   return { raw, terms: terms.length > 1 ? terms : [], total: totalCents / 100, declaredTotal, declaredRange, termRanges };
+}
+
+function limitedStandaloneDifferenceFlags(values, otherCounts, preferredIndexes) {
+  const ownCounts = values.reduce((counts, value) => {
+    const key = money(value);
+    counts.set(key, (counts.get(key) || 0) + 1);
+    return counts;
+  }, new Map());
+  const remaining = new Map([...ownCounts].map(([key, count]) => [key, Math.max(0, count - (otherCounts.get(key) || 0))]));
+  const selected = new Set();
+  const choose = index => {
+    const key = money(values[index]);
+    if (!remaining.get(key)) return;
+    selected.add(index);
+    remaining.set(key, remaining.get(key) - 1);
+  };
+  [...preferredIndexes].forEach(choose);
+  values.forEach((_, index) => { if (!selected.has(index)) choose(index); });
+  return selected;
 }
 
 function renderStandaloneMarkedText(id, raw, ranges) {
@@ -487,14 +506,22 @@ function runStandaloneFormulaComparison() {
   $('standaloneExternalTotalBox').classList.toggle('diff', totalsDiffer);
   let currentFlags = new Set();
   let externalFlags = new Set();
-  const lines = [`当前合计：${money(current.total)}　对比合计：${money(external.total)}`];
+  const lines = [`当前合计：${money(current.total)}（${current.terms.length || 1}项）　对比合计：${money(external.total)}（${external.terms.length || 1}项）`];
   let mismatch = totalsDiffer;
+  if (current.declaredTotal != null && Number((current.declaredTotal - current.total).toFixed(2)) !== 0) {
+    mismatch = true; lines.push(`当前算式自身不一致：逐项计算${money(current.total)}，等号后填写${money(current.declaredTotal)}，相差${money(Math.abs(current.total - current.declaredTotal))}`);
+  }
+  if (external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0) {
+    mismatch = true; lines.push(`对比算式自身不一致：逐项计算${money(external.total)}，等号后填写${money(external.declaredTotal)}，相差${money(Math.abs(external.total - external.declaredTotal))}`);
+  }
   if (current.terms.length && external.terms.length) {
-    ({ currentFlags, externalFlags } = sequenceDifference(current.terms, external.terms));
+    const preferred = sequenceDifference(current.terms, external.terms);
     const counts = values => values.reduce((map, value) => {
       const key = money(value); map.set(key, (map.get(key) || 0) + 1); return map;
     }, new Map());
     const currentCounts = counts(current.terms); const externalCounts = counts(external.terms);
+    currentFlags = limitedStandaloneDifferenceFlags(current.terms, externalCounts, preferred.currentFlags);
+    externalFlags = limitedStandaloneDifferenceFlags(external.terms, currentCounts, preferred.externalFlags);
     const missing = []; const extra = [];
     for (const [value, count] of currentCounts) {
       const difference = count - (externalCounts.get(value) || 0);
@@ -511,12 +538,6 @@ function runStandaloneFormulaComparison() {
   } else {
     lines.push('两侧至少有一侧是单个金额，仅比较总额');
   }
-  if (current.declaredTotal != null && Number((current.declaredTotal - current.total).toFixed(2)) !== 0) {
-    mismatch = true; lines.push(`当前算式自身不一致：加数合计${money(current.total)}，等号后为${money(current.declaredTotal)}`);
-  }
-  if (external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0) {
-    mismatch = true; lines.push(`对比算式自身不一致：加数合计${money(external.total)}，等号后为${money(external.declaredTotal)}`);
-  }
   const markedRanges = (parsed, flags) => [
     ...[...flags].map(index => parsed.termRanges[index]),
     ...(parsed.declaredTotal != null && Number((parsed.declaredTotal - parsed.total).toFixed(2)) !== 0 ? [parsed.declaredRange] : [])
@@ -531,7 +552,7 @@ function runStandaloneFormulaComparison() {
 function resizeStandaloneFormulaInputs() {
   document.querySelectorAll('#standaloneCurrentFormula, #standaloneExternalFormula').forEach(textarea => {
     textarea.style.height = 'auto';
-    textarea.style.height = `${Math.max(110, textarea.scrollHeight)}px`;
+    textarea.style.height = `${Math.max(150, textarea.scrollHeight)}px`;
   });
 }
 
