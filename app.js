@@ -2048,6 +2048,7 @@ function ambiguousOriginalStake(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/[－﹣]/g, '-');
@@ -2390,6 +2391,7 @@ function specialStake(text, base, entry, itemCount = 1) {
 }
 
 function lotteryTargets(text) {
+  text = normalizeBetAliases(text);
   const welfare = /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
   const sports = /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d])/.test(text);
   const targets = [];
@@ -2400,6 +2402,14 @@ function lotteryTargets(text) {
     targets.push(sportsOnlyPlay ? '体彩' : '福彩');
   }
   return targets;
+}
+
+// Common shorthand used in source messages: 福排 means both 福彩 and 体彩;
+// 全倒 is the local shorthand for 转圈. Normalize before any parser or payout scan.
+function normalizeBetAliases(text) {
+  return String(text || '')
+    .replace(/福\s*排/g, '福体')
+    .replace(/全\s*倒/g, '转圈');
 }
 
 function entryLotteryTargets(entry) {
@@ -2430,7 +2440,7 @@ function makeWinningEntry(entry, lottery, playName, hit, stake, odds, index) {
 }
 
 function scanEntryForDraw(entry, lottery, draw) {
-  const text = normalizePositionSelectionLists(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖'));
+  const text = normalizePositionSelectionLists(normalizeBetAliases(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖')));
   if (!entryLotteryTargets(entry).includes(lottery) || !/^\d{3}$/.test(draw)) return [];
   const wins = [];
   const drawDigits = draw.split('');
