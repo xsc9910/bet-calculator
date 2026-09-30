@@ -3086,6 +3086,33 @@ $('autoCalculate').onclick = () => {
   if (!text) { toast('请先粘贴投注原文'); return; }
   runAutoBetCalculation({ record: true, allowMismatch: true });
 };
+let lastCtrlPressAt = 0;
+let ctrlPressTimer;
+function submitCurrentBetFromCtrl() {
+  if (currentEntryMode === 'manual') {
+    $('manualRecordBet').click();
+    return;
+  }
+  if (currentEntryMode !== 'auto') return;
+  const text = $('rawBetText').value.trim();
+  if (!text) { toast('请先填写投注原文'); return; }
+  runAutoBetCalculation({ record: true, allowMismatch: true });
+}
+if (document.addEventListener) {
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Control' || event.repeat) return;
+    const now = Date.now();
+    if (now - lastCtrlPressAt <= 450) {
+      clearTimeout(ctrlPressTimer);
+      lastCtrlPressAt = 0;
+      submitCurrentBetFromCtrl();
+    } else {
+      lastCtrlPressAt = now;
+      clearTimeout(ctrlPressTimer);
+      ctrlPressTimer = setTimeout(() => { lastCtrlPressAt = 0; }, 450);
+    }
+  });
+}
 let batchDialogMode = 'new';
 function openBatchDialog(mode) {
   batchDialogMode = mode;
