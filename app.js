@@ -1208,10 +1208,14 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
       reasons: [`三位定位${combinations}注 × ${playCount}种玩法 × 每注2元 × ${times}倍${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
   if (eachRate != null || stated != null) {
-    const amount = (eachRate != null ? positions.length * eachRate : stated) * lotteryFactor;
+    // 一个定位字段可以列出多个独立数字，例如“百位14各20元”表示百位1、4各投20；
+    // 只有三位定位复式分支才使用笛卡尔积，这里按字段内实际数字项计数。
+    const itemCount = positions.reduce((sum, position) =>
+      sum + (position.values === '全部' ? 10 : new Set(position.values).size), 0);
+    const amount = (eachRate != null ? itemCount * eachRate : stated) * lotteryFactor;
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
       reasons: [eachRate != null
-        ? `定位${positions.length}项（${positions.map(position => `${position.name}${position.values}`).join('、')}） × 每项${eachRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`
+        ? `定位${itemCount}项（${positions.map(position => `${position.name}${position.values}`).join('、')}） × 每项${eachRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`
         : `${positions.length >= 2 ? '定位' : '一码定位'}按明确总金额计算${lotteryFactor === 2 ? '，福彩体彩两边' : ''}`] };
   }
   return null;
@@ -2060,6 +2064,8 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/((?:一直一组|一单一组|直组|单组)(?:\s*各?\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍)?)\s*[/／]\s*(\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]))/g, '$1 合计$2元')
     .replace(/((?:福彩|福|体彩|体|排三|排列三|3D)?\s*(?:双飞|飞))\s*\r?\n(?=\s*\d{2}(?!\d))/gi, '$1 ')
     .replace(/单挑\s*[:：]?\s*(\d{3}(?:[.、\s\-]+\d{3})*)\s*\r?\n\s*(一直一组|一单一组|直组|单组)/g, '$1 $2');
+  // “各10/各20”一类无单位两位金额，按每项元数处理；“各一”“各2倍”仍是倍率。
+  text = text.replace(/各\s*(\d{2,})(?![\d.]|\s*(?:倍|毛|角|元|米|块|注))(?=\s*(?:$|[,，;；。\r\n]|合计|共计|总计|共))/g, '各$1元');
   text = normalizeStatedArithmeticTotals(text);
   text = text.replace(/(直选|组选|组六|组三|直组|单组)\s+((?<!\d)\d{3,10}(?:[ \t.、,，/\-]+\d{3,10})*)[ \t]+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$2 $1各$3$4');
   text = normalizeEachStakeWording(text);
@@ -2171,6 +2177,14 @@ function autoCalculateBet(text, allowCompound = true) {
 
   const positionBlocksCompound = calculatePositionBlocksCompound(clean, claimed);
   if (positionBlocksCompound) return positionBlocksCompound;
+
+  // 胆拖短写（如“0拖125体组六10元”）容易被普通三位号码兜底规则
+  // 误当成单式号码。仅在该段没有其它并列玩法时提前交给胆拖专用解析器。
+  if (/拖/.test(clean) && /组三|组六/.test(clean)
+    && !/(直|单|飞|定位|独胆|双飞|和值|跨度|复式|复试|转圈|粘边)/.test(clean)) {
+    const standaloneDanTuo = calculateDanTuoBet(clean, claimed, lotteryFactor);
+    if (standaloneDanTuo) return standaloneDanTuo;
+  }
 
   if (allowCompound) {
     const postfixedLotteryCompound = calculatePostfixedLotteryCompound(clean, claimed);
