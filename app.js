@@ -227,11 +227,12 @@ function renderBetLedger() {
       <td><span class="tag ${targets.length > 1 ? 'mixed' : targets[0] === '体彩' ? 'sports' : 'welfare'}">${targets.length > 1 ? '福+体' : targets[0]}</span></td>
       <td>${e.sender || e.messageTime ? `<small class="chat-source">${escapeHtml([e.sender, e.messageTime].filter(Boolean).join(' · '))}</small>` : ''}${e.original ? escapeHtml(e.original) : '<span class="muted">历史金额记录</span>'}</td>
       <td><span class="readonly-amount">${money(Number(e.amount) || 0)}</span></td>
+      <td><span class="readonly-amount ${betNoteCount(e) == null ? 'muted' : ''}">${betNoteCount(e) == null ? '--' : betNoteCount(e)}</span></td>
       <td><span class="readonly-amount ${e.claimed === '' || e.claimed == null ? 'muted' : ''}">${e.claimed === '' || e.claimed == null ? '--' : money(Number(e.claimed))}</span></td>
       <td class="${anomaly ? 'anomaly' : 'matched'}">${anomaly || '相符'}</td>
       <td><button class="icon-btn delete-bet" data-id="${e.id}" title="删除" aria-label="删除">×</button></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty-row">没有符合条件的记录</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty-row">没有符合条件的记录</td></tr>';
   const terms = selectedEntries.map(e => Number(e.amount) || 0);
   const total = sumMoney(selectedEntries.map(entry => entry.amount));
   $('betFormulaText').textContent = `${terms.length ? signedMoneyFormula(terms) : '0'}=${money(total)}`;
@@ -2644,13 +2645,27 @@ function rebuildWinningEntries() {
   return automaticEntries.length;
 }
 
+function calculateActualNoteCount(text) {
+  const source = normalizedSingleBetNumberSource(String(text || ''));
+  const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)\s*[:：]?\s*\d|独胆|胆|双飞|对子|跨度|粘边|全包|和值|[Xx]/.test(String(text || ''))
+    || /(?<!\d)\d{4,}(?!\d)/.test(source);
+  if (unsupported) return null;
+  const count = extractThreeDigitNumbers(String(text || '')).length;
+  return count ? count : null;
+}
+
+function betNoteCount(entry) {
+  if (Number.isFinite(Number(entry.noteCount)) && Number(entry.noteCount) > 0) return Number(entry.noteCount);
+  return calculateActualNoteCount(entry.original || '');
+}
+
 function updateActualInputNoteCount() {
   const text = $('rawBetText').value.trim();
   const source = normalizedSingleBetNumberSource(text);
   const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)位?\s*[:：]?\s*\d|独胆|胆|双?飞|对子|跨度|粘边|全包|和值|组三|组六|[Xx]/.test(text)
     || /(?<!\d)\d{4,}(?!\d)/.test(source);
-  const count = unsupported ? 0 : extractThreeDigitNumbers(text).length;
-  $('actualNoteCountDisplay').textContent = count ? String(count) : '--';
+  const count = calculateActualNoteCount(text);
+  $('actualNoteCountDisplay').textContent = count == null ? '--' : String(count);
 }
 
 function updateBetCheck() {
@@ -2679,7 +2694,7 @@ function appendCurrentBetRecord({ clearAfter = false, automatic = false } = {}) 
   if (!original || amount === '') return false;
   if (automatic && lastAutoRecordedText === original) return false;
   betEntries.push({ id: `bet-custom-${Date.now()}-${betEntries.length}`, record: betEntries.length + 1, original,
-    amount: Number(amount), claimed: $('claimedBetAmount').value === '' ? '' : Number($('claimedBetAmount').value),
+    amount: Number(amount), noteCount: calculateActualNoteCount(original), claimed: $('claimedBetAmount').value === '' ? '' : Number($('claimedBetAmount').value),
     lotteries: lotteryTargets(original), batchId: activeBetBatchId, createdAt: new Date().toISOString() });
   if (automatic) lastAutoRecordedText = original;
   saveBetEntries(); render();
@@ -2997,6 +3012,7 @@ $('recordMultiBets').onclick = () => {
       record: betEntries.length + 1,
       original: item.body,
       amount: Number(item.result.amount),
+      noteCount: calculateActualNoteCount(item.body),
       claimed: item.result.claimed === '' || item.result.claimed == null ? '' : Number(item.result.claimed),
       lotteries: item.lotteries,
       batchId: activeBetBatchId,
@@ -3173,6 +3189,7 @@ $('manualRecordBet').onclick = () => {
     record: betEntries.length + 1,
     original,
     amount,
+    noteCount: calculateActualNoteCount(original),
     claimed: '',
     lotteries: lotteryTargets(original),
     batchId: activeBetBatchId,
