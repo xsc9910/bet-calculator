@@ -2769,7 +2769,7 @@ function runAutoBetCalculation({ record = false, allowMismatch = false } = {}) {
       autoClearInputTimer = setTimeout(() => {
         if (rawInputVersion !== recordedVersion || $('rawBetText').value.trim() !== recordedText) return;
         $('rawBetText').value = '';
-        updateActualInputNoteCount();
+        $('actualNoteCountDisplay').textContent = calculateActualNoteCount(recordedText) ?? '--';
         lastAutoRecordedText = '';
       }, 1000);
     }
@@ -3217,6 +3217,7 @@ $('manualRecordBet').onclick = () => {
     setPlainParseDetails('尚未试算');
     lastAutoRecordedText = '';
     updateBetCheck();
+    $('actualNoteCountDisplay').textContent = calculateActualNoteCount(recordedText) ?? '--';
   }, 1000);
 };
 $('clearBetInput').onclick = () => {
