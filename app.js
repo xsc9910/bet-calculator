@@ -2295,7 +2295,7 @@ function autoCalculateBet(text, allowCompound = true) {
   const numbers = extractThreeDigitNumbers(clean);
   const count = numbers.length;
   if (count) {
-    const both = /直组|直\s*选?\s*组|单\s*组|一直一组|一单一组|直选组选|组直/.test(clean);
+  const both = hasExplicitDirectAndGroup(clean);
     const direct = both || /直选|直|一直|一单|单挑|\d单/.test(clean);
     const group = both || /组选|组|组六|组三/.test(clean);
     if (direct && group) {
@@ -2434,6 +2434,10 @@ function normalizeBetAliases(text) {
     .replace(/全\s*倒/g, '转圈');
 }
 
+function hasExplicitDirectAndGroup(text) {
+  return /直组|组直|单组|一直一组|一单一组|直选组选|组和直|组与直|组加直|直和组|直与组|直加组/.test(text);
+}
+
 function entryLotteryTargets(entry) {
   return Array.isArray(entry.lotteries) && entry.lotteries.length
     ? entry.lotteries
@@ -2469,7 +2473,7 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
   const threeDigitNumbers = extractThreeDigitNumbers(text);
-  const both = /直组|直\s*(?:和|加|与)?\s*组|单\s*组|一直一组|一单一组|直选组选|组直/.test(text);
+  const both = hasExplicitDirectAndGroup(text);
   const wantsDirect = both || /直选|直|单挑|\d单/.test(text);
   const wantsGroup = both || /组选|组六|组三|\d组|一组|两组|三组|四组|五组/.test(text);
   const directStake = playStake(text, 'direct');
