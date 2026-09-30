@@ -39,6 +39,8 @@ const cases = [
   ,['two direct three group is multiplier', '\u4f53123 456\u76f4\u4e8c\u7ec4\u4e09', 20]
   ,['explicit times overrides bare amount convention', '\u798f12 34\u53cc\u98de\u540410\u500d', 200]
   ,['转圈组三组六各一倍查表', '\u4f53\u8f6c\u57081234\u7ec4\u4e09\u7ec4\u516d\u5404\u4e00\u500d', 120]
+  ,['组三组六转圈各一倍查表', '\u4f53\u7ec4\u4e09\u7ec4\u516d\u8f6c\u57081234\u5404\u4e00\u500d', 120]
+  ,['组六组三转圈各一倍查表', '\u4f53\u7ec4\u516d\u7ec4\u4e09\u8f6c\u57081234\u5404\u4e00\u500d', 120]
   ,['沾边赖组三组六一胆各一倍查表', '\u4f53\u6cbe\u8fb9\u8d56\u7ec4\u4e09\u7ec4\u516d\u80c65\u5404\u4e00\u500d', 108]
   ,['沾边赖组三组六两胆各一倍查表', '\u4f53\u6cbe\u8fb9\u8d56\u7ec4\u4e09\u7ec4\u516d\u80c658\u5404\u4e00\u500d', 196]
 ];
