@@ -1776,6 +1776,22 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
   return null;
 }
 
+function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
+  // “号码各一组48米”表示各号码打一组，48米是整段合计；
+  // 只有在合计恰好等于注数乘以组单价时才自动确认，避免把任意尾部金额误吞掉。
+  if (!/各\s*一组/.test(text) || !extractThreeDigitNumbers(text).length) return null;
+  const match = text.match(/各\s*一组\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
+  if (!match) return null;
+  const numbers = extractThreeDigitNumbers(text);
+  const unit = ['毛', '角'].includes(match[2]) ? 0.1 : 1;
+  const aggregate = Number(match[1]) * unit;
+  const expected = numbers.length * 2;
+  if (Math.round(aggregate * 100) !== Math.round(expected * 100)) return null;
+  return { amount: Number((expected * lotteryFactor).toFixed(2)), claimed,
+    confident: true,
+    reasons: [`${numbers.length}注各一组 × 2元/注 = ${money(expected)}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
   const countStyle = text.match(/(?:各\s*)?([一二两三四五六七八九十]|(?<!\d)\d{1,2}(?!\d))\s*(?:直|单)\s*([一二两三四五六七八九十]|\d{1,2}(?!\d))\s*组/);
   const reverseStyle = text.match(/组\s*([一二两三四五六七八九十]|\d{1,2}(?!\d))\s*倍?\s*直\s*([一二两三四五六七八九十]|\d{1,2}(?!\d))\s*倍?/);
@@ -2275,6 +2291,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (explicitDirectGroupMoneyBet) return explicitDirectGroupMoneyBet;
   const itemizedSingleMoney = calculateItemizedSingleMoney(clean, claimed, lotteryFactor);
   if (itemizedSingleMoney) return itemizedSingleMoney;
+  const aggregateEachGroupBet = calculateAggregateEachGroupBet(clean, claimed, lotteryFactor);
+  if (aggregateEachGroupBet) return aggregateEachGroupBet;
   const normalizedBasicSingleBet = calculateNormalizedBasicSingleBet(clean, claimed, lotteryFactor);
   if (normalizedBasicSingleBet) return normalizedBasicSingleBet;
   const leadingPlayTailRateBet = calculateLeadingPlayTailRateBet(clean, claimed, lotteryFactor);
