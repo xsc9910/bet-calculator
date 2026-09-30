@@ -1786,7 +1786,11 @@ function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
   const unit = ['毛', '角'].includes(match[2]) ? 0.1 : 1;
   const aggregate = Number(match[1]) * unit;
   const expected = numbers.length * 2;
-  if (Math.round(aggregate * 100) !== Math.round(expected * 100)) return null;
+  if (Math.round(aggregate * 100) !== Math.round(expected * 100)) {
+    return { amount: '', claimed, confident: false,
+      reasons: [`“各一组${match[1]}${match[2]}”的金额性质不明确，不能判断是整段合计还是每注金额。`],
+      needs: [`请补充“${match[1]}${match[2]}”是全部${numbers.length}注合计，还是每注金额；确认后再记录。`] };
+  }
   return { amount: Number((expected * lotteryFactor).toFixed(2)), claimed,
     confident: true,
     reasons: [`${numbers.length}注各一组 × 2元/注 = ${money(expected)}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
