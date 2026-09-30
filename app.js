@@ -990,6 +990,18 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
 }
 
 function calculateStickyBet(text, claimed, lotteryFactor) {
+  const combinedSticky = text.match(/[沾粘]边赖\s*(?:组三组六|组六组三)\s*(?:胆\s*)?([0-9]{1,7})/);
+  if (combinedSticky) {
+    const count = new Set(combinedSticky[1]).size;
+    const group3Base = plays.sticky3.baseByCount[count];
+    const group6Base = plays.sticky6.baseByCount[count];
+    if (group3Base && group6Base) {
+      const times = multiplierStake(text, 1) || 1;
+      const amount = (group3Base + group6Base) * times * lotteryFactor;
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`沾边赖${count}胆：组三${group3Base}元 + 组六${group6Base}元 × ${times}倍${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    }
+  }
   const sharedStickyDigits = text.match(/([0-9]{1,7})\s*[沾粘]边(?:赖)?/)?.[1]
     || text.match(/[沾粘]边(?:赖)?\s*(?:胆)?\s*([0-9]{1,7})/)?.[1];
   if (sharedStickyDigits && /组三/.test(text) && /组六/.test(text)) {
