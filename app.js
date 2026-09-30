@@ -1777,23 +1777,17 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
 }
 
 function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
-  // “号码各一组48米”表示各号码打一组，48米是整段合计；
-  // 只有在合计恰好等于注数乘以组单价时才自动确认，避免把任意尾部金额误吞掉。
-  if (!/各\s*一组/.test(text) || !extractThreeDigitNumbers(text).length) return null;
-  const match = text.match(/各\s*一组\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
+  // “各一组/各一直”表示每个号码对应玩法打一倍；行尾金额是整段金额核对值，
+  // 不能把它误当成每注金额。组和直的单倍基础投注额均为2元。
+  const play = /各\s*一组/.test(text) ? '组' : /各\s*一直/.test(text) ? '直' : '';
+  if (!play || !extractThreeDigitNumbers(text).length) return null;
+  const match = text.match(new RegExp(`各\\s*一${play}\\s*(\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)`));
   if (!match) return null;
   const numbers = extractThreeDigitNumbers(text);
-  const unit = ['毛', '角'].includes(match[2]) ? 0.1 : 1;
-  const aggregate = Number(match[1]) * unit;
   const expected = numbers.length * 2;
-  if (Math.round(aggregate * 100) !== Math.round(expected * 100)) {
-    return { amount: '', claimed, confident: false,
-      reasons: [`“各一组${match[1]}${match[2]}”的金额性质不明确，不能判断是整段合计还是每注金额。`],
-      needs: [`请补充“${match[1]}${match[2]}”是全部${numbers.length}注合计，还是每注金额；确认后再记录。`] };
-  }
   return { amount: Number((expected * lotteryFactor).toFixed(2)), claimed,
     confident: true,
-    reasons: [`${numbers.length}注各一组 × 2元/注 = ${money(expected)}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [`${numbers.length}注各一${play}=1倍 × 2元/注 = ${money(expected)}元${match ? `；原文${match[1]}${match[2]}作为合计核对` : ''}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
