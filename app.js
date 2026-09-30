@@ -2106,6 +2106,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const group3AndDirectMultiBet = calculateGroup3AndDirectMultiBet(clean, claimed, lotteryFactor);
+  if (group3AndDirectMultiBet) return group3AndDirectMultiBet;
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
@@ -2402,6 +2404,25 @@ function lotteryTargets(text) {
     targets.push(sportsOnlyPlay ? '体彩' : '福彩');
   }
   return targets;
+}
+
+function calculateGroup3AndDirectMultiBet(text, claimed, lotteryFactor) {
+  const withoutClaim = text.replace(/\s*(?:合计|总计|共计|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const plays = '(?:组三\\s*复试|组三\\s*(?:和|与|及|加|、)\\s*(?:复试|复式)|复试\\s*组三|(?:复试|复式)\\s*(?:和|与|及|加|、)\\s*组三)';
+  const numbers = '(\\d{4,10}(?:[\\s,，、.]+\\d{4,10})*)';
+  const amount = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)?';
+  const prefix = '(?:(?:福彩|福|体彩|体|排列三|排三|3D|三地|福体)\\s*)?';
+  const patterns = [
+    new RegExp(`^${prefix}${numbers}\\s*${plays}\\s*各(?:打)?\\s*${amount}$`, 'i'),
+    new RegExp(`^${prefix}${plays}\\s*${numbers}\\s*各(?:打)?\\s*${amount}$`, 'i')
+  ];
+  const match = patterns.map(pattern => withoutClaim.match(pattern)).find(Boolean);
+  if (!match) return null;
+  const selections = (match[1].match(/\d{4,10}/g) || []);
+  const value = chineseAmount(match[2]);
+  const rate = value * (match[3] === '倍' ? 10 : ['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  return { amount: Number((selections.length * rate * 2 * lotteryFactor).toFixed(2)), claimed, confident: true,
+    reasons: [`${selections.length}组完整选码（${selections.join('、')}）×（组三${money(rate)}元 + 直选复式${money(rate)}元）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 // Common shorthand used in source messages: 福排 means both 福彩 and 体彩;
