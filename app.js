@@ -2278,7 +2278,7 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/组三\s*(?:两码|二码)\s*(\d{2})\s*([零〇一二两三四五六七八九十百]*[十百][零〇一二两三四五六七八九十百]*)(?!\s*(?:倍|毛|角|元|米|块))/g, '$1二码组三$2元')
     .replace(/(?<!跨)跨(?!度)/g, '跨度')
     .replace(/(\d+\s*注)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1各$2$3')
-    .replace(/([一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍\s*(单|直)(?!组)/g, '直$1倍')
+    .replace(/([一二两三四五六七八九十]+|\d+(?:\.\d+)?)[ \t]*倍[ \t]*(单|直选|直)(?!组)/g, '直$1倍')
     .replace(/(?:一单|一直)\s*[（(]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*[）)]/g, '直各$1$2')
     .replace(/\\(?=\*)/g, '')
     .replace(/四码\s*[:：]?\s*(\d{4})(?!\d)/g, '$1组六一倍')
@@ -2575,6 +2575,8 @@ function numericValue(value) {
 
 function playStake(text, kind) {
   text = normalizeEachStakeWording(text);
+  // “排列三/排三”是彩票名称，其中的“三”不能被当成“直选三倍”。
+  text = text.replace(/排列三|排三/g, '体彩');
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
   const leadingTimes = text.match(new RegExp(`([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍\\s*${keyword}`));
   if (leadingTimes) return numericValue(leadingTimes[1]) * 2;
