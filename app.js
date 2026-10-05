@@ -2171,6 +2171,39 @@ function ambiguousOriginalStake(text) {
   return '';
 }
 
+function calculateSharedTrailingMultilineStake(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const summary = lines.findIndex(line => /^(?:合计|总计|共计|一共|共)\s*\d/.test(line));
+  const bettingLines = lines.slice(0, summary < 0 ? lines.length : summary);
+  if (summary >= 0 && lines.slice(summary).some(line => !/^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line))) return null;
+  const lotteryPrefix = bettingLines[0]?.match(/^(福彩体彩|福体|福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i);
+  const lottery = lotteryPrefix ? lotteryPrefix[1] : '';
+  if (lotteryPrefix) {
+    bettingLines[0] = bettingLines[0].slice(lotteryPrefix[0].length).trim();
+    if (!bettingLines[0]) bettingLines.shift();
+  }
+  if (!lottery || bettingLines.length < 2) return null;
+  const final = bettingLines[bettingLines.length - 1];
+  const shared = final.match(/各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块|倍)\s*$/);
+  if (!shared) return null;
+  const plainLines = bettingLines.map((line, index) => index === bettingLines.length - 1
+    ? line.slice(0, shared.index).trim() : line);
+  const supported = line => /^(?:和值\s*\d{1,2}(?:[ \t、,，.。/\-]+\d{1,2})*|(?:组三|组六)\s*\d{4,10}|\d{4,10}\s*(?:组三|组六)|(?:双?飞)\s*\d{2}(?:[ \t、,，.。/\-]+\d{2})*)$/.test(line);
+  if (!plainLines.every(supported)) return null;
+  const stake = `各${shared[1]}${shared[2]}`;
+  const parts = plainLines.map(line => autoCalculateBet(`${lottery} ${line} ${stake}`, false));
+  if (parts.some(part => !part.confident || part.amount === '')) return null;
+  const amount = Number(parts.reduce((sum, part) => sum + Number(part.amount), 0).toFixed(2));
+  if (claimed === '' || amount !== Number(claimed)) return { amount: '', claimed, confident: false,
+    reasons: [claimed === ''
+      ? `末尾“${stake}”如共用于前面各行，逐项计算为${amount}元；原文没有合计，无法确认“各”的覆盖范围。`
+      : `末尾“${stake}”如共用于前面各行，逐项计算为${amount}元，但与原文合计${claimed}元不符，不能确认额度范围。`],
+    needs: ['请确认末尾“各”是否适用于前面每一行，并补明各段额度；未确认前不自动记录。'] };
+  return { amount, claimed, confident: true,
+    reasons: [`跨行共用末尾额度${stake}：${plainLines.map((line, index) => `${line}=${parts[index].amount}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2232,6 +2265,10 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  if (allowCompound) {
+    const sharedTrailingMultilineStake = calculateSharedTrailingMultilineStake(clean, claimed);
+    if (sharedTrailingMultilineStake) return sharedTrailingMultilineStake;
+  }
   const mixedPositionAndDirectBet = calculateMixedPositionAndDirectBet(clean, claimed, lotteryFactor);
   if (mixedPositionAndDirectBet) return mixedPositionAndDirectBet;
   const groupAndDirectMultiBet = calculateGroupAndDirectMultiBet(clean, claimed, lotteryFactor);

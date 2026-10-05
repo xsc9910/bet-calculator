@@ -57,6 +57,10 @@ const cases = [
   ,['两套完整选码共享无单位金额', '34285 32457福组六10合计20', 20]
   ,['四码组三无单位换金额', '体0258组三50', 50]
   ,['五码组六明写倍数仍按倍率', '福02378组六2倍', 20]
+  ,['跨行和值组六飞共用末尾金额', '福\n和值13  17\n组六034679\n飞29各10\n共40', 40]
+  ,['跨行共用金额换码换额度', '体\n和值6  9\n组六125789\n飞47各20\n共80', 80]
+  ,['跨行共用金额换顺序', '福\n飞47\n组六125789\n和值6 9各10元\n共40', 40]
+  ,['盘别与首项同一行', '福彩和值13 17\n组六034679\n飞29各10\n共40', 40]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -66,4 +70,14 @@ for (const [name, text, expected] of cases) {
     console.log(`FAIL ${name}: expected ${expected}, got ${result.amount}; ${JSON.stringify(result)}`);
   } else console.log(`PASS ${name}: ${result.amount}`);
 }
+const ambiguous = calculate('福\n和值13 17\n组六034679\n飞29各10\n共30');
+if (ambiguous.confident || ambiguous.amount !== '' || !ambiguous.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 跨行共享范围与原文合计冲突必须提示: ${JSON.stringify(ambiguous)}`);
+} else console.log('PASS 跨行共享范围与原文合计冲突必须提示');
+const noSummary = calculate('福\n和值13 17\n组六034679\n飞29各10');
+if (noSummary.confident || noSummary.amount !== '' || !noSummary.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 跨行共享范围没有合计必须提示: ${JSON.stringify(noSummary)}`);
+} else console.log('PASS 跨行共享范围没有合计必须提示');
 process.exitCode = failed ? 1 : 0;
