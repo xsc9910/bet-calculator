@@ -1234,6 +1234,65 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
   return null;
 }
 
+function calculateMixedPositionAndDirectBet(text, claimed, lotteryFactor) {
+  // 一码/两码定位与直选混写时必须逐段消费原文；不能让一码定位先返回部分金额。
+  if (!/(?:一码|[两二]码)\s*(?:定位|定)/.test(text)) return null;
+  // 更复杂的复合单由已有分段解析器处理，避免提前拦截双飞、胆拖和组选等玩法。
+  if (/(?:双?飞|独胆|胆|胆拖|组三|组六|组选|复试|复式|转圈|粘边|沾边|对子|跨度|和值)/.test(text)) return null;
+  let remainder = text.replace(/[＊*×]/g, 'X');
+  let amount = 0;
+  const details = [];
+  const consume = (pattern, calculate) => {
+    remainder = remainder.replace(pattern, (...args) => {
+      const part = calculate(args);
+      if (part) {
+        amount += part.amount;
+        details.push(part.reason);
+        return ' ';
+      }
+      return args[0];
+    });
+  };
+  const positionFields = '(?:[百十个](?:位)?\\s*[:：]?\\s*\\d+\\s*[、，,。;；\\s]*)+';
+  const oneCodePatterns = [
+    new RegExp(`(${positionFields})\\s*一码\\s*(?:定位|定)\\s*(?:各|每个)?\\s*([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)`, 'g'),
+    new RegExp(`一码\\s*(?:定位|定)\\s*(${positionFields})\\s*(?:各|每个)?\\s*([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)`, 'g')
+  ];
+  for (const pattern of oneCodePatterns) consume(pattern, ([, fields, value, unit]) => {
+    const selections = [...fields.matchAll(/([百十个])(?:位)?\s*[:：]?\s*(\d+)/g)];
+    if (!selections.length) return null;
+    const count = selections.reduce((sum, selection) => sum + new Set(selection[2]).size, 0);
+    const perItem = unit === '倍' ? numericValue(value) * 10 : chineseAmount(value) * (['毛', '角'].includes(unit) ? 0.1 : 1);
+    return { amount: count * perItem, reason: `一码定位${count}项 × ${perItem}元 = ${count * perItem}元` };
+  });
+  consume(/(?<![0-9Xx])([0-9Xx]{3})(?![0-9Xx])\s*[两二]码\s*(?:定位|定)\s*([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g,
+    ([, code, value, unit]) => {
+      if ([...code].filter(char => /\d/.test(char)).length !== 2) return null;
+      const stake = unit === '倍' ? numericValue(value) * 10 : chineseAmount(value) * (['毛', '角'].includes(unit) ? 0.1 : 1);
+      return { amount: stake, reason: `两码定位${code.toUpperCase()} ${stake}元` };
+    });
+  consume(/(?<!\d)(\d{3})(?!\d)\s*([一二两三四五六七八九十]|\d+)\s*(?:直|单)(?!组)/g,
+    ([, code, times]) => {
+      const multiple = numericValue(times);
+      return { amount: 2 * multiple, reason: `${code}直选${multiple}倍 = ${2 * multiple}元` };
+    });
+  consume(/((?<!\d)\d{3}(?!\d)(?:[\s、，,。.-]+\d{3}(?!\d))*)\s*各\s*一\s*(?:直|单)(?!组)/g,
+    ([, codes]) => {
+      const count = (codes.match(/(?<!\d)\d{3}(?!\d)/g) || []).length;
+      return { amount: count * 2, reason: `${count}注各一直 = ${count * 2}元` };
+    });
+  if (!details.length) return null;
+  const unparsed = remainder
+    .replace(/(?:合计|共计|总计|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩|体彩|排列三|排三|福|体|排/g, ' ')
+    .replace(/[\s。．、，,;；:：.!！?？()（）-]/g, '');
+  if (unparsed) return { amount: '', claimed, confident: false,
+    reasons: [`已识别${details.join('；')}，但仍有未计算内容：“${unparsed}”。`],
+    needs: [`请确认未识别内容“${unparsed}”的玩法和投注额度，不能只记录已识别部分。`] };
+  return { amount: Number((amount * lotteryFactor).toFixed(2)), claimed, confident: true,
+    reasons: [`混合投注逐段计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边各算一次' : ''}`] };
+}
+
 function calculatePairOrSpanBet(text, claimed, lotteryFactor) {
   const pair = /对子/.test(text);
   const span = /跨度|\d\s*跨/.test(text);
@@ -2139,6 +2198,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const mixedPositionAndDirectBet = calculateMixedPositionAndDirectBet(clean, claimed, lotteryFactor);
+  if (mixedPositionAndDirectBet) return mixedPositionAndDirectBet;
   const groupAndDirectMultiBet = calculateGroupAndDirectMultiBet(clean, claimed, lotteryFactor);
   if (groupAndDirectMultiBet) return groupAndDirectMultiBet;
   const originalAmbiguity = ambiguousOriginalStake(text);
