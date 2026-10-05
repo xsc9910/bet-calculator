@@ -64,6 +64,9 @@ const cases = [
   ,['重复三位号码与后置注数单价', '362,890,541,470,290,291,292,590,592,459,650,859,820,659,702,402,502,436,536,736,470,570,702,570福直\n24注一注4元\n共96', 96]
   ,['组单式重复号码每注金额', '体123.456.123组\n3注每注2元\n共6', 6]
   ,['前置盘别与小数每注金额', '福\n123 456 123直\n每注0.5元\n共1.5', 1.5]
+  ,['跨行直组分别金额括号小计和飞号', '体\n952  929\n直（3元）组（2元）（10元）\n飞29（10元）', 20]
+  ,['括号直组金额单段', '体952 929直（3元）组（2元）（10元）', 10]
+  ,['括号飞号金额单段', '体飞29（10元）', 10]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -88,4 +91,9 @@ if (countMismatch.confident || countMismatch.amount !== '' || !countMismatch.nee
   failed += 1;
   console.log(`FAIL 标注注数与实际号码项数不符必须提示: ${JSON.stringify(countMismatch)}`);
 } else console.log('PASS 标注注数与实际号码项数不符必须提示');
+const subtotalMismatch = calculate('体\n952 929\n直（3元）组（2元）（11元）\n飞29（10元）');
+if (subtotalMismatch.confident || subtotalMismatch.amount !== '' || !subtotalMismatch.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 跨行括号小计不符必须提示: ${JSON.stringify(subtotalMismatch)}`);
+} else console.log('PASS 跨行括号小计不符必须提示');
 process.exitCode = failed ? 1 : 0;

@@ -1702,6 +1702,7 @@ function calculateMultilineCompound(text, claimed) {
       if (sharedTimes) calculationLine += ` ${sharedTimes[0]}`;
     }
     const result = autoCalculateBet(`${carriedPrefix}${calculationLine}`, true);
+    if (result.parentheticalSubtotalMismatch) return result;
     if (result.amount === '' || !result.confident) return null;
     parts.push({ line, amount: Number(result.amount), reason: result.reasons.join('；') });
   }
@@ -2226,9 +2227,23 @@ function calculateListedPerNoteMoneyBet(text, claimed, lotteryFactor) {
     reasons: [`实际列出${numbers.length}项${plays[0]}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateTrailingParentheticalSubtotal(text, claimed) {
+  if (/\r?\n/.test(text)) return null;
+  const subtotal = text.match(/^(.*)[（(]\s*(\d+(?:\.\d+)?)\s*(元|米|块)\s*[）)]\s*$/);
+  if (!subtotal || !/(?:直|单)[^\r\n]*\d+(?:\.\d+)?\s*(?:元|米|块)[^\r\n]*(?:组|选)[^\r\n]*\d+(?:\.\d+)?\s*(?:元|米|块)/.test(subtotal[1])
+    || /(飞|定位|独胆|拖|复式|复试|转圈)/.test(subtotal[1])) return null;
+  const result = autoCalculateBet(subtotal[1].trim(), false);
+  if (!result.confident || result.amount === '') return null;
+  if (Number(result.amount) !== Number(subtotal[2])) return { amount: '', claimed, confident: false, parentheticalSubtotalMismatch: true,
+    reasons: [`括号小计${subtotal[2]}元与直组逐项计算的${result.amount}元不一致。`],
+    needs: ['请核对括号小计或各玩法金额；未核实前不自动记录。'] };
+  return { ...result, claimed, reasons: [...result.reasons, `括号小计${subtotal[2]}元已核对，不重复计入`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
+  text = text.replace(/(直选|直|组选|组(?!三|六)|双?飞\s*\d{2})\s*[（(]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*[）)]/g, '$1 $2$3');
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/[－﹣]/g, '-');
   text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
@@ -2287,6 +2302,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
+  if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
   if (listedPerNoteMoneyBet) return listedPerNoteMoneyBet;
   if (allowCompound) {
