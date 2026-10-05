@@ -85,6 +85,10 @@ const cases = [
   ,['前置彩票与前置倍数直组', '福481、205、736、927，2倍直组共计32元', 32]
   ,['后置彩票与前置倍数只打直', '481、205、736、927，2倍直合计16元体', 16]
   ,['后置彩票与前置倍数只打组', '481、205、736、927，2倍组合计16元体', 16]
+  ,['排列三逐行直选不同倍数', '排三直\n246三倍\n247两倍\n782三倍\n764三倍\n896三倍\n315三倍\n268三倍\n都是直\n共34', 40]
+  ,['体彩逐行组选不同倍数', '体组\n123一倍\n456二倍\n789四倍\n都是组\n共14', 14]
+  ,['福彩逐行直选换号码和倍数', '福直\n015两倍\n037五倍\n共14', 14]
+  ,['逐行直选重复号码各按本行倍率', '排三直\n246三倍\n246两倍\n共10', 10]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -95,6 +99,16 @@ for (const [name, text, expected] of cases) {
   } else console.log(`PASS ${name}: ${result.amount}`);
 }
 const ambiguous = calculate('福\n和值13 17\n组六034679\n飞29各10\n共30');
+const perLineMismatch = calculate('排三直\n246三倍\n247两倍\n都是直\n共8');
+if (!perLineMismatch.confident || perLineMismatch.amount !== 10 || perLineMismatch.claimed !== 8) {
+  failed += 1;
+  console.log(`FAIL 逐行倍数独立计算且原文总额仅核对: ${JSON.stringify(perLineMismatch)}`);
+} else console.log('PASS 逐行倍数独立计算且原文总额仅核对');
+const perLineUnknown = calculate('排三直\n246三倍\n247待确认\n共6');
+if (perLineUnknown.confident || perLineUnknown.amount !== '' || !perLineUnknown.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 逐行倍数存在未知行不可按首行倍率兜底: ${JSON.stringify(perLineUnknown)}`);
+} else console.log('PASS 逐行倍数存在未知行不可按首行倍率兜底');
 if (ambiguous.confident || ambiguous.amount !== '' || !ambiguous.needs?.length) {
   failed += 1;
   console.log(`FAIL 跨行共享范围与原文合计冲突必须提示: ${JSON.stringify(ambiguous)}`);

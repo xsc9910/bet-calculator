@@ -2313,6 +2313,33 @@ function calculateCompleteIndependentLines(text, claimed) {
     reasons: [`按换行分段计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
+  const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
+  if (lines.length < 3) return null;
+  const header = lines[0].match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*(直选|直|单|组选|组)$/i);
+  if (!header) return null;
+  const play = /组/.test(header[1]) ? '组' : '直';
+  const items = [];
+  for (const line of lines.slice(1)) {
+    if (/^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
+    if (new RegExp(`^(?:都是|全部|全是)\\s*(?:${play === '直' ? '直选|直|单' : '组选|组'})$`).test(line)) continue;
+    const item = line.match(/^(\d{3})\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍\s*(直选|直|单|组选|组)?$/);
+    if (!item || (item[3] && (/组/.test(item[3]) ? '组' : '直') !== play)) return {
+      amount: '', claimed, confident: false,
+      reasons: [`逐行${play}选倍率中存在无法归属的内容“${line}”，不能按同一个倍率计算所有号码。`],
+      needs: [`请核对“${line}”对应的号码、玩法和倍数。`]
+    };
+    const times = numericValue(item[2]);
+    if (!Number.isFinite(times) || times <= 0) return { amount: '', claimed, confident: false,
+      reasons: [`“${line}”的倍数无效。`], needs: ['请填写大于零的明确倍数。'] };
+    items.push({ number: item[1], times });
+  }
+  if (!items.length) return null;
+  const amount = Number((items.reduce((sum, item) => sum + item.times * 2, 0) * lotteryFactor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`逐行${play}选按各自倍数计算：${items.map(item => `${item.number} ${item.times}倍×2元`).join(' + ')}${lotteryFactor === 2 ? '，福彩体彩两边' : ''}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2391,6 +2418,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
   if (listedPerNoteMoneyBet) return listedPerNoteMoneyBet;
+  const perLineMultiplierSingles = calculatePerLineMultiplierSingles(clean, claimed, lotteryFactor);
+  if (perLineMultiplierSingles) return perLineMultiplierSingles;
   if (allowCompound) {
     const sharedTrailingMultilineStake = calculateSharedTrailingMultilineStake(clean, claimed);
     if (sharedTrailingMultilineStake) return sharedTrailingMultilineStake;
