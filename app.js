@@ -1635,6 +1635,21 @@ function calculateMultilineCompound(text, claimed) {
       positionNormalizedLines.push(...pendingPositions);
     }
   }
+  // 独立一行的“各1元/每注0.5元/各一倍”属于紧邻的未标价玩法，不能略过后按默认一倍算。
+  const rateOnlyLine = /^(?:各(?:打)?|每注|一注|打)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)$/;
+  for (let index = 1; index < positionNormalizedLines.length; index += 1) {
+    const line = positionNormalizedLines[index];
+    if (!rateOnlyLine.test(line)) continue;
+    const previous = positionNormalizedLines[index - 1];
+    if (!playLine.test(previous) || /(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)\s*$/.test(previous)) {
+      return { amount: '', claimed, confident: false,
+        reasons: [`独立金额行“${line}”无法确定对应哪一段玩法，不能跳过后只计算其他行。`],
+        needs: [`请将“${line}”写在对应玩法旁边，或说明它适用于哪些投注段。`] };
+    }
+    positionNormalizedLines[index - 1] = `${previous} ${line}`;
+    positionNormalizedLines.splice(index, 1);
+    index -= 1;
+  }
   const lines = [];
   let standaloneLottery = '';
   const pushLine = value => lines.push(standaloneLottery && !/福|褔|体|體|排|3\s*[Dd]/i.test(value) ? `${standaloneLottery} ${value}` : value);
@@ -2240,6 +2255,40 @@ function calculateTrailingParentheticalSubtotal(text, claimed) {
   return { ...result, claimed, reasons: [...result.reasons, `括号小计${subtotal[2]}元已核对，不重复计入`] };
 }
 
+function calculateCompleteIndependentLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const lotteryMarker = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])$/i;
+  const lotteryPrefix = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])/i;
+  const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  const play = /直选|直组|直选|直|组选|组六|组三|组|双?飞|独胆|胆|和值|定位|百位|十位|个位/;
+  const stake = /(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块)/;
+  const bettingLines = lines.filter(line => !lotteryMarker.test(line) && !summary.test(line));
+  // 行内另有小计或复合段时，交给既有复合解析器；逐行捷径只处理完整的独立投注行。
+  if (bettingLines.length < 2 || !bettingLines.every(line => play.test(line) && stake.test(line) && !/(?:合计|总计|共计|一共|共)\s*\d/.test(line))) return null;
+  let carriedLottery = '';
+  const parts = [];
+  for (const line of lines) {
+    if (lotteryMarker.test(line)) {
+      carriedLottery = line;
+      continue;
+    }
+    if (summary.test(line)) continue;
+    if (!play.test(line) || !stake.test(line)) return null;
+    const explicitLottery = line.match(lotteryPrefix);
+    if (explicitLottery) carriedLottery = explicitLottery[0];
+    if (!carriedLottery) return null;
+    const result = autoCalculateBet(explicitLottery ? line : `${carriedLottery} ${line}`, false);
+    if (!result.confident || result.amount === '') return { amount: '', claimed, confident: false,
+      reasons: [`投注段“${line}”不能独立可靠计算，整条不按部分金额记录。`, ...(result.reasons || [])],
+      needs: result.needs?.length ? result.needs : [`请核对“${line}”的玩法、号码和额度。`] };
+    parts.push({ line, result });
+  }
+  const amount = Number(parts.reduce((sum, part) => sum + Number(part.result.amount), 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`按换行分段计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2309,6 +2358,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (allowCompound) {
     const sharedTrailingMultilineStake = calculateSharedTrailingMultilineStake(clean, claimed);
     if (sharedTrailingMultilineStake) return sharedTrailingMultilineStake;
+    const completeIndependentLines = calculateCompleteIndependentLines(clean, claimed);
+    if (completeIndependentLines) return completeIndependentLines;
   }
   const mixedPositionAndDirectBet = calculateMixedPositionAndDirectBet(clean, claimed, lotteryFactor);
   if (mixedPositionAndDirectBet) return mixedPositionAndDirectBet;
