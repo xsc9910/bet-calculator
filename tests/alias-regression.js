@@ -80,6 +80,11 @@ const cases = [
   ,['同一行福体各自号码只打直选', '福129 428体930 027 581直各一倍', 10]
   ,['同一行福体各自号码只打组选', '福129 428体930 027 581组各一倍', 10]
   ,['同一行福体交替三段仍各自归属', '福129体930 027福428直组各一倍', 16]
+  ,['后置彩票与前置倍数直组', '356.637.659.3倍直组合计36元福', 36]
+  ,['后置彩票与前置倍数直组换码换倍数', '481、205、736、927，2倍直组共计32元体', 32]
+  ,['前置彩票与前置倍数直组', '福481、205、736、927，2倍直组共计32元', 32]
+  ,['后置彩票与前置倍数只打直', '481、205、736、927，2倍直合计16元体', 16]
+  ,['后置彩票与前置倍数只打组', '481、205、736、927，2倍组合计16元体', 16]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -127,6 +132,11 @@ if (!sportsMarkedCount.confident || sportsMarkedCount.amount !== 4 || actualNote
   failed += 1;
   console.log(`FAIL 体彩家换注数仍按实际号码计算: ${JSON.stringify(sportsMarkedCount)}`);
 } else console.log('PASS 体彩家换注数仍按实际号码计算');
+const dotMultiplierBet = '356.637.659.3倍直组合计36元福';
+if (actualNoteCount(dotMultiplierBet) !== 3) {
+  failed += 1;
+  console.log(`FAIL 点号末尾倍率不能吞掉注数: expected 3, got ${actualNoteCount(dotMultiplierBet)}`);
+} else console.log('PASS 点号末尾倍率保留3注');
 const wrongMarkedCount = calculate('福123 456 789福家378直一米');
 if (wrongMarkedCount.confident || wrongMarkedCount.amount !== '' || !wrongMarkedCount.needs?.length) {
   failed += 1;

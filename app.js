@@ -778,9 +778,15 @@ function extractClaimedAmount(text) {
   return found ? found.amount : '';
 }
 
+function normalizeDotDelimitedMultiplier(text) {
+  // 三位号码用点号分隔，尾号后紧跟“点号+倍率+玩法”时，
+  // 该点号不是小数点；金额计算和实际注数应采用同一解释。
+  return text.replace(/(?<!\d)(\d{3})[.。](\d{1,2})\s*倍(?=\s*(?:直组|单组|组直|直|单|组))/g, '$1 $2倍');
+}
+
 function normalizedSingleBetNumberSource(text) {
   // Metadata is never a pick; preserve longer selections without splitting them.
-  const withoutTotals = normalizeStatedArithmeticTotals(text)
+  const withoutTotals = normalizeStatedArithmeticTotals(normalizeDotDelimitedMultiplier(text))
     .replace(/(福彩|[福褔]|体彩|[体體])\s*家\s*\d+(?=\s*(?:直选|直|组选|组|单))/g, '$1 ')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块|注)?/g, ' ')
     .replace(/(?<!\d)\d+\s*注/g, ' ')
@@ -2313,6 +2319,7 @@ function autoCalculateBet(text, allowCompound = true) {
   text = text.replace(/(直选|直|组选|组(?!三|六)|双?飞\s*\d{2})\s*[（(]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*[）)]/g, '$1 $2$3');
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/[－﹣]/g, '-');
+  text = normalizeDotDelimitedMultiplier(text);
   text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
     (match, number, times, play) => `${number} ${play === '单' ? '直' : play}${times}倍`);
   text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
