@@ -2938,8 +2938,9 @@ function rebuildWinningEntries() {
 }
 
 function calculateActualNoteCount(text) {
-  const source = normalizedSingleBetNumberSource(String(text || ''));
-  const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)\s*[:：]?\s*\d|独胆|胆|双飞|对子|跨度|粘边|全包|和值|[Xx]/.test(String(text || ''))
+  const normalized = normalizeStatedArithmeticTotals(String(text || ''));
+  const source = normalizedSingleBetNumberSource(normalized);
+  const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)\s*[:：]?\s*\d|独胆|胆|双飞|对子|跨度|粘边|全包|和值|[Xx]/.test(normalized)
     || /(?<!\d)\d{4,}(?!\d)/.test(source);
   if (unsupported) return null;
   const count = extractThreeDigitNumbers(String(text || '')).length;

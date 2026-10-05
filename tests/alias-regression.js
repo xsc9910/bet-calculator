@@ -149,6 +149,21 @@ if (!changedParentheticalCountResult.confident || changedParentheticalCountResul
   failed += 1;
   console.log(`FAIL 换号码注数单价与全角算式: ${JSON.stringify(changedParentheticalCountResult)}`);
 } else console.log('PASS 换号码注数单价与全角算式');
+for (const {count, lottery, play, rateText, unitPrice, operator, equals, brackets} of [
+  {count: 3, lottery: '福', play: '直', rateText: '一元', unitPrice: 1, operator: '*', equals: '=', brackets: '（）'},
+  {count: 4, lottery: '体', play: '组', rateText: '五毛', unitPrice: 0.5, operator: '×', equals: '＝', brackets: '()'},
+  {count: 5, lottery: '福', play: '直', rateText: '2米', unitPrice: 2, operator: 'x', equals: '=', brackets: '（）'},
+  {count: 6, lottery: '体', play: '组', rateText: '0.2元', unitPrice: 0.2, operator: 'X', equals: '＝', brackets: '()'}
+]) {
+  const numbers = Array.from({length: count}, (_, index) => String(101 + index * 7).padStart(3, '0')).join(' ');
+  const expected = Number((count * unitPrice).toFixed(2));
+  const bet = `${lottery}：${numbers}${brackets[0]}${count}注${play}各${rateText}${count}${operator}${unitPrice}${equals}${expected}${brackets[1]}`;
+  const result = calculate(bet);
+  if (!result.confident || result.amount !== expected || result.claimed !== expected || actualNoteCount(bet) !== count) {
+    failed += 1;
+    console.log(`FAIL 参数化括号注数算式 ${bet}: ${actualNoteCount(bet)}注 ${JSON.stringify(result)}`);
+  } else console.log(`PASS 参数化括号注数算式 ${count}注${play} ${expected}元`);
+}
 const wrongParentheticalCount = calculate('福：107 208 309（4注直各两毛4*0.2=0.8）');
 if (wrongParentheticalCount.confident || wrongParentheticalCount.amount !== '' || !wrongParentheticalCount.needs?.length) {
   failed += 1;
