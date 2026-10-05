@@ -1560,7 +1560,7 @@ function calculateInlineLotteryCompound(text, claimed) {
       const lastSegment = text.slice(markers[markers.length - 1].index);
       const tail = lastSegment.match(/(?:各\s*)?(?:[一二两三四五六七八九十]+|\d+)\s*(?:单|直)\s*(?:[一二两三四五六七八九十]+|\d+)\s*组(?:\s*倍)?/)
         || lastSegment.match(/(?:组六\s*组三|组三\s*组六)\s*各\s*(?:[一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/)
-        || lastSegment.match(/(?:直组|单组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)/);
+        || lastSegment.match(/(?:直组|单组|直选|组选|直|单|组(?!三|六))\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/);
       if (tail) segment += ` ${tail[0]}`;
     }
     if (!/(?<!\d)\d{2,10}(?!\d)/.test(segment)) return null;
