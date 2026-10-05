@@ -781,6 +781,7 @@ function extractClaimedAmount(text) {
 function normalizedSingleBetNumberSource(text) {
   // Metadata is never a pick; preserve longer selections without splitting them.
   const withoutTotals = normalizeStatedArithmeticTotals(text)
+    .replace(/(福彩|[福褔]|体彩|[体體])\s*家\s*\d+(?=\s*(?:直选|直|组选|组|单))/g, '$1 ')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块|注)?/g, ' ')
     .replace(/(?<!\d)\d+\s*注/g, ' ')
     .replace(/(?:注数|总注数)\s*[:：=＝]?\s*\d+/g, ' ')
@@ -2255,6 +2256,23 @@ function calculateTrailingParentheticalSubtotal(text, claimed) {
   return { ...result, claimed, reasons: [...result.reasons, `括号小计${subtotal[2]}元已核对，不重复计入`] };
 }
 
+function calculateHouseMarkedNoteCount(text, claimed) {
+  const marker = text.match(/(福彩|[福褔]|体彩|[体體])\s*家\s*(\d+)(?=\s*(?:直选|直|组选|组|单))/);
+  if (!marker) return null;
+  const actual = extractThreeDigitNumbers(text).length;
+  const stated = Number(marker[2]);
+  if (!actual || actual !== stated) return { amount: '', claimed, confident: false,
+    reasons: [`原文“${marker[0]}”标注${stated}注，实际列出${actual}个三位号码；标注注数不是下注号码。`],
+    needs: ['请核对实际号码列表和标注注数；不一致时不能自动记录。'] };
+  const withoutMarker = text.replace(marker[0], marker[1]);
+  const result = autoCalculateBet(withoutMarker, false);
+  if (!result.confident || result.amount === '') return { amount: '', claimed, confident: false,
+    reasons: [`已排除“${marker[0]}”中的标注注数，但剩余玩法仍无法可靠计算。`, ...(result.reasons || [])],
+    needs: result.needs?.length ? result.needs : ['请补充该号码列表的具体玩法和每注金额或倍数。'] };
+  return { ...result, claimed,
+    reasons: [...result.reasons, `“${marker[0]}”仅用于核对注数，不作为投注号码`] };
+}
+
 function calculateCompleteIndependentLines(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return null;
@@ -2351,6 +2369,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const houseMarkedNoteCount = calculateHouseMarkedNoteCount(clean, claimed);
+  if (houseMarkedNoteCount) return houseMarkedNoteCount;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);

@@ -2,8 +2,8 @@ const fs = require('fs');
 const element = () => ({ value: '', checked: false, options: [], style: {}, className: '', textContent: '',
   classList: { toggle() {}, add() {}, remove() {} }, closest() { return null; }, replaceChildren() {}, append() {},
   setAttribute() {}, showModal() {}, close() {} });
-const calculate = Function('localStorage', 'document', 'confirm', 'navigator',
-  fs.readFileSync('app.js', 'utf8') + '; return autoCalculateBet;')(
+const { calculate, actualNoteCount } = Function('localStorage', 'document', 'confirm', 'navigator',
+  fs.readFileSync('app.js', 'utf8') + '; return { calculate: autoCalculateBet, actualNoteCount: calculateActualNoteCount };')(
     { getItem() { return null; }, setItem() {} },
     { getElementById: element, querySelectorAll() { return []; }, createElement: element },
     () => false, { clipboard: { writeText() {} } });
@@ -103,4 +103,27 @@ if (subtotalMismatch.confident || subtotalMismatch.amount !== '' || !subtotalMis
   failed += 1;
   console.log(`FAIL 跨行括号小计不符必须提示: ${JSON.stringify(subtotalMismatch)}`);
 } else console.log('PASS 跨行括号小计不符必须提示');
+const longNumbers = Array.from({ length: 378 }, (_, index) => String(index + 100).padStart(3, '0')).join(' ');
+const longCount = calculate(`${longNumbers}福家378直一米`);
+if (!longCount.confident || longCount.amount !== 378 || actualNoteCount(`${longNumbers}福家378直一米`) !== 378) {
+  failed += 1;
+  console.log(`FAIL 福家后置注数不作为号码: expected 378, got ${longCount.amount}; ${JSON.stringify(longCount)}`);
+} else console.log('PASS 福家后置注数不作为号码');
+const reportedNumbers = `025 027 029 052 057 058 059 072 075 078 085 087 089 092 095 098 126 127 128 129 157 158 159 162 167 168 169 172 175 176 178 179 182 185 186 187 189 192 195 196 197 198 205 207 209 216 217 218 219 235 237 239 246 247 248 249 250 253 256 257 258 259 261 264 265 267 269 270 271 273 274 275 276 278 279 281 284 285 287 289 290 291 293 294 295 296 297 298 325 327 329 352 357 358 359 367 369 372 375 376 378 379 385 387 389 392 395 396 397 398 426 427 428 429 457 458 459 462 467 468 469 472 475 476 478 479 482 485 486 487 489 492 495 496 497 498 502 507 508 509 517 518 519 520 523 526 527 528 529 532 537 538 539 547 548 549 562 567 568 569 570 571 572 573 574 576 578 579 580 581 582 583 584 586 587 589 590 591 592 593 594 596 597 598 612 617 618 619 621 624 625 627 629 637 639 642 647 648 649 652 657 658 659 671 672 673 674 675 678 681 684 685 687 689 691 692 693 694 695 698 702 705 708 712 715 716 718 719 720 721 723 724 725 726 728 729 732 735 736 738 739 742 745 746 748 749 750 751 752 753 754 756 758 759 761 762 763 764 765 768 780 781 782 783 784 785 786 789 791 792 793 794 795 798 805 807 809 812 815 816 817 819 821 824 825 827 829 835 837 839 842 845 846 847 849 850 851 852 853 854 856 857 859 861 864 865 867 869 870 871 872 873 874 875 876 879 890 891 892 893 894 895 896 897 902 905 908 912 915 916 917 918 920 921 923 924 925 926 927 928 932 935 936 937 938 942 945 946 947 948 950 951 952 953 954 956 957 958 961 962 963 964 965 968 971 972 973 974 975 978 980 981 982 983 984 985 986 987`;
+const reportedBet = `${reportedNumbers}\n福家378直一米`;
+const reportedResult = calculate(reportedBet);
+if (reportedNumbers.split(/\s+/).length !== 378 || !reportedResult.confident || reportedResult.amount !== 378 || actualNoteCount(reportedBet) !== 378) {
+  failed += 1;
+  console.log(`FAIL 用户原文378注不把标注当号码: ${JSON.stringify(reportedResult)}`);
+} else console.log('PASS 用户原文378注不把标注当号码');
+const sportsMarkedCount = calculate('体123 456 789 012体彩家4直一米');
+if (!sportsMarkedCount.confident || sportsMarkedCount.amount !== 4 || actualNoteCount('体123 456 789 012体彩家4直一米') !== 4) {
+  failed += 1;
+  console.log(`FAIL 体彩家换注数仍按实际号码计算: ${JSON.stringify(sportsMarkedCount)}`);
+} else console.log('PASS 体彩家换注数仍按实际号码计算');
+const wrongMarkedCount = calculate('福123 456 789福家378直一米');
+if (wrongMarkedCount.confident || wrongMarkedCount.amount !== '' || !wrongMarkedCount.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 福家标注注数与实际不符须阻止: ${JSON.stringify(wrongMarkedCount)}`);
+} else console.log('PASS 福家标注注数与实际不符须阻止');
 process.exitCode = failed ? 1 : 0;
