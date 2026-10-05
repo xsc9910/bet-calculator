@@ -137,6 +137,23 @@ if (actualNoteCount(dotMultiplierBet) !== 3) {
   failed += 1;
   console.log(`FAIL 点号末尾倍率不能吞掉注数: expected 3, got ${actualNoteCount(dotMultiplierBet)}`);
 } else console.log('PASS 点号末尾倍率保留3注');
+const parentheticalCountBet = '福：002 006 007 008 014 016 018 020 026 028 032 034 041 044 046 060 061 062 064 070 078 080 081 082 087 088 104 106 108 114 116 118 140 141 144 160 161 167 176 178 180 181 187 188 200 206 208 226 230 260 262 266 280 288 302 304 330 331 338 340 348 366 384 388 401 404 406 411 414 430 438 440 441 446 447 448 460 464 466 467 474 476 478 484 487 488 600 601 602 604 610 611 617 620 622 626 636 640 644 646 662 664 671 674 688 700 708 716 718 744 746 748 761 764 780 781 784 800 801 802 807 808 810 811 817 818 820 828 834 838 844 847 848 868 870 871 880 881 882 884 886（141注直各五毛141*0.5=70.5）';
+const parentheticalCountResult = calculate(parentheticalCountBet);
+if (!parentheticalCountResult.confident || parentheticalCountResult.amount !== 70.5 || parentheticalCountResult.claimed !== 70.5 || actualNoteCount(parentheticalCountBet) !== 141) {
+  failed += 1;
+  console.log(`FAIL 括号标注注数及算式不可充当号码: expected 141注70.5元, got ${actualNoteCount(parentheticalCountBet)}注 ${JSON.stringify(parentheticalCountResult)}`);
+} else console.log('PASS 括号标注注数及算式不可充当号码');
+const changedParentheticalCountBet = '体：107 208 309 410（4注直各两毛4×0.2＝0.8）';
+const changedParentheticalCountResult = calculate(changedParentheticalCountBet);
+if (!changedParentheticalCountResult.confident || changedParentheticalCountResult.amount !== 0.8 || changedParentheticalCountResult.claimed !== 0.8 || actualNoteCount(changedParentheticalCountBet) !== 4) {
+  failed += 1;
+  console.log(`FAIL 换号码注数单价与全角算式: ${JSON.stringify(changedParentheticalCountResult)}`);
+} else console.log('PASS 换号码注数单价与全角算式');
+const wrongParentheticalCount = calculate('福：107 208 309（4注直各两毛4*0.2=0.8）');
+if (wrongParentheticalCount.confident || wrongParentheticalCount.amount !== '' || !wrongParentheticalCount.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 括号标注注数不符必须提示: ${JSON.stringify(wrongParentheticalCount)}`);
+} else console.log('PASS 括号标注注数不符必须提示');
 const wrongMarkedCount = calculate('福123 456 789福家378直一米');
 if (wrongMarkedCount.confident || wrongMarkedCount.amount !== '' || !wrongMarkedCount.needs?.length) {
   failed += 1;

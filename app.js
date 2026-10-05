@@ -754,7 +754,7 @@ function showResult(result, values) {
 
 function normalizeStatedArithmeticTotals(text) {
   return text.replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2')
-    .replace(/(^|\n|(?<=[元米块毛角]))[ \t]*(?:\d+(?:\.\d+)?\s*\\?[*×xX+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)(?=\s*(?:元|米|块|毛|角)?\s*(?:$|\n))/g, '$1 合计$2');
+    .replace(/(^|\n|(?<=[元米块毛角]))[ \t]*(?:\d+(?:\.\d+)?\s*\\?[*×xX+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)(?=\s*(?:元|米|块|毛|角)?\s*(?:$|\n|[）)]))/g, '$1 合计$2');
 }
 
 function extractClaimedAmount(text) {
@@ -2376,6 +2376,15 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const parentheticalSingleCount = clean.match(/[（(]\s*(\d+)\s*注\s*(?:直选|直|组选|组(?!三|六))/);
+  if (parentheticalSingleCount) {
+    const actual = extractThreeDigitNumbers(clean).length;
+    if (actual && actual !== Number(parentheticalSingleCount[1])) return {
+      amount: '', claimed, confident: false,
+      reasons: [`括号标注${parentheticalSingleCount[1]}注，实际列出${actual}个三位号码；标注注数不是下注号码。`],
+      needs: ['请核对号码列表或修正括号中的注数；不能按标注注数反推金额。']
+    };
+  }
   const houseMarkedNoteCount = calculateHouseMarkedNoteCount(clean, claimed);
   if (houseMarkedNoteCount) return houseMarkedNoteCount;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
