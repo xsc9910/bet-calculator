@@ -1092,6 +1092,40 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
     reasons: [`${sets.length}组完整组选号码（${sets.join('、')}） ×（${labels}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；按明确的组三/组六计价，不按直选复式或拆成三位单式`] };
 }
 
+function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
+  // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
+  // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
+  let remainder = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩|体彩|排列三|排三|三地|3\s*[Dd]|[福褔体體排]/gi, ' ')
+    .trim().replace(/^[\s:：,，。]+/, '');
+  const selection = remainder.match(/^(\d{4,10}(?:[\s、，,。.\/-]+\d{4,10})*)/);
+  if (!selection) return null;
+  const sets = selection[1].match(/\d{4,10}/g) || [];
+  remainder = remainder.slice(selection[0].length).replace(/^\s*[四五六七八九十]?码\s*/, '').trim();
+  let perSet = 0;
+  let hasBareMoney = false;
+  const details = [];
+  while (remainder) {
+    remainder = remainder.replace(/^[\s、，,。;；:：-]+/, '');
+    if (!remainder) break;
+    const part = remainder.match(/^(组三|组六)\s*(?:各|打)?\s*(\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/);
+    if (!part) return null;
+    const value = Number(part[2]);
+    if (!part[3] && part[2].replace(/\D/g, '').length >= 4) return null;
+    if (!part[3] && (value < 10 || !Number.isInteger(value))) return null;
+    const stake = part[3] === '倍' ? value * 10 : value * (['毛', '角'].includes(part[3]) ? 0.1 : 1);
+    hasBareMoney ||= !part[3];
+    perSet += stake;
+    details.push(`${part[1]}${stake}元`);
+    remainder = remainder.slice(part[0].length);
+  }
+  if (!hasBareMoney || !details.length) return null;
+  const amount = sets.length * perSet * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${sets.length}组完整复式选码（${sets.join('、')}）×（${details.join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写单位的两位以上组选额度按金额，不按倍数`] };
+}
+
 function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
   if (/(?<!\d)\d{4,10}(?!\d)|拖|组三.*组六|组六.*组三/.test(text)) return null;
   // 三位单式组选可连续列出，例如“146，369组六各20，共40”。
@@ -2214,6 +2248,8 @@ function autoCalculateBet(text, allowCompound = true) {
       reasons: [`额度“${unitlessDecimalStake[0]}”没有金额单位或倍数单位，不能自动确定计价。`],
       needs: [`请为“${unitlessDecimalStake[0]}”补充“元/米/毛/角”或“倍”；直组需要明确两边各多少。`] };
   }
+  const bareMultiGroupMoneyBet = calculateBareMultiGroupMoneyBet(clean, claimed, lotteryFactor);
+  if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
   const missingSpecialUnit = clean.match(/(?:组三|组六|组[36])[ \t]*(?:各(?:打)?|打)?[ \t]*\d{1,2}(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/)
     || clean.match(/\d{4,10}[ \t]*(?:组三|组六)[ \t]*(?:各(?:打)?|打)?[ \t]*\d+(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/);
   if (missingSpecialUnit) {
