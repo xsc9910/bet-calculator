@@ -2204,6 +2204,28 @@ function calculateSharedTrailingMultilineStake(text, claimed) {
     reasons: [`跨行共用末尾额度${stake}：${plainLines.map((line, index) => `${line}=${parts[index].amount}元`).join('；')}`] };
 }
 
+function calculateListedPerNoteMoneyBet(text, claimed, lotteryFactor) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const rateIndex = lines.findIndex(line => /^(?:\d+\s*注\s*)?(?:一注|每注|每一注|各)\s*[零〇一二两三四五六七八九十百\d.]+\s*(?:毛|角|元|米|块)$/.test(line));
+  if (rateIndex < 1 || lines.slice(rateIndex + 1).some(line => !/^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line))) return null;
+  const rate = lines[rateIndex].match(/^(?:(\d+)\s*注\s*)?(?:一注|每注|每一注|各)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)$/);
+  if (!rate) return null;
+  const selection = lines.slice(0, rateIndex).join(' ');
+  const plays = selection.match(/直选|组选|直|组/g) || [];
+  if (plays.length !== 1 || lotteryFactor < 1) return null;
+  const numberList = selection.replace(/福彩|体彩|排列三|排三|福|褔|体|體|排|3\s*[Dd]/gi, ' ')
+    .replace(plays[0], ' ').trim();
+  if (!/^\d{3}(?:[\s,，、.。/\-]+\d{3})*$/.test(numberList)) return null;
+  const numbers = numberList.match(/\d{3}/g) || [];
+  if (rate[1] && Number(rate[1]) !== numbers.length) return { amount: '', claimed, confident: false,
+    reasons: [`原文标注${rate[1]}注，实际列出${numbers.length}项（重复号码也逐项计入），注数不一致。`],
+    needs: ['请核对号码列表或修正标注注数，不能按标注注数反推金额。'] };
+  const unitPrice = chineseAmount(rate[2]) * (['毛', '角'].includes(rate[3]) ? 0.1 : 1);
+  const amount = Number((numbers.length * unitPrice * lotteryFactor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`实际列出${numbers.length}项${plays[0]}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2265,6 +2287,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
+  if (listedPerNoteMoneyBet) return listedPerNoteMoneyBet;
   if (allowCompound) {
     const sharedTrailingMultilineStake = calculateSharedTrailingMultilineStake(clean, claimed);
     if (sharedTrailingMultilineStake) return sharedTrailingMultilineStake;

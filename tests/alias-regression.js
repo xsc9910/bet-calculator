@@ -61,6 +61,9 @@ const cases = [
   ,['跨行共用金额换码换额度', '体\n和值6  9\n组六125789\n飞47各20\n共80', 80]
   ,['跨行共用金额换顺序', '福\n飞47\n组六125789\n和值6 9各10元\n共40', 40]
   ,['盘别与首项同一行', '福彩和值13 17\n组六034679\n飞29各10\n共40', 40]
+  ,['重复三位号码与后置注数单价', '362,890,541,470,290,291,292,590,592,459,650,859,820,659,702,402,502,436,536,736,470,570,702,570福直\n24注一注4元\n共96', 96]
+  ,['组单式重复号码每注金额', '体123.456.123组\n3注每注2元\n共6', 6]
+  ,['前置盘别与小数每注金额', '福\n123 456 123直\n每注0.5元\n共1.5', 1.5]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -80,4 +83,9 @@ if (noSummary.confident || noSummary.amount !== '' || !noSummary.needs?.length) 
   failed += 1;
   console.log(`FAIL 跨行共享范围没有合计必须提示: ${JSON.stringify(noSummary)}`);
 } else console.log('PASS 跨行共享范围没有合计必须提示');
+const countMismatch = calculate('福123 456 123直\n2注一注4元\n共12');
+if (countMismatch.confident || countMismatch.amount !== '' || !countMismatch.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 标注注数与实际号码项数不符必须提示: ${JSON.stringify(countMismatch)}`);
+} else console.log('PASS 标注注数与实际号码项数不符必须提示');
 process.exitCode = failed ? 1 : 0;
