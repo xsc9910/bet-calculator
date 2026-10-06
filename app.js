@@ -1489,6 +1489,8 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
 
 function calculateDelimitedCompound(text, claimed) {
   if (/\r?\n/.test(text)) return null;
+  // “独胆2，4，6各10米”是同一组选胆列表，逗号不是多玩法边界。
+  if (/^(?:(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*)*(?:独胆|胆|独)\s*\d(?:\s*[,，、.。/\-]\s*\d)+\s*各/.test(text)) return null;
   // 中文句号也常用于分隔同一条中的不同玩法。
   const segments = text.split(/[，,；;。、]/).map(segment => segment.trim()).filter(segment => segment
     && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(segment));
@@ -2353,6 +2355,22 @@ function calculateLeadingSinglePriceWithSubtotal(text, lotteryFactor) {
     reasons: [`实际列出${numbers.length}注${/组/.test(match[4]) ? '组选' : '直选'} × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；尾部${match[5]}元只用于核对小计`] };
 }
 
+function calculateImplicitSingleDigitDan(text, claimed, lotteryFactor) {
+  // 单独的一位选码即独胆；只在整段只有这一个选码且写明下注额/倍数时启用。
+  // “买70”是70元，明确写“倍”才按独胆每倍10元换算。
+  const withoutClaim = text.replace(/\s*(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const match = withoutClaim.match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[:：]?\s*([0-9](?![0-9])(?:[\s、，,./-]+[0-9](?![0-9]))*)\s*(买|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/i);
+  if (!match || (!match[2] && !match[4])) return null;
+  const digits = match[1].match(/\d/g) || [];
+  if (digits.length > 1 && match[2] !== '各') return null;
+  if (!match[4] && match[2] !== '买' && match[2] !== '各') return null;
+  const value = chineseAmount(match[3]);
+  const stake = value * (match[4] === '倍' ? 10 : ['毛', '角'].includes(match[4]) ? 0.1 : 1);
+  const amount = Number((stake * digits.length * lotteryFactor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`一位选码${digits.join('、')}按${digits.length}个独胆计算：${match[4] === '倍' ? `各${value}倍 × 每倍10元` : `各${stake}元`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2429,6 +2447,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (houseMarkedNoteCount) return houseMarkedNoteCount;
   const leadingSinglePriceWithSubtotal = calculateLeadingSinglePriceWithSubtotal(clean, lotteryFactor);
   if (leadingSinglePriceWithSubtotal) return leadingSinglePriceWithSubtotal;
+  const implicitSingleDigitDan = calculateImplicitSingleDigitDan(clean, claimed, lotteryFactor);
+  if (implicitSingleDigitDan) return implicitSingleDigitDan;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);

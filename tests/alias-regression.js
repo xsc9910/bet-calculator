@@ -113,6 +113,14 @@ const cases = [
   ,['明确元单位的买金额不重复计入', '体独胆6买30元', 30]
   ,['明写倍数的买入仍按倍率', '体彩独胆3买2倍', 20]
   ,['后置彩票独胆买无单位金额', '独胆9买18福', 18]
+  ,['一位数字省略独胆买金额', '体彩3买70', 70]
+  ,['一位数字省略独胆换码换金额', '福8买25', 25]
+  ,['一位数字省略独胆明确元金额', '体5 20元', 20]
+  ,['一位数字省略独胆各金额', '福9各10米', 10]
+  ,['一位数字省略独胆明写倍数', '体彩2一倍', 10]
+  ,['一位数字省略独胆福体两边', '福体7买20', 40]
+  ,['多组一位数字省略独胆各金额', '体2、4、6各10米', 30]
+  ,['多组一位数字省略独胆换码换金额', '福1 5 9各20元', 60]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -149,6 +157,16 @@ if (!explicitDanMultiplier.confident || explicitDanMultiplier.amount !== 700) {
   failed += 1;
   console.log(`FAIL 明写倍不能按买70元处理: ${JSON.stringify(explicitDanMultiplier)}`);
 } else console.log('PASS 明写70倍按700元而非买70元');
+const implicitDanMismatch = calculate('体3买70共60');
+if (!implicitDanMismatch.confident || implicitDanMismatch.amount !== 70 || implicitDanMismatch.claimed !== 60) {
+  failed += 1;
+  console.log(`FAIL 省略独胆时原文金额仍只核对: ${JSON.stringify(implicitDanMismatch)}`);
+} else console.log('PASS 省略独胆时原文金额仍只核对');
+const ambiguousMultiDan = calculate('体2 4买70');
+if (ambiguousMultiDan.confident || ambiguousMultiDan.amount !== '' || !ambiguousMultiDan.needs?.length) {
+  failed += 1;
+  console.log(`FAIL 多胆买70未写各不能擅自分配: ${JSON.stringify(ambiguousMultiDan)}`);
+} else console.log('PASS 多胆买70未写各须确认范围');
 if (ambiguous.confident || ambiguous.amount !== '' || !ambiguous.needs?.length) {
   failed += 1;
   console.log(`FAIL 跨行共享范围与原文合计冲突必须提示: ${JSON.stringify(ambiguous)}`);
