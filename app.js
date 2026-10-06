@@ -2425,6 +2425,7 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/组\s*([36])(?=\s*(?:[，,、]|(?:打|各)\s*(?:[一二两三四五六七八九十]|\d+)\s*倍))/g, (_, digit) => digit === '3' ? '组三' : '组六')
     .replace(/(组三|组六)\s*[，,、]\s*(?=\d{1,2}(?!\d))/g, '$1 ')
     .replace(/(?<!和)值(?=\s*[零〇一二两三四五六七八九十百\d])/g, '直')
+    .replace(/二定/g, '两码定位')
     .replace(/两定/g, '定位')
     .replace(/(?<![\d*])[\d*]{3}(?![\d*])/g, code => /\d/.test(code) ? code.replace(/\*/g, 'X') : code)
     .replace(/(双飞|独胆|个位|十位|百位)\s*[:：]\s*/g, '$1 ')
