@@ -130,6 +130,11 @@ const cases = [
   ,['吊换胆码与顿号换金额', '体吊6、8、1个20元共60', 60]
   ,['吊换分隔符与各金额', '福吊9/3/7各8米', 24]
   ,['吊明写倍数仍按独胆倍率', '福吊2、4个一倍', 20]
+  ,['双飞分档个打与后续号码继承玩法', '福飞24/27个打50元47打20合计120', 120]
+  ,['双飞分档换号码金额', '体双飞13、18各打30元38打15米共75', 75]
+  ,['双飞分档换顺序和分隔符', '福飞69打12元，46/49各20元合计52', 52]
+  ,['双飞分档跨行继承玩法', '福飞24/27各50元\n47打20\n合计120', 120]
+  ,['双飞分档均未写元的大额按金额', '体飞14/17各30，47打20共80', 80]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -176,6 +181,11 @@ if (!hangingDanMismatch.confident || hangingDanMismatch.amount !== 150 || hangin
   failed += 1;
   console.log(`FAIL 吊独胆原文合计不反推金额: ${JSON.stringify(hangingDanMismatch)}`);
 } else console.log('PASS 吊独胆原文合计仅用于核对');
+const tieredFlyMismatch = calculate('福飞24/27个打50元47打20合计110');
+if (!tieredFlyMismatch.confident || tieredFlyMismatch.amount !== 120 || tieredFlyMismatch.claimed !== 110) {
+  failed += 1;
+  console.log(`FAIL 双飞分档原文合计不反推金额: ${JSON.stringify(tieredFlyMismatch)}`);
+} else console.log('PASS 双飞分档原文合计仅用于核对');
 const ambiguousMultiDan = calculate('体2 4买70');
 if (ambiguousMultiDan.confident || ambiguousMultiDan.amount !== '' || !ambiguousMultiDan.needs?.length) {
   failed += 1;

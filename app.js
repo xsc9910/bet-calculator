@@ -881,6 +881,35 @@ function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
   };
 }
 
+function calculateTieredFlyingBet(text, claimed, lotteryFactor) {
+  // 一个“双飞/飞”标题后可连续写不同价位，后续两位号码仍继承双飞玩法。
+  // 必须逐段消费，不能把第二段的金额（如“47打20”的20）当飞号。
+  const body = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const heading = body.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
+  if (!heading) return null;
+  let remainder = body.slice(heading[0].length);
+  const tiers = [];
+  const pattern = /^((?:\d{2}[\s/、，,。.\-]+)*\d{2})\s*(?:个打|各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/;
+  while (remainder) {
+    remainder = remainder.replace(/^[\s，,、。.;；/\-]+/, '');
+    if (!remainder) break;
+    const match = remainder.match(pattern);
+    if (!match) return null;
+    const pairs = match[1].match(/\d{2}/g) || [];
+    const value = chineseAmount(match[2]);
+    if (!match[3] && value < 10) return { amount: '', claimed, confident: false,
+      reasons: [`飞号${pairs.join('、')}后“打${match[2]}”没有金额单位或“倍”，不能确定单组投注额。`],
+      needs: [`请把“打${match[2]}”补成“${match[2]}元”或“${match[2]}倍”。`] };
+    const stake = value * (match[3] === '倍' ? 10 : ['毛', '角'].includes(match[3]) ? 0.1 : 1);
+    tiers.push({ pairs, stake });
+    remainder = remainder.slice(match[0].length);
+  }
+  if (tiers.length < 2) return null;
+  const amount = tiers.reduce((sum, tier) => sum + tier.pairs.length * tier.stake, 0) * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`双飞分档计算：${tiers.map(tier => `${tier.pairs.join('、')}共${tier.pairs.length}组 × 各${tier.stake}元`).join('；')}${lotteryFactor === 2 ? '；福彩体彩两边各算一次' : ''}`] };
+}
+
 function chineseAmount(value) {
   if (/^\d+(?:\.\d+)?$/.test(value)) return Number(value);
   const digits = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
@@ -2467,6 +2496,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (implicitSingleDigitDan) return implicitSingleDigitDan;
   const hangingDanBet = calculateHangingDanBet(clean, claimed, lotteryFactor);
   if (hangingDanBet) return hangingDanBet;
+  const tieredFlyingBet = calculateTieredFlyingBet(clean, claimed, lotteryFactor);
+  if (tieredFlyingBet) return tieredFlyingBet;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
