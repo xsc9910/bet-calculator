@@ -101,6 +101,10 @@ const cases = [
   ,['组一和直一才是两种玩法', '福123 456组一直一', 8]
   ,['组1只算组选一倍', '福123 456组1', 4]
   ,['直1只算直选一倍', '体123 456直1', 4]
+  ,['点号号码列表前置单价后置直选小计', '体097.680.681.687.682.880.881.882.一元直8元', 8]
+  ,['点号号码列表换码换单价后置直选小计', '福013.204.315.426.两元直8元', 8]
+  ,['点号号码列表前置角价后置组选小计', '体013.204.315.426.五毛组2元', 2]
+  ,['顿号号码列表前置小数单价后置直选小计', '体101、202、303 0.5元直选1.5元', 1.5]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -121,6 +125,17 @@ if (perLineUnknown.confident || perLineUnknown.amount !== '' || !perLineUnknown.
   failed += 1;
   console.log(`FAIL 逐行倍数存在未知行不可按首行倍率兜底: ${JSON.stringify(perLineUnknown)}`);
 } else console.log('PASS 逐行倍数存在未知行不可按首行倍率兜底');
+const leadingPriceBet = '体097.680.681.687.682.880.881.882.一元直8元';
+const leadingPriceResult = calculate(leadingPriceBet);
+if (!leadingPriceResult.confident || leadingPriceResult.amount !== 8 || leadingPriceResult.claimed !== 8 || actualNoteCount(leadingPriceBet) !== 8) {
+  failed += 1;
+  console.log(`FAIL 前置单价与后置小计应分开计算核对: ${actualNoteCount(leadingPriceBet)}注 ${JSON.stringify(leadingPriceResult)}`);
+} else console.log('PASS 前置单价与后置小计按8注核对');
+const leadingPriceMismatch = calculate('福101.202.303.两元直8元');
+if (!leadingPriceMismatch.confident || leadingPriceMismatch.amount !== 6 || leadingPriceMismatch.claimed !== 8) {
+  failed += 1;
+  console.log(`FAIL 前置单价小计不符仍按号码独立计算: ${JSON.stringify(leadingPriceMismatch)}`);
+} else console.log('PASS 前置单价小计不符仍按号码独立计算');
 if (ambiguous.confident || ambiguous.amount !== '' || !ambiguous.needs?.length) {
   failed += 1;
   console.log(`FAIL 跨行共享范围与原文合计冲突必须提示: ${JSON.stringify(ambiguous)}`);

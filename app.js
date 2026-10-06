@@ -2340,6 +2340,19 @@ function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
     reasons: [`逐行${play}选按各自倍数计算：${items.map(item => `${item.number} ${item.times}倍×2元`).join(' + ')}${lotteryFactor === 2 ? '，福彩体彩两边' : ''}`] };
 }
 
+function calculateLeadingSinglePriceWithSubtotal(text, lotteryFactor) {
+  // “097.680.一元直8元”：点号仅分号码，前置单价用于逐注计算，
+  // 玩法后的金额是整段小计，不能再当作每注单价。
+  const match = text.match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[:：]?\s*((?:\d{3}[\s.。、,，\-]+)+)([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(直选|直|单|组选|组)\s*(\d+(?:\.\d+)?)\s*(元|米|块)\s*$/i);
+  if (!match) return null;
+  const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!numbers.length) return null;
+  const unitPrice = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  const amount = Number((numbers.length * unitPrice * lotteryFactor).toFixed(2));
+  return { amount, claimed: Number(match[5]), confident: true,
+    reasons: [`实际列出${numbers.length}注${/组/.test(match[4]) ? '组选' : '直选'} × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；尾部${match[5]}元只用于核对小计`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2414,6 +2427,8 @@ function autoCalculateBet(text, allowCompound = true) {
   }
   const houseMarkedNoteCount = calculateHouseMarkedNoteCount(clean, claimed);
   if (houseMarkedNoteCount) return houseMarkedNoteCount;
+  const leadingSinglePriceWithSubtotal = calculateLeadingSinglePriceWithSubtotal(clean, lotteryFactor);
+  if (leadingSinglePriceWithSubtotal) return leadingSinglePriceWithSubtotal;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
