@@ -2371,6 +2371,21 @@ function calculateImplicitSingleDigitDan(text, claimed, lotteryFactor) {
     reasons: [`一位选码${digits.join('、')}按${digits.length}个独胆计算：${match[4] === '倍' ? `各${value}倍 × 每倍10元` : `各${stake}元`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateHangingDanBet(text, claimed, lotteryFactor) {
+  // “吊5.0.2个50”即三个独立独胆各50元；点号是胆码分隔符，不是小数。
+  const body = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const match = body.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?吊\s*([0-9](?:\s*[.。/、，,\-\s]+\s*[0-9])+)(?:\s*(?:个|各)(?:打)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/i);
+  if (!match) return null;
+  const digits = match[1].match(/\d/g) || [];
+  const value = chineseAmount(match[2]);
+  // 无单位的小额可能是倍数也可能是金额，不能用原文合计倒推。
+  if (!match[3] && value < 10) return null;
+  const each = value * (match[3] === '倍' ? 10 : ['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  const amount = Number((digits.length * each * lotteryFactor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`“吊”按独胆：${digits.join('、')}共${digits.length}个胆码 × 每个${each}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   text = normalizePositionSelectionLists(text);
@@ -2450,6 +2465,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (leadingSinglePriceWithSubtotal) return leadingSinglePriceWithSubtotal;
   const implicitSingleDigitDan = calculateImplicitSingleDigitDan(clean, claimed, lotteryFactor);
   if (implicitSingleDigitDan) return implicitSingleDigitDan;
+  const hangingDanBet = calculateHangingDanBet(clean, claimed, lotteryFactor);
+  if (hangingDanBet) return hangingDanBet;
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);

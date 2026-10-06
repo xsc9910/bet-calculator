@@ -126,6 +126,10 @@ const cases = [
   ,['两码定位后置换码换金额', '福X46、64X二码定位各12米共24', 24]
   ,['二定省略合计换码', '福二定X27、72X各8元', 16]
   ,['二定明确倍数按每注十元', '体二定X27、72X各一倍', 20]
+  ,['吊表示独胆且点号隔开每个固定金额', '福吊5.0.2个50合计150', 150]
+  ,['吊换胆码与顿号换金额', '体吊6、8、1个20元共60', 60]
+  ,['吊换分隔符与各金额', '福吊9/3/7各8米', 24]
+  ,['吊明写倍数仍按独胆倍率', '福吊2、4个一倍', 20]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -167,6 +171,11 @@ if (!implicitDanMismatch.confident || implicitDanMismatch.amount !== 70 || impli
   failed += 1;
   console.log(`FAIL 省略独胆时原文金额仍只核对: ${JSON.stringify(implicitDanMismatch)}`);
 } else console.log('PASS 省略独胆时原文金额仍只核对');
+const hangingDanMismatch = calculate('福吊5.0.2个50合计140');
+if (!hangingDanMismatch.confident || hangingDanMismatch.amount !== 150 || hangingDanMismatch.claimed !== 140) {
+  failed += 1;
+  console.log(`FAIL 吊独胆原文合计不反推金额: ${JSON.stringify(hangingDanMismatch)}`);
+} else console.log('PASS 吊独胆原文合计仅用于核对');
 const ambiguousMultiDan = calculate('体2 4买70');
 if (ambiguousMultiDan.confident || ambiguousMultiDan.amount !== '' || !ambiguousMultiDan.needs?.length) {
   failed += 1;
