@@ -2124,7 +2124,7 @@ function calculateTrailingDirectGroupMoney(text, claimed, lotteryFactor) {
 }
 
 function calculatePurchaseOrTwoCodeFixedMoney(text, claimed, lotteryFactor) {
-  const purchase = text.match(/(?:独胆\s*\d|\d{4,10}\s*组六)\s*买\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?/);
+  const purchase = text.match(/(?:独胆\s*\d|\d{4,10}\s*组六)\s*买\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?(?![\d.]|\s*倍)(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共))/);
   const twoCode = text.match(/\d{2}\s*(?:组三两码|两码组三|二码组三)\s*(?:打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   const match = purchase || twoCode;
   if (!match) return null;
@@ -2782,7 +2782,9 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   return String(text || '')
     .replace(/福\s*排/g, '福体')
-    .replace(/全\s*倒/g, '转圈');
+    .replace(/全\s*倒/g, '转圈')
+    // “独胆3买70”里的“买70”是固定金额，不是未标单位的倍率。
+    .replace(/((?:独胆|胆|独)\s*\d)\s*买\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?![\d.]|\s*(?:倍|毛|角|元|米|块))(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共|福彩|福|体彩|体|排列三|排三))/g, '$1 $2元');
 }
 
 function hasExplicitDirectAndGroup(text) {

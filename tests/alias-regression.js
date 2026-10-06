@@ -105,6 +105,14 @@ const cases = [
   ,['点号号码列表换码换单价后置直选小计', '福013.204.315.426.两元直8元', 8]
   ,['点号号码列表前置角价后置组选小计', '体013.204.315.426.五毛组2元', 2]
   ,['顿号号码列表前置小数单价后置直选小计', '体101、202、303 0.5元直选1.5元', 1.5]
+  ,['体彩独胆买无单位默认金额', '体彩独胆3买70', 70]
+  ,['福彩独胆换胆号换金额', '福彩独胆8买25', 25]
+  ,['福彩胆简写买金额', '福胆7买40', 40]
+  ,['体彩独简写买小数金额', '体独5买0.5', 0.5]
+  ,['福彩独胆买中文金额', '福独胆4买七十', 70]
+  ,['明确元单位的买金额不重复计入', '体独胆6买30元', 30]
+  ,['明写倍数的买入仍按倍率', '体彩独胆3买2倍', 20]
+  ,['后置彩票独胆买无单位金额', '独胆9买18福', 18]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -136,6 +144,11 @@ if (!leadingPriceMismatch.confident || leadingPriceMismatch.amount !== 6 || lead
   failed += 1;
   console.log(`FAIL 前置单价小计不符仍按号码独立计算: ${JSON.stringify(leadingPriceMismatch)}`);
 } else console.log('PASS 前置单价小计不符仍按号码独立计算');
+const explicitDanMultiplier = calculate('体彩独胆3买70倍');
+if (!explicitDanMultiplier.confident || explicitDanMultiplier.amount !== 700) {
+  failed += 1;
+  console.log(`FAIL 明写倍不能按买70元处理: ${JSON.stringify(explicitDanMultiplier)}`);
+} else console.log('PASS 明写70倍按700元而非买70元');
 if (ambiguous.confident || ambiguous.amount !== '' || !ambiguous.needs?.length) {
   failed += 1;
   console.log(`FAIL 跨行共享范围与原文合计冲突必须提示: ${JSON.stringify(ambiguous)}`);
