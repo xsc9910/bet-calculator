@@ -809,6 +809,8 @@ function normalizeEachStakeWording(text) {
 
 function rateFromText(text) {
   text = normalizeEachStakeWording(text);
+  // 玩法或“各/打”后的小数明确表示每项金额；只有写“倍”才按倍率。
+  text = text.replace(/(直组|单组|直选|组选|双飞|定位|独胆|每注|直|单|组|飞|胆|各(?:打)?|打)(\s*)(\d+\.\d+|\.\d+)(?![\d.]|\s*(?:倍|毛|角|元|米|块))/g, '$1$2$3元');
   const digit = text.match(/(?:各(?:打)?|打)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   if (digit) return Number(digit[1]) * (['毛', '角'].includes(digit[2]) ? 0.1 : 1);
   const unitlessDecimal = text.match(/(?:每注|各(?:打)?|打)\s*(0?\.\d+)(?!\d)\s*(?:元|米|块)?/);
@@ -1893,7 +1895,7 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
   }
   // “直组0.5”中的小数不是倍数，而是每个玩法的金额；
   // 倍数必须写“倍”，无单位的整数仍沿用倍数规则。
-  const unitlessDecimalBoth = text.match(/(?:直\s*组|组\s*直|单\s*组|直\s*选?\s*组|一直一组|一单一组)\s*各?(\d+\.\d+)(?!\s*(?:毛|角|元|米|块))/);
+  const unitlessDecimalBoth = text.match(/(?:直\s*组|组\s*直|单\s*组|直\s*选?\s*组|一直一组|一单一组)\s*各?(\d+\.\d+)(?!\s*(?:倍|毛|角|元|米|块))/);
   if (unitlessDecimalBoth) {
     const bothRate = Number(unitlessDecimalBoth[1]);
     const amount = numbers.length * bothRate * 2 * lotteryFactor;
@@ -2519,13 +2521,6 @@ function autoCalculateBet(text, allowCompound = true) {
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
   const itemizedWildcardMoney = calculateItemizedWildcardMoney(clean, claimed);
   if (itemizedWildcardMoney) return itemizedWildcardMoney;
-  const unitlessDecimalStake = clean.match(/(?:直组|单组|直选|组选|直|组|各(?:打)?|打)[ \t]*(?:0?\.\d+)(?![\d.]|\s*(?:倍|毛|角|元|米|块))/)
-    || clean.match(/(?<![\d.])0?\.\d+[ \t]*(?:直组|单组)(?!\s*(?:倍|毛|角|元|米|块))/);
-  if (unitlessDecimalStake) {
-    return { amount: '', claimed, confident: false,
-      reasons: [`额度“${unitlessDecimalStake[0]}”没有金额单位或倍数单位，不能自动确定计价。`],
-      needs: [`请为“${unitlessDecimalStake[0]}”补充“元/米/毛/角”或“倍”；直组需要明确两边各多少。`] };
-  }
   const bareMultiGroupMoneyBet = calculateBareMultiGroupMoneyBet(clean, claimed, lotteryFactor);
   if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
   const missingSpecialUnit = clean.match(/(?:组三|组六|组[36])[ \t]*(?:各(?:打)?|打)?[ \t]*\d{1,2}(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/)
