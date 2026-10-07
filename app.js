@@ -991,6 +991,11 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
       return { amount: Number((permutations * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
         reasons: [`转圈直选${permutations}种排列 × 每注${rate}元`] };
     }
+    if (numbers.length && !wantsGroup3 && !wantsGroup6 && /倍/.test(text)) {
+      const permutations = numbers.reduce((total, number) => total + (new Set(number).size === 3 ? 6 : new Set(number).size === 2 ? 3 : 1), 0);
+      return { amount: Number((permutations * times * 2 * lotteryFactor).toFixed(2)), claimed, confident: true,
+        reasons: [`转圈直选${permutations}种排列 × ${times}倍 × 2元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    }
     if (numbers.length && (wantsGroup3 || wantsGroup6)) {
       let baseTotal = 0;
       const details = [];
