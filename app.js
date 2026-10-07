@@ -1475,6 +1475,23 @@ function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
 }
 
 function calculateDanTuoBet(text, claimed, lotteryFactor) {
+  const group6DanTuoRows = [...text.matchAll(/(?:胆\s*)?(\d)\s*拖\s*(\d{2,10})\s*组六\s*([零〇一二两三四五六七八九十百\d]+)\s*倍/g)];
+  if (group6DanTuoRows.length && /(?:福彩|[福褔])/.test(text) && !/(?:体彩|[体體])/.test(text)) {
+    const perCombination = plays.group6.base;
+    const details = [];
+    let total = 0;
+    for (const row of group6DanTuoRows) {
+      const dan = row[1];
+      const dragDigits = [...new Set(row[2].split('').filter(digit => digit !== dan))];
+      const combinations = dragDigits.length * (dragDigits.length - 1) / 2;
+      const times = numericValue(row[3]);
+      const amount = combinations * perCombination * times;
+      total += amount;
+      details.push(`胆码${dan}拖${dragDigits.join('')}：C(${dragDigits.length},2)=${combinations}注 × 每注${perCombination}元 × ${times}倍 = ${amount}元`);
+    }
+    if (details.length) return { amount: Number((total * lotteryFactor).toFixed(2)), claimed, confident: true,
+      reasons: [`福彩组六胆拖逐项计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
+  }
   const combinedGroups = text.match(/(\d+)\s*拖\s*(\d+)\s*[，、,\s]*(?:组六\s*[、,，]?\s*组三|组三\s*[、,，]?\s*组六)\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?/);
   if (combinedGroups) {
     const stake = Number(combinedGroups[3]) * (['毛', '角'].includes(combinedGroups[4]) ? 0.1 : 1);

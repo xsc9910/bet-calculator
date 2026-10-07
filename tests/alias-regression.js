@@ -65,6 +65,7 @@ const cases = [
   ,['同一行一单一组作用于前后号码', '福123 456各一单一组', 8]
   ,['玩法号码换行后第二行号码继承玩法', '福123 456\n789组六一倍', 6]
   ,['玩法标注行回收此前换行的号码', '福\n123\n456组六一倍\n合计4', 4]
+  ,['同一胆拖多行按组合注数与组六倍数计价', '胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40', 120]
   ,['单个数字未定位按独胆固定金额', '福7 20元', 20]
   ,['单个数字未定位按独胆买入金额', '福3买70', 70]
   ,['两位数字未定位按双飞固定金额', '福27 20元', 20]
@@ -207,6 +208,12 @@ for (const [name, text, expected] of cases) {
     console.log(`FAIL ${name}: expected ${expected}, got ${result.amount}; ${JSON.stringify(result)}`);
   } else console.log(`PASS ${name}: ${result.amount}`);
 }
+
+const danTuoClaimCheck = calculate('胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40');
+if (danTuoClaimCheck.amount !== 120 || Number(danTuoClaimCheck.claimed) !== 40) {
+  failed += 1;
+  console.log(`FAIL 胆拖金额只作核对: ${JSON.stringify(danTuoClaimCheck)}`);
+} else console.log('PASS 胆拖组合金额独立计算且保留原文40核对');
 const ambiguous = calculate('福\n和值13 17\n组六034679\n飞29各10\n共30');
 const perLineMismatch = calculate('排三直\n246三倍\n247两倍\n都是直\n共8');
 if (!perLineMismatch.confident || perLineMismatch.amount !== 10 || perLineMismatch.claimed !== 8) {
