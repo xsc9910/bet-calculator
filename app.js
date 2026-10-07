@@ -2292,6 +2292,16 @@ function calculateListedPerNoteMoneyBet(text, claimed, lotteryFactor) {
     reasons: [`实际列出${numbers.length}项${plays[0]}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
+  const match = text.match(/^(.*(?:[零〇一二两三四五六七八九十百\d]+)\s*倍\s*(?:直组|单组|直选|组选|组六|组三|直|单|组))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
+  if (!match || !/\d{3}/.test(match[1])) return null;
+  const calculated = autoCalculateBet(match[1].trim(), false);
+  if (!calculated.confident || calculated.amount === '') return null;
+  const statedTotal = Number(match[2]);
+  return { ...calculated, claimed: statedTotal,
+    reasons: [...(calculated.reasons || []), `末尾${statedTotal}${match[3]}作为原文合计核对，不按每注金额计算`] };
+}
+
 function calculateTrailingParentheticalSubtotal(text, claimed) {
   if (/\r?\n/.test(text)) return null;
   const subtotal = text.match(/^(.*)[（(]\s*(\d+(?:\.\d+)?)\s*(元|米|块)\s*[）)]\s*$/);
@@ -2491,6 +2501,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
+  if (trailingClaimAfterMultiplier) return trailingClaimAfterMultiplier;
   const parentheticalSingleCount = clean.match(/[（(]\s*(\d+)\s*注\s*(?:直选|直|组选|组(?!三|六))/);
   if (parentheticalSingleCount) {
     const actual = extractThreeDigitNumbers(clean).length;
