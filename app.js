@@ -1475,22 +1475,27 @@ function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
 }
 
 function calculateDanTuoBet(text, claimed, lotteryFactor) {
-  const group6DanTuoRows = [...text.matchAll(/(?:胆\s*)?(\d)\s*拖\s*(\d{2,10})\s*组六\s*([零〇一二两三四五六七八九十百\d]+)\s*倍/g)];
-  if (group6DanTuoRows.length && /(?:福彩|[福褔])/.test(text) && !/(?:体彩|[体體])/.test(text)) {
-    const perCombination = plays.group6.base;
+  const rows = [...text.matchAll(/(?:胆\s*)?(\d+)\s*拖\s*(\d+)\s*(组六|组三)/g)];
+  if (rows.length > 1) {
     const details = [];
     let total = 0;
-    for (const row of group6DanTuoRows) {
-      const dan = row[1];
-      const dragDigits = [...new Set(row[2].split('').filter(digit => digit !== dan))];
-      const combinations = dragDigits.length * (dragDigits.length - 1) / 2;
-      const times = numericValue(row[3]);
-      const amount = combinations * perCombination * times;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const start = row.index + row[0].length;
+      const end = index + 1 < rows.length ? rows[index + 1].index : text.length;
+      const scope = text.slice(start, end)
+        .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
+        .replace(/(?:福|福彩|体|体彩)\s*/g, ' ');
+      const explicitAmount = rateFromText(scope);
+      const multiplier = scope.match(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍/);
+      const eachAmount = scope.match(/(?:各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?!\s*(?:注|码))/);
+      const amount = explicitAmount ?? (multiplier ? numericValue(multiplier[1]) * 10 : eachAmount ? numericValue(eachAmount[1]) : null);
+      if (amount == null) return null;
       total += amount;
-      details.push(`胆码${dan}拖${dragDigits.join('')}：C(${dragDigits.length},2)=${combinations}注 × 每注${perCombination}元 × ${times}倍 = ${amount}元`);
+      details.push(`${row[1]}拖${row[2]}${row[3]}：${explicitAmount != null ? `每行金额${amount}元` : multiplier ? `${multiplier[1]}倍 × 胆拖赔率表基数10元 = ${amount}元` : `各${amount}元`}`);
     }
-    if (details.length) return { amount: Number((total * lotteryFactor).toFixed(2)), claimed, confident: true,
-      reasons: [`福彩组六胆拖逐项计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
+    return { amount: Number((total * lotteryFactor).toFixed(2)), claimed, confident: true,
+      reasons: [`胆拖逐行计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
   }
   const combinedGroups = text.match(/(\d+)\s*拖\s*(\d+)\s*[，、,\s]*(?:组六\s*[、,，]?\s*组三|组三\s*[、,，]?\s*组六)\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?/);
   if (combinedGroups) {
@@ -2574,6 +2579,10 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
+  // Some copied lists put the stated note count after the unit price
+  // (“直各0.5元267注”). Move that count before the price so it remains
+  // metadata and the decimal is still read as the per-note stake.
+  text = text.replace(/((?:各(?:打)?|每注)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块))\s*(\d+)\s*注/g, '$2注$1');
   text = normalizePositionSelectionLists(text);
   text = text.replace(/(直选|直|组选|组(?!三|六)|双?飞\s*\d{2})\s*[（(]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*[）)]/g, '$1 $2$3');
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');

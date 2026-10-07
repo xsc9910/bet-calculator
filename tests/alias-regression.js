@@ -23,6 +23,7 @@ const cases = [
   ['group only amount', '\u798f123 456\u7ec4\u54041\u5143', 2],
   ['direct only multiplier', '\u798f123 456\u76f41\u500d', 4],
   ['group only multiplier', '\u798f123 456\u7ec4\u4e001\u500d', 4],
+  ['unit amount before note count', '001 002\n福直各0.5元2注\n合计1', 1],
   ['separate direct and group segments', '\u798f123 456\u76f4\u54041\u5143，789\u7ec4\u54041\u5143', 3],
   ['组三复试 changed digits and amount', '\u798f5678\u7ec4\u4e09\u590d\u8bd5\u540425\u5143', 50],
   ['reverse order and multiplier', '\u4f539876\u590d\u8bd5\u4e0e\u7ec4\u4e09\u54042\u500d', 40],
@@ -65,7 +66,7 @@ const cases = [
   ,['同一行一单一组作用于前后号码', '福123 456各一单一组', 8]
   ,['玩法号码换行后第二行号码继承玩法', '福123 456\n789组六一倍', 6]
   ,['玩法标注行回收此前换行的号码', '福\n123\n456组六一倍\n合计4', 4]
-  ,['同一胆拖多行按组合注数与组六倍数计价', '胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40', 120]
+  ,['同一胆拖多行按赔率表基数逐行计价', '胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40', 40]
   ,['单个数字未定位按独胆固定金额', '福7 20元', 20]
   ,['单个数字未定位按独胆买入金额', '福3买70', 70]
   ,['两位数字未定位按双飞固定金额', '福27 20元', 20]
@@ -210,7 +211,7 @@ for (const [name, text, expected] of cases) {
 }
 
 const danTuoClaimCheck = calculate('胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40');
-if (danTuoClaimCheck.amount !== 120 || Number(danTuoClaimCheck.claimed) !== 40) {
+if (danTuoClaimCheck.amount !== 40 || Number(danTuoClaimCheck.claimed) !== 40) {
   failed += 1;
   console.log(`FAIL 胆拖金额只作核对: ${JSON.stringify(danTuoClaimCheck)}`);
 } else console.log('PASS 胆拖组合金额独立计算且保留原文40核对');
