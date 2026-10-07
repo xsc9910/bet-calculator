@@ -1640,6 +1640,7 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
 
 function calculateDelimitedCompound(text, claimed) {
   if (/\r?\n/.test(text)) return null;
+  if (/(?:\d{2}[\s,，、.。/\-]+){1,}\d{2}\s*双?飞/.test(text)) return null;
   // “独胆2，4，6各10米”是同一组选胆列表，逗号不是多玩法边界。
   if (/^(?:(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*)*(?:独胆|胆|独)\s*\d(?:\s*[,，、.。/\-]\s*\d)+\s*各/.test(text)) return null;
   // 中文句号也常用于分隔同一条中的不同玩法。
@@ -1751,6 +1752,10 @@ function calculateMultilineCompound(text, claimed) {
       .replace(/(?<!\d)\d+\s*注/g, ' ').trim();
     return /^(?=.*(?<!\d)\d{3,10}(?!\d))[\d\s,，.。/、\-:：]+$/.test(numberLine);
   };
+  const isFlyPairsOnlyLine = line => {
+    const numberLine = line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[:：]?\s*/i, '').trim();
+    return /^\d{2}(?:[\s,，.。/、\-]+\d{2})*$/.test(numberLine);
+  };
   const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)\s*$/.test(
     line.replace(/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, ''));
   const isDanTuoOnlyLine = line => /^(?:胆)?\s*\d+\s*拖\s*\d+\s*$/.test(line);
@@ -1759,6 +1764,11 @@ function calculateMultilineCompound(text, claimed) {
   // 紧随的玩法行，避免遗漏前一行号码（也保留重复号码）。
   const normalizedLines = [];
   for (let index = 0; index < rawLines.length; index += 1) {
+    if (isFlyPairsOnlyLine(rawLines[index]) && rawLines[index + 1] && /双?飞/.test(rawLines[index + 1])) {
+      normalizedLines.push(`${rawLines[index]} ${rawLines[index + 1]}`);
+      index += 1;
+      continue;
+    }
     if (!isNumbersOnlyLine(rawLines[index]) && !isDanTuoOnlyLine(rawLines[index])) {
       normalizedLines.push(rawLines[index]);
       continue;
