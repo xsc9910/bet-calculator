@@ -1775,9 +1775,18 @@ function calculateMultilineCompound(text, claimed) {
   // 紧随的玩法行，避免遗漏前一行号码（也保留重复号码）。
   const normalizedLines = [];
   for (let index = 0; index < rawLines.length; index += 1) {
-    if (isFlyPairsOnlyLine(rawLines[index]) && rawLines[index + 1] && /双?飞/.test(rawLines[index + 1])) {
-      normalizedLines.push(`${rawLines[index]} ${rawLines[index + 1]}`);
-      index += 1;
+    if (isFlyPairsOnlyLine(rawLines[index])) {
+      const pendingPairs = [rawLines[index]];
+      while (rawLines[index + 1] && isFlyPairsOnlyLine(rawLines[index + 1])) {
+        index += 1;
+        pendingPairs.push(rawLines[index]);
+      }
+      if (rawLines[index + 1] && /双?飞/.test(rawLines[index + 1])) {
+        index += 1;
+        normalizedLines.push(`${pendingPairs.join(' ')} ${rawLines[index]}`);
+        continue;
+      }
+      normalizedLines.push(...pendingPairs);
       continue;
     }
     if (!isNumbersOnlyLine(rawLines[index]) && !isDanTuoOnlyLine(rawLines[index])) {
