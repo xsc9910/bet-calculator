@@ -2074,6 +2074,46 @@ function calculateRecognizedCompoundBet(text, claimed, lotteryFactor) {
   const parts = [];
   let remainder = text;
 
+  const scopedLines = remainder.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const numberLines = scopedLines.filter(line => extractThreeDigitNumbers(line).length);
+  if (numberLines.length > 1) {
+    const scopedParts = [];
+    for (const line of numberLines) {
+      const numbers = extractThreeDigitNumbers(line);
+      const hasDirect = /(?:单|直)/.test(line);
+      const hasGroup = /(?:组(?!三|六)|组选|组六|组三)/.test(line);
+      if (hasDirect && hasGroup) {
+        const result = calculateDirectGroupWithSingleDigit(line, claimed, lotteryFactor);
+        if (!result) { scopedParts.length = 0; break; }
+        scopedParts.push(result);
+        continue;
+      }
+      if (hasDirect && !hasGroup) {
+        const directCount = line.match(/(?:各\s*)?([一二两三四五六七八九十]|\d{1,2})\s*(?:单|直)(?!组)(?:\s*倍)?(?=\s*(?:福|褔|体|體|福彩|体彩|合计|总计|共计|共|$))/);
+        if (!directCount) { scopedParts.length = 0; break; }
+        const times = numericValue(directCount[1]);
+        scopedParts.push({ amount: numbers.length * times * 2 * lotteryFactor, confident: true,
+          reasons: [`本行${numbers.length}个号码 × 直选${times}单 × 每单2元`] });
+        continue;
+      }
+      if (hasGroup && !hasDirect) {
+        const groupCount = line.match(/(?:各\s*)?([一二两三四五六七八九十]|\d{1,2})\s*组(?!三|六)(?:\s*倍)?(?=\s*(?:福|褔|体|體|福彩|体彩|合计|总计|共计|共|$))/);
+        if (!groupCount) { scopedParts.length = 0; break; }
+        const times = numericValue(groupCount[1]);
+        scopedParts.push({ amount: numbers.length * times * 2 * lotteryFactor, confident: true,
+          reasons: [`本行${numbers.length}个号码 × 组选${times}组 × 每组2元`] });
+        continue;
+      }
+      scopedParts.length = 0;
+      break;
+    }
+    if (scopedParts.length === numberLines.length && scopedParts.length > 1) {
+      const amount = scopedParts.reduce((sum, part) => sum + Number(part.amount), 0);
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`按换行分别归属号码和玩法：${scopedParts.map(part => part.reasons.join('')).join('；')}`] };
+    }
+  }
+
   // 先取出胆拖复式段，避免其中的“组三/组六”干扰后续单式直组识别。
   const danTuoPattern = /(?:(?:福彩|[福褔]|体彩|[体體])\s*)?胆?\s*\d+\s*拖\s*\d+\s*(?:各|打|按)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)?\s*(?:组六|组三)/g;
   for (const match of remainder.matchAll(danTuoPattern)) {
@@ -2867,13 +2907,22 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 // 全倒 is the local shorthand for 转圈. Normalize before any parser or payout scan.
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
-  return String(text || '')
+  let normalized = String(text || '')
     .replace(/福\s*排/g, '福体')
     .replace(/全\s*倒/g, '转圈')
     .replace(/转一圈/g, '转圈')
-    .replace(/转子|转(?!圈)/g, '转圈')
+    // Keep “转子” intact for the dedicated circle parser (which supports
+    // short forms such as “258转子1倍”); normalize only bare “转”.
+    .replace(/转(?!圈|子)/g, '转圈')
     // “独胆3买70”里的“买70”是固定金额，不是未标单位的倍率。
     .replace(/((?:独胆|胆|独)\s*\d)\s*买\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?![\d.]|\s*(?:倍|毛|角|元|米|块))(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共|福彩|福|体彩|体|排列三|排三))/g, '$1 $2元');
+  // With long multi-digit selections and explicit 组三/组六 labels, “转子”
+  // is the circle-play alias. Keep short single-number “转子N倍” for its
+  // dedicated permutation parser above.
+  if (/转子/.test(normalized) && /\d{4,10}/.test(normalized) && /(?:组三|组六)/.test(normalized)) {
+    normalized = normalized.replace(/转子/g, '转圈');
+  }
+  return normalized;
 }
 
 function hasExplicitDirectAndGroup(text) {
