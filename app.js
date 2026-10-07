@@ -954,6 +954,14 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   if (!fixedMatch) return null;
   const keyword = fixedMatch[1];
   if (keyword === '转子') {
+    const residue = text
+      .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+      .replace(/福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]/gi, ' ')
+      .replace(/转子/g, ' ')
+      .replace(/(?<!\d)\d{3}(?!\d)/g, ' ')
+      .replace(/各?\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍/g, ' ')
+      .replace(/[\s,，、.。:：;；/\-]+/g, '');
+    if (residue) return null;
     const numbers = extractThreeDigitNumbers(text);
     const times = multiplierStake(text, 1) || 1;
     if (numbers.length) {
@@ -2697,6 +2705,10 @@ function autoCalculateBet(text, allowCompound = true) {
   if (allowCompound && /[\r\n]/.test(clean) && hasBareMultiGroupLine) {
     const earlyMultilineCompound = calculateMultilineCompound(clean, claimed);
     if (earlyMultilineCompound) return earlyMultilineCompound;
+  }
+  if (/转子/.test(clean)) {
+    const earlyRotorBet = calculateFixedAmountPlay(clean, claimed, lotteryFactor);
+    if (earlyRotorBet) return earlyRotorBet;
   }
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
