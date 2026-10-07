@@ -797,7 +797,9 @@ function normalizedSingleBetNumberSource(text) {
     .replace(/(?<!\d)\d+\s*期/g, ' ')
     .replace(/定位(?=\s*\d+\s*注\s*(?:直选|直))/g, '')
     .replace(/(?<!\d)\d+(?:\.\d+)?\s*倍/g, ' ')
-    .replace(/[（(]\s*\d+(?:\.\d+)?\s*[）)]/g, ' ')
+    // Short parenthetical numbers are commonly subtotals/annotations; longer
+    // parenthetical digit strings can be complete复式 selections (e.g. 03578).
+    .replace(/[（(]\s*\d{1,3}(?:\.\d+)?\s*[）)]/g, ' ')
     .replace(/(?<!\d)\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)/g, ' ');
   return withoutTotals;
 }
