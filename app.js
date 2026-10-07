@@ -900,6 +900,10 @@ function calculateTieredFlyingBet(text, claimed, lotteryFactor) {
   while (remainder) {
     remainder = remainder.replace(/^[\s，,、。.;；/\-]+/, '');
     if (!remainder) break;
+    const repeatedHeading = remainder.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
+    if (repeatedHeading) {
+      remainder = remainder.slice(repeatedHeading[0].length).replace(/^[\s，,、。.;；/\-]+/, '');
+    }
     const match = remainder.match(pattern);
     if (!match) return null;
     const pairs = match[1].match(/\d{2}/g) || [];
