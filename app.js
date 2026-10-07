@@ -1567,12 +1567,13 @@ function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
 
 function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
   const isSum = /和值/.test(text);
-  const isLeopard = /豹子全包/.test(text);
+  const isLeopardFullPack = /豹子全包/.test(text);
+  const isLeopard = /豹子/.test(text);
   if (!isSum && !isLeopard) return null;
   const sumCategory = text.match(/和值\s*([大小单双])\s*[，,]?\s*(\d+(?:\.\d+)?)(?![\d.]|\s*倍)/);
   if (sumCategory) return { amount: Number(sumCategory[2]) * lotteryFactor, claimed, confident: true,
     reasons: [`和值${sumCategory[1]}按明确金额${sumCategory[2]}元`] };
-  let count = 1;
+  let count = isLeopard && !isLeopardFullPack ? 10 : 1;
   if (isSum) {
     const scrubbed = text
       .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
@@ -1581,11 +1582,13 @@ function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
     const selected = (scrubbed.match(/(?<!\d)\d{1,2}(?!\d)/g) || []).filter(value => Number(value) <= 27);
     count = selected.length || 1;
   }
-  const stake = rateFromText(text) ?? multiplierStake(text, 10) ?? explicitMoney(text);
+  const stake = rateFromText(text)
+    ?? multiplierStake(text, isLeopard && !isLeopardFullPack ? 1 : 10)
+    ?? explicitMoney(text);
   if (stake == null) return null;
   const amount = count * stake * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${isSum ? `和值${count}项` : '豹子全包'} × ${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [`${isSum ? `和值${count}项` : isLeopardFullPack ? '豹子全包' : `豹子${count}项`} × ${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
