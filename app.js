@@ -976,6 +976,7 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   }
   if (/^转一?圈$/.test(keyword)) {
     const numbers = normalizedSingleBetNumberSource(text).match(/(?<!\d)\d{2,10}(?!\d)/g) || [];
+    const hasOnlyThreeDigitNumbers = numbers.length > 0 && numbers.every(number => number.length === 3);
     const wantsGroup3 = /组三/.test(text);
     const wantsGroup6 = /组六/.test(text);
     const times = multiplierStake(text, 1) || 1;
@@ -985,13 +986,13 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
       return { amount: Number(amount.toFixed(2)), claimed, confident: true,
         reasons: ['转圈按明确金额整项投注，不乘排列数量'] };
     }
-    if (numbers.length && !wantsGroup3 && !wantsGroup6 && perNoteMoney) {
+    if (hasOnlyThreeDigitNumbers && !wantsGroup3 && !wantsGroup6 && perNoteMoney) {
       const rate = chineseAmount(perNoteMoney[1]) * (['毛', '角'].includes(perNoteMoney[2]) ? 0.1 : 1);
       const permutations = numbers.reduce((total, number) => total + (new Set(number).size === 3 ? 6 : new Set(number).size === 2 ? 3 : 1), 0);
       return { amount: Number((permutations * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
         reasons: [`转圈直选${permutations}种排列 × 每注${rate}元`] };
     }
-    if (numbers.length && !wantsGroup3 && !wantsGroup6 && /倍/.test(text)) {
+    if (hasOnlyThreeDigitNumbers && !wantsGroup3 && !wantsGroup6 && /倍/.test(text)) {
       const permutations = numbers.reduce((total, number) => total + (new Set(number).size === 3 ? 6 : new Set(number).size === 2 ? 3 : 1), 0);
       return { amount: Number((permutations * times * 2 * lotteryFactor).toFixed(2)), claimed, confident: true,
         reasons: [`转圈直选${permutations}种排列 × ${times}倍 × 2元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
