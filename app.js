@@ -2580,6 +2580,17 @@ function autoCalculateBet(text, allowCompound = true) {
   if (mixedPositionAndDirectBet) return mixedPositionAndDirectBet;
   const groupAndDirectMultiBet = calculateGroupAndDirectMultiBet(clean, claimed, lotteryFactor);
   if (groupAndDirectMultiBet) return groupAndDirectMultiBet;
+  // Let complete line-by-line calculations resolve known unitless multi-pick
+  // amounts before the generic ambiguity guard. Mixed bet types are evaluated
+  // per line, so a following single-play line cannot make a 4+ digit group
+  // selection look like an ambiguous multiplier.
+  const multiGroupLines = clean.split(/\r?\n/).filter(line => /\d{4,10}/.test(line) && /(?:组六|组三)/.test(line));
+  const hasBareMultiGroupLine = multiGroupLines.length > 0 && multiGroupLines.every(line =>
+    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?组六\s*(?:各|打)?\s*[2-9]\d\s*$/.test(line));
+  if (allowCompound && /[\r\n]/.test(clean) && hasBareMultiGroupLine) {
+    const earlyMultilineCompound = calculateMultilineCompound(clean, claimed);
+    if (earlyMultilineCompound) return earlyMultilineCompound;
+  }
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
