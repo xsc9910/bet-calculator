@@ -1277,6 +1277,7 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
   const directMoney = text.match(/(?:直选|直)\s*(?:各\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   const eachRate = rateFromText(text) ?? (directMoney
     ? chineseAmount(directMoney[1]) * (['毛', '角'].includes(directMoney[2]) ? 0.1 : 1) : null);
+  const multiplierRate = multiplierStake(text, 10);
   const stated = explicitMoney(text);
   const allThree = ['百位', '十位', '个位'].every(label => positions.some(position => position.name === label));
 
@@ -1315,15 +1316,16 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
     return { amount, claimed, confident: true,
       reasons: [`三位定位${combinations}注 × ${playCount}种玩法 × 每注2元 × ${times}倍${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
-  if (eachRate != null || stated != null) {
+  if (eachRate != null || multiplierRate != null || stated != null) {
     // 一个定位字段可以列出多个独立数字，例如“百位14各20元”表示百位1、4各投20；
     // 只有三位定位复式分支才使用笛卡尔积，这里按字段内实际数字项计数。
     const itemCount = positions.reduce((sum, position) =>
       sum + (position.values === '全部' ? 10 : new Set(position.values).size), 0);
-    const amount = (eachRate != null ? itemCount * eachRate : stated) * lotteryFactor;
+    const perItemRate = eachRate ?? multiplierRate;
+    const amount = (perItemRate != null ? itemCount * perItemRate : stated) * lotteryFactor;
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-      reasons: [eachRate != null
-        ? `定位${itemCount}项（${positions.map(position => `${position.name}${position.values}`).join('、')}） × 每项${eachRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`
+      reasons: [perItemRate != null
+        ? `定位${itemCount}项（${positions.map(position => `${position.name}${position.values}`).join('、')}） × 每项${perItemRate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`
         : `${positions.length >= 2 ? '定位' : '一码定位'}按明确总金额计算${lotteryFactor === 2 ? '，福彩体彩两边' : ''}`] };
   }
   return null;
@@ -2372,7 +2374,7 @@ function ambiguousOriginalStake(text) {
     if (/^(?:合计|总计|共计|一共|共)/.test(withoutMetadata) || /^\d{4}年/.test(segment)) return false;
     if (/^[\d\s,，.。/、\-—–+＋:：]+$/.test(withoutMetadata)) return false;
     if (/^(\d)\1\1\s*(?:\d+|[一二两三四五六七八九十]+)\s*倍/.test(withoutMetadata)) return false;
-    if (/直|单|组|飞|定位|[一二两]定|百位?|十位?|个位?|独胆|胆|扣|毒|对子|跨|拖|复式|复试|转圈|转子|粘边|沾边|豹子|和值|[Xx*×].*[=＝]/.test(withoutMetadata)) return false;
+    if (/直|单|组|飞|定位|[一二两]定|百位?|十位?|个位?|独胆|胆|扣|毒|对子|跨|拖|复式|复试|转圈|转子|粘边|沾边|豹子|[和合]值|[Xx*×].*[=＝]/.test(withoutMetadata)) return false;
     const unexplained = withoutMetadata.replace(/[\d\s,，.。/、\-—–+＋:：*×Xx=＝()（）零〇一二两三四五六七八九十百元米块毛角倍各每注打合共总计码🈴]/g, '');
     return unexplained.length > 0;
   });
@@ -2668,6 +2670,9 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/双飞\s*[，,]\s*(?=\d{2})/g, '双飞 ')
     .replace(/(?<!\d)(\d{3})(?!\d)\s*[，,]\s*([一二两三四五六七八九十]|\d+)\s*倍(?=\s*[，,])/g, '$1直$2倍')
     .replace(/🈴/g, '合计')
+    .replace(/合值/g, '和值')
+    .replace(/(?<!\d)(\d)\s*和\s*(\d)(?=\s*双?飞)/g, '$1$2')
+    .replace(/(百位?|十位?|个位?)\s*定\s*(?=\d)/g, '$1')
     .replace(/组\s*([36])(?=\s*(?:[，,、]|(?:打|各)\s*(?:[一二两三四五六七八九十]|\d+)\s*倍))/g, (_, digit) => digit === '3' ? '组三' : '组六')
     .replace(/(组三|组六)\s*[，,、]\s*(?=\d{1,2}(?!\d))/g, '$1 ')
     .replace(/(?<!和)值(?=\s*[零〇一二两三四五六七八九十百\d])/g, '直')
