@@ -1398,6 +1398,82 @@ function calculatePairOrSpanBet(text, claimed, lotteryFactor) {
     reasons: [`${count}项${pair ? '对子' : '跨度'} × 每项${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateImplicitTwoDigitFlyBet(text, claimed, lotteryFactor) {
+  // A bare two-digit selection is 双飞 unless position/another special play is explicit.
+  if (/(?:定位|二定|两码定位|跨度|独胆|拖|组六|组三|和值|转圈|转子|复式|复试)/.test(text)) return null;
+  const body = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/(?:福彩|[福褔]|体彩|[体體]|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])/gi, ' ')
+    .replace(/(?:各(?:打)?|每(?:个|注)?|打)?\s*(?:[一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/g, ' ')
+    .replace(/[各每个打:：]/g, ' ').trim();
+  const pairs = body.match(/(?<!\d)\d{2}(?!\d)/g) || [];
+  const residue = body.replace(/(?<!\d)\d{2}(?!\d)/g, ' ').replace(/[\s,，、.。/\-]+/g, '');
+  if (!pairs.length || residue) return null;
+  const explicitEach = /(?:各|每个|每注|打)/.test(text);
+  if (pairs.length > 1 && !explicitEach) return null;
+  const amount = explicitMoney(text);
+  const rate = rateFromText(text);
+  const times = multiplierStake(text, 10);
+  const each = amount ?? rate ?? times ?? 10;
+  const total = Number((each * (amount != null && !explicitEach ? 1 : pairs.length) * lotteryFactor).toFixed(2));
+  return { amount: total, claimed, confident: true,
+    reasons: [`未定位两位码${pairs.join('、')}按双飞${pairs.length}项计算：${each}元${amount != null && !explicitEach ? '（单项金额）' : `× ${pairs.length}项`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
+function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
+  // Resolve only a clearly separated one-code direct/group pair here. More
+  // involved text stays with the established parsers (notably totals and buys).
+  if (/(?:飞|定位|胆码|胆拖|拖|独胆|毒|扣|对子|跨度|复式|复试|转圈|转子|粘边赖|豹子|和值|组三|组六|直组|单组|一直一组|一单一组|各|买|合计|总计|共计|\+)/.test(text)) return null;
+  const numbers = [...text.matchAll(/(?<!\d)\d{3}(?!\d)/g)];
+  const plays = [...text.matchAll(/直选|组选|单挑|单(?!组)|直(?!组)|组(?!三|六)/g)];
+  if (numbers.length !== 2 || plays.length !== 2) return null;
+  const types = plays.map(match => /^(?:直选|单挑|单|直)$/.test(match[0]) ? 'direct' : 'group');
+  if (new Set(types).size !== 2) return null;
+  // Pair each explicit play/rate block with the closest listed code. This handles
+  // both “123直1倍 456组1倍” and “直1倍123组1倍456” without applying both plays
+  // to every code in the line.
+  const assigned = new Map(plays.map((_, index) => [index, []]));
+  if (numbers.length === plays.length) {
+    numbers.forEach((number, index) => assigned.get(index).push(number[0]));
+  } else for (const number of numbers) {
+    let nearest = 0;
+    let distance = Infinity;
+    plays.forEach((play, index) => {
+      const currentDistance = number.index < play.index
+        ? play.index - (number.index + number[0].length)
+        : number.index - (play.index + play[0].length);
+      if (currentDistance < distance) { nearest = index; distance = currentDistance; }
+    });
+    assigned.get(nearest).push(number[0]);
+  }
+  if (assigned.size !== plays.length || [...assigned.values()].some(codes => !codes.length)) return null;
+  const details = [];
+  for (let index = 0; index < plays.length; index += 1) {
+    const play = plays[index];
+    const codes = assigned.get(index);
+    const left = index === 0 ? 0 : Math.floor((plays[index - 1].index + plays[index - 1][0].length + play.index) / 2);
+    const right = index === plays.length - 1 ? text.length
+      : Math.floor((play.index + play[0].length + plays[index + 1].index) / 2);
+    let scope = text.slice(left, right)
+      .replace(/(?<!\d)\d{3}(?!\d)/g, ' ')
+      .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
+    const direct = types[index] === 'direct';
+    // Remove adjacent play labels before looking for the localized stake.
+    scope = scope.replace(/直选|组选|单挑|单(?!组)|直(?!组)|组(?!三|六)/g, ' ');
+    const money = explicitMoney(scope);
+    const explicitRate = rateFromText(scope);
+    const timesMatch = scope.match(/([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*倍/);
+    const unitCount = scope.match(direct ? /([一二两三四五六七八九十]|\d+)\s*(?:单|直)/ : /([一二两三四五六七八九十]|\d+)\s*组(?!三|六)/);
+    const base = direct ? 4 : 2;
+    const unit = money ?? explicitRate ?? (timesMatch ? numericValue(timesMatch[1]) * base : unitCount ? numericValue(unitCount[1]) * base : base);
+    details.push({ type: direct ? '直选' : '组选', codes, unit,
+      amount: Number((codes.length * unit).toFixed(2)) });
+  }
+  const total = details.reduce((sum, detail) => sum + detail.amount, 0) * lotteryFactor;
+  return { amount: Number(total.toFixed(2)), claimed, confident: true,
+    reasons: [`同一行分段归属并逐项计算：${details.map(detail => `${detail.type}${detail.codes.join('、')} × 每码${detail.unit}元 = ${detail.amount}元`).join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
+}
+
 function calculateDanTuoBet(text, claimed, lotteryFactor) {
   const combinedGroups = text.match(/(\d+)\s*拖\s*(\d+)\s*[，、,\s]*(?:组六\s*[、,，]?\s*组三|组三\s*[、,，]?\s*组六)\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?/);
   if (combinedGroups) {
@@ -2486,6 +2562,7 @@ function autoCalculateBet(text, allowCompound = true) {
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/[－﹣]/g, '-');
   text = normalizeDotDelimitedMultiplier(text);
+  text = text.replace(/((?:直选|组选|直|单|组)\s*[零〇一二两三四五六七八九十百\d]+\s*倍)\s*[.。]\s*((?:直选|组选|直|单|组)\s*[零〇一二两三四五六七八九十百\d]+\s*倍)/g, '$1 $2');
   text = text.replace(/(?<!\d)(\d{3})[.。]\s*(\d{1,2})\s*(单|直|组)(?=\s*(?:$|[\r\n]|\d+(?:\.\d+)?\s*(?:元|米|块|毛|角)))/g,
     (match, number, times, play) => `${number} ${play === '单' ? '直' : play}${times}倍`);
   text = text.replace(/(?<!胆)独(?!胆)\s*(?=\d)/g, '独胆');
@@ -2496,6 +2573,10 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/单挑\s*[:：]?\s*(\d{3}(?:[.、\s\-]+\d{3})*)\s*\r?\n\s*(一直一组|一单一组|直组|单组)/g, '$1 $2');
   // “各10/各20”一类无单位两位金额，按每项元数处理；“各一”“各2倍”仍是倍率。
   text = text.replace(/各\s*(\d{2,})(?![\d.]|\s*(?:倍|毛|角|元|米|块|注))(?=\s*(?:$|[,，;；。\r\n]|合计|共计|总计|共))/g, '各$1元');
+  // A trailing standalone amount after a comma is a subtotal/claim, not another
+  // stake (e.g. “...一直一组，16”). Preserve it for mismatch checking only.
+  text = text.replace(/(.*(?:一直一组|一单一组|直组|单组)[^,，\r\n]*)[,，]\s*(\d+(?:\.\d+)?)\s*$/gm, '$1 合计$2元');
+  text = text.replace(/(.*(?:组三|组六)[^,，\r\n]*(?:[一二两三四五六七八九十百\d]+\s*(?:毛|角|元|米|块)))[,，]\s*(\d+(?:\.\d+)?)\s*$/gm, '$1 合计$2元');
   text = normalizeStatedArithmeticTotals(text);
   text = text.replace(/(直选|组选|组六|组三|直组|单组)\s+((?<!\d)\d{3,10}(?:[ \t.、,，/\-]+\d{3,10})*)[ \t]+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$2 $1各$3$4');
   text = normalizeEachStakeWording(text);
@@ -2756,6 +2837,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (flyingBet) return flyingBet;
   const singleDigitBet = calculateSingleDigitBet(clean, claimed, lotteryFactor);
   if (singleDigitBet) return singleDigitBet;
+  const implicitTwoDigitFlyBet = calculateImplicitTwoDigitFlyBet(clean, claimed, lotteryFactor);
+  if (implicitTwoDigitFlyBet) return implicitTwoDigitFlyBet;
   const pairOrSpanBet = calculatePairOrSpanBet(clean, claimed, lotteryFactor);
   if (pairOrSpanBet) return pairOrSpanBet;
   const twoCodeGroupBet = calculateTwoCodeGroupBet(clean, claimed, lotteryFactor);
@@ -2771,6 +2854,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const multiGroupBet = calculateMultiGroupBet(clean, claimed, lotteryFactor);
   if (multiGroupBet) return multiGroupBet;
 
+  const orderedBasicPlaySegments = calculateOrderedBasicPlaySegments(clean, claimed, lotteryFactor);
+  if (orderedBasicPlaySegments) return orderedBasicPlaySegments;
 
   const noteCount = clean.match(/(\d+)\s*注/);
   const perRate = rateFromText(clean);
