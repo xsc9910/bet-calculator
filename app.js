@@ -2866,9 +2866,12 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 // Common shorthand used in source messages: 福排 means both 福彩 and 体彩;
 // 全倒 is the local shorthand for 转圈. Normalize before any parser or payout scan.
 function normalizeBetAliases(text) {
+  // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   return String(text || '')
     .replace(/福\s*排/g, '福体')
     .replace(/全\s*倒/g, '转圈')
+    .replace(/转一圈/g, '转圈')
+    .replace(/转子|转(?!圈)/g, '转圈')
     // “独胆3买70”里的“买70”是固定金额，不是未标单位的倍率。
     .replace(/((?:独胆|胆|独)\s*\d)\s*买\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?![\d.]|\s*(?:倍|毛|角|元|米|块))(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共|福彩|福|体彩|体|排列三|排三))/g, '$1 $2元');
 }
