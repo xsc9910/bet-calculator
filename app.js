@@ -1227,8 +1227,8 @@ function calculateSingleDigitBet(text, claimed, lotteryFactor) {
     return { amount: Number(amount.toFixed(2)), claimed, confident: true,
       reasons: [`独胆${digitBeforeDan[1]}按原文固定金额${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
-  let selected = bareDan?.[1] || text.match(/(?:独胆|毒[胆但]?|扣|独)\s*([0-9](?:[\/、，,.。\-]*[0-9])*)/)?.[1] || '';
-  if (!selected) selected = text.match(/([0-9](?:[\/、，,.。\-]*[0-9])*)\s*独/)?.[1] || '';
+  let selected = bareDan?.[1] || text.match(/(?:独胆|毒[胆但]?|扣|独)\s*([0-9](?:[\/、，,.。\-]*[0-9](?!\s*倍))*)/)?.[1] || '';
+  if (!selected) selected = text.match(/([0-9](?:[\/、，,.。\-]*[0-9](?!\s*倍))*)\s*独/)?.[1] || '';
   if (!selected && /各掉/.test(text)) selected = text.split(/福|体|各掉/)[0];
   const digits = selected.match(/\d/g) || [];
   if (!digits.length) return null;
