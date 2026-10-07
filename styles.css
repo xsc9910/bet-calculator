@@ -259,6 +259,8 @@ td:nth-child(5) { width: 48px; }
 .bet-preview-head { min-height: 48px; padding: 0 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #799486; }
 .bet-preview-head h3 { margin: 0; font-size: 15px; }
 .bet-preview-head span { color: var(--muted); font-size: 12px; }
+.bet-preview-search { display: block; padding: 10px 12px; border-bottom: 1px solid #e7ece8; background: white; }
+.bet-preview-search input { width: 100%; }
 .bet-preview-list { min-height: 0; display: grid; align-content: start; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .bet-preview-item { border-bottom: 1px solid #e7ece8; background: white; }
 .bet-preview-item:last-child { border-bottom: 0; }

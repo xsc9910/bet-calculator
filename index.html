@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7f8f4">
   <title>投注计算台</title>
-  <link rel="stylesheet" href="styles.css?v=20260929-readable-formula-diff">
+  <link rel="stylesheet" href="styles.css?v=20261007-bet-preview-search">
 </head>
 <body>
   <header class="topbar">
@@ -126,6 +126,9 @@
             <h3>投注内容</h3>
             <span>当前统计</span>
           </div>
+          <label class="bet-preview-search">
+            <input id="betPreviewSearchInput" type="search" placeholder="搜索下注原文" aria-label="搜索当前统计的下注原文" autocomplete="off">
+          </label>
           <div id="betPreviewList" class="bet-preview-list"></div>
         </aside>
       </div>
@@ -360,6 +363,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20261006-decimal-money"></script>
+  <script src="app.js?v=20261007-bet-preview-search-sticky"></script>
 </body>
 </html>

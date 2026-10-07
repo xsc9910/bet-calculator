@@ -43,6 +43,10 @@ const cases = [
   ,['组六组三转圈各一倍查表', '\u4f53\u7ec4\u516d\u7ec4\u4e09\u8f6c\u57081234\u5404\u4e00\u500d', 120]
   ,['沾边赖组三组六一胆各一倍查表', '\u4f53\u6cbe\u8fb9\u8d56\u7ec4\u4e09\u7ec4\u516d\u80c65\u5404\u4e00\u500d', 108]
   ,['沾边赖组三组六两胆各一倍查表', '\u4f53\u6cbe\u8fb9\u8d56\u7ec4\u4e09\u7ec4\u516d\u80c658\u5404\u4e00\u500d', 196]
+  ,['前置两胆沾边组六一倍', '体13沾边组六1倍合计128', 128]
+  ,['前置两胆沾边组三两倍', '福24沾边组三2倍', 136]
+  ,['前置三胆沾边组六一倍', '体135沾边组六1倍', 170]
+  ,['后置两胆沾边组六一倍', '体沾边组六胆13一倍', 128]
   ,['组六号码各一组总额', '\u4f53149 176 309 349 509 549 569 576 659 670 671 675 706 749 756 760 761 765 834 835 845 854 859 875\u5404\u4e00\u7ec448\u7c73', 48]
   ,['直号码各一直总额', '\u4f53149 176\u5404\u4e00\u76f48\u7c73', 4]
   ,['福彩体彩表示两边', '\u798f\u5f69\u4f53\u5f69123\u76f4\u5404\u4e00\u500d', 4]
@@ -144,6 +148,20 @@ const cases = [
   ,['无单位小数在直选前也按金额', '福135 246 0.5直', 1]
   ,['明确小数倍仍按倍数', '福135 246直组0.5倍', 4]
   ,['大于一的无单位小数也按金额', '体123 456组各1.5合计3', 3]
+  ,['多行混合整单不能漏掉未识别行', `福645.609.366.636.627.672两单一组
+393.933..924.429一单一组
+915.519.474.447.438.583.538.584.827.728.直组一米
+325.523.424.604.631.316.613直组一米
+929.922.833.838.335.225.626.676.696.686.377.224.322.332组选一米
+242.422.224.243.324.423直组一米
+227.224.225.229.422.433.424.直组一米
+999.777.444.000一倍
+0和值一倍
+321.303.030.309.336.327.381组选一倍
+300.030.303.330.402.420.413.430.421一单一组
+426.453.435.660.606.633.336直组一米
+合计208`, 208]
+  ,['多只豹子只写一倍按直选', '福999.777.444.000一倍直', 8]
 ];
 let failed = 0;
 for (const [name, text, expected] of cases) {
@@ -195,6 +213,18 @@ if (!tieredFlyMismatch.confident || tieredFlyMismatch.amount !== 120 || tieredFl
   failed += 1;
   console.log(`FAIL 双飞分档原文合计不反推金额: ${JSON.stringify(tieredFlyMismatch)}`);
 } else console.log('PASS 双飞分档原文合计仅用于核对');
+const unrecognizedLine = calculate('福123一直\n456 789各一倍\n合计10');
+if (unrecognizedLine.confident || unrecognizedLine.amount !== '' || !unrecognizedLine.needs?.some(need => need.includes('456 789'))) {
+  failed += 1;
+  console.log(`FAIL 多行未知玩法须提示具体原文行: ${JSON.stringify(unrecognizedLine)}`);
+} else console.log('PASS 多行未知玩法提示具体原文行');
+for (const text of ['福123一直\n456 789各0.5元\n合计3', '福123一直\n456 789各20\n合计42']) {
+  const result = calculate(text);
+  if (result.confident || result.amount !== '' || !result.needs?.some(need => need.includes('456 789'))) {
+    failed += 1;
+    console.log(`FAIL 多行未知玩法的金额行不能跳过: ${JSON.stringify(result)}`);
+  } else console.log('PASS 多行未知玩法的金额行提示具体原文');
+}
 const ambiguousMultiDan = calculate('体2 4买70');
 if (ambiguousMultiDan.confident || ambiguousMultiDan.amount !== '' || !ambiguousMultiDan.needs?.length) {
   failed += 1;

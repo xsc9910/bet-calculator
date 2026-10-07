@@ -589,7 +589,10 @@ function formatBetTime(value) {
 
 function renderBetPreview() {
   // 投注内容只显示当前统计；结束统计后此处会自然清空，历史记录仍保留在金额总表。
-  const recent = entriesForBetBatch('active').filter(entry => entry.original).slice().reverse();
+  const query = $('betPreviewSearchInput').value.trim().toLowerCase();
+  const recent = entriesForBetBatch('active')
+    .filter(entry => entry.original && (!query || entry.original.toLowerCase().includes(query)))
+    .slice().reverse();
   $('betPreviewList').innerHTML = recent.length ? recent.map(entry => {
     const anomaly = anomalyFor(entry);
     const targets = entryLotteryTargets(entry);
@@ -607,7 +610,7 @@ function renderBetPreview() {
         <button class="preview-refund" data-id="${entry.id}" data-record="${entry.record}" type="button">退</button>
       </div>
     </article>`;
-  }).join('') : '<div class="bet-preview-empty">计算并记录后，投注内容会显示在这里。</div>';
+  }).join('') : `<div class="bet-preview-empty">${query ? '当前统计中没有匹配的下注原文。' : '计算并记录后，投注内容会显示在这里。'}</div>`;
 }
 
 function escapeHtml(value) {
@@ -1072,7 +1075,7 @@ function calculateStickyBet(text, claimed, lotteryFactor) {
     const amount = 180 * (multiplierStake(text, 1) || 1) * lotteryFactor;
     return { amount, claimed, confident: true, reasons: [`组三粘边赖全包${amount}元`] };
   }
-  const selected = text.match(/(?:胆|组三|组六)\s*([0-9]+)/)?.[1] || '';
+  const selected = sharedStickyDigits || text.match(/(?:胆|组三|组六)\s*([0-9]+)/)?.[1] || '';
   const count = new Set(selected.split('').filter(Boolean)).size;
   const base = plays[type].baseByCount[count];
   if (!base) return null;
@@ -1701,8 +1704,15 @@ function calculateMultilineCompound(text, claimed) {
     }
     if (isSummaryLine(line) || /^(?:合计|总计|共计|一共|共)/.test(line)) continue;
     if (!playLine.test(line) && !isWildcardFixedLine(line)) {
-      if (/^([0-9])\1\1\s*(?:[一二两三四五六七八九十]+|\d+)\s*倍/.test(line)) {
-        pushLine(`${line} 直`);
+      const withoutLineClaim = line.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+      const leopardLine = withoutLineClaim.replace(/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, '');
+      const leopardMatch = leopardLine.match(/^(\d{3}(?:[\s、，,。.\/\-]+\d{3})*)\s*(?:各\s*)?([一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍$/);
+      if (leopardMatch && (leopardMatch[1].match(/\d{3}/g) || []).every(code => code[0] === code[1] && code[1] === code[2])) {
+        pushLine(`${withoutLineClaim}直${line.slice(withoutLineClaim.length)}`);
+      } else if (/^\d{3}(?:[\s、，,。.\/\-]+\d{3})*\s*(?:(?:各(?:打)?|打)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)?|(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块))$/.test(leopardLine)) {
+        return { amount: '', claimed, confident: false,
+          reasons: [`第${index + 1}行“${line}”写了号码和额度，但没有说明直选或组选；不能只计算其他行。`],
+          needs: [`第${index + 1}行“${line}”：请补充直选、组选、独胆等具体玩法；整条暂不自动记录。`] };
       }
       continue;
     }
@@ -3216,6 +3226,7 @@ document.querySelectorAll('.filter').forEach(b => b.onclick = () => {
   render();
 });
 $('searchInput').oninput = render;
+$('betPreviewSearchInput').oninput = renderBetPreview;
 $('betSearchInput').oninput = render;
 $('onlyAnomalies').onchange = render;
 const batchFilter = $('batchFilter');
