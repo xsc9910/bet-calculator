@@ -1535,9 +1535,14 @@ function calculateDanTuoBet(text, claimed, lotteryFactor) {
       .replace(/(?:福彩|[福褔]|体彩|[体體]|各|打|按|共|合计|总计|元|米|块|毛|角|倍|\s)/g, '')
     : '';
   const hasLeadingTimes = /倍/.test(text.slice(danTuoEnd, labelIndex));
+  const trailingStake = text.slice(labelIndex + label.length).match(/^\s*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共))/);
+  const trailingValue = trailingStake ? chineseAmount(trailingStake[1]) : null;
+  const trailingAmount = trailingStake && (trailingStake[2] || trailingValue >= 10)
+    ? trailingValue * (trailingStake[2] === '倍' ? 10 : ['毛', '角'].includes(trailingStake[2]) ? 0.1 : 1)
+    : null;
   const stake = !hasLeadingTimes && amountText && /^(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)$/.test(amountText)
     ? chineseAmount(amountText)
-    : multiplierStake(text, 10);
+    : trailingAmount ?? multiplierStake(text, 10);
   if (stake == null) return null;
   const amount = stake * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
@@ -2674,6 +2679,7 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/(?<!\d)(\d)\s*和\s*(\d)(?=\s*双?飞)/g, '$1$2')
     .replace(/(^|[\r\n,，;；。])(\s*(?:(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*)?)(\d{1,10})\s*(百位?|十位?|个位?)(?=$|[\s,，;；。])/gi, '$1$2$4$3')
     .replace(/(百位?|十位?|个位?)\s*定\s*(?=\d)/g, '$1')
+    .replace(/(直选|组选|直|组(?!三|六))\s*([一二两三四五六七八九十])(?=\s*(?:$|[,，;；。\r\n]|合计|共计|总计|共))/g, '$1$2倍')
     .replace(/组\s*([36])(?=\s*(?:[，,、]|(?:打|各)\s*(?:[一二两三四五六七八九十]|\d+)\s*倍))/g, (_, digit) => digit === '3' ? '组三' : '组六')
     .replace(/(组三|组六)\s*[，,、]\s*(?=\d{1,2}(?!\d))/g, '$1 ')
     .replace(/(?<!和)值(?=\s*[零〇一二两三四五六七八九十百\d])/g, '直')
@@ -2748,7 +2754,14 @@ function autoCalculateBet(text, allowCompound = true) {
   if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
   const missingSpecialUnit = clean.match(/(?:组三|组六|组[36])[ \t]*(?:各(?:打)?|打)?[ \t]*\d{1,2}(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/)
     || clean.match(/\d{4,10}[ \t]*(?:组三|组六)[ \t]*(?:各(?:打)?|打)?[ \t]*\d+(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/);
-  if (missingSpecialUnit) {
+  const missingSpecialLine = missingSpecialUnit
+    ? clean.slice(clean.lastIndexOf('\n', missingSpecialUnit.index) + 1, clean.indexOf('\n', missingSpecialUnit.index) < 0 ? clean.length : clean.indexOf('\n', missingSpecialUnit.index))
+    : '';
+  const missingSpecialIsDanTuoFixedAmount = missingSpecialUnit
+    && Number(missingSpecialUnit[0].match(/\d+(?:\.\d+)?\s*$/)?.[0]) >= 10
+    && /(?:胆\s*)?\d+\s*拖\s*\d+\s*$/.test(clean.slice(0, missingSpecialUnit.index))
+    && !(/组三/.test(missingSpecialLine) && /组六/.test(missingSpecialLine));
+  if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount) {
     return { amount: '', claimed, confident: false,
       reasons: [`“${missingSpecialUnit[0]}”的投注额度未写单位，无法确定是金额还是倍数。`],
       needs: [`请在“${missingSpecialUnit[0]}”的额度后补“元/米/毛/角”或“倍”，不能仅凭原文合计推定。`] };
