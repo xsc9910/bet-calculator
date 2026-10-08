@@ -2384,10 +2384,17 @@ function calculatePositionBlocksCompound(text, claimed) {
     const remaining = ratedBlocks.reduce((value, block) => value.replace(block[0], ' '), text)
       .replace(/(?:合计|总计|共计|共|合)\s*\d+(?:\.\d+)?/g, ' ');
     if (!/\d/.test(remaining) && !/(飞|组三|组六|独胆|拖)/.test(remaining)) {
+      let previousEnd = 0;
+      let carriedFactor = 1;
       const amount = ratedBlocks.reduce((sum, block) => {
+        const scope = text.slice(previousEnd, block.index);
+        const welfare = /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(scope);
+        const sports = /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d])/.test(scope);
+        if (welfare || sports) carriedFactor = welfare && sports ? 2 : 1;
+        previousEnd = block.index + block[0].length;
         const rate = chineseAmount(block[4]) * (block[5] === '倍' ? 2 : ['毛', '角'].includes(block[5]) ? 0.1 : 1);
-        return sum + block[1].length * block[2].length * block[3].length * rate;
-      }, 0) * lotteryTargets(text).length;
+        return sum + block[1].length * block[2].length * block[3].length * rate * carriedFactor;
+      }, 0);
       return { amount: Number(amount.toFixed(2)), claimed, confident: true,
         reasons: [`${ratedBlocks.length}段百十个位分别组合，按各段金额或倍数计算后相加`] };
     }
