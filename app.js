@@ -1088,7 +1088,11 @@ function calculateStickyBet(text, claimed, lotteryFactor) {
     return { amount, claimed, confident: true,
       reasons: [`${digits.length}个独立一码粘边赖${independent[2]} × 每个${base}元 × ${independent[3]}倍`] };
   }
-  const type = /粘边赖组三/.test(text) ? 'sticky3' : /粘边赖组六/.test(text) ? 'sticky6' : '';
+  const type = sharedStickyDigits && /组三/.test(text) && !/组六/.test(text)
+    ? 'sticky3'
+    : sharedStickyDigits && /组六/.test(text) && !/组三/.test(text)
+      ? 'sticky6'
+      : /粘边赖组三/.test(text) ? 'sticky3' : /粘边赖组六/.test(text) ? 'sticky6' : '';
   if (!type) return null;
   if (/全包/.test(text)) {
     if (type !== 'sticky3') return null;
