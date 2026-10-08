@@ -1267,6 +1267,34 @@ function calculatePlainDigitPositionBet(text, claimed, lotteryFactor) {
       : `定位${digits.join('、')}各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateUnpositionedBet(text, claimed, lotteryFactor) {
+  if (!/不定位/.test(text)) return null;
+  const selection = text.match(/(?<!\d)(\d{1,2})\s*不定位/)?.[1]
+    || text.match(/不定位\s*(\d{1,2})(?=\s*(?:各|打|[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?\s*(?:倍|毛|角|元|米|块)))/)?.[1]
+    || text.match(/(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)\s*(\d{1,2})\s*不定位/)?.[1]
+    || text.match(/(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)\s*不定位\s*(\d{1,2})/)?.[1];
+  if (!selection) return null;
+  const stake = explicitMoney(text) ?? multiplierStake(text, 10);
+  if (stake == null) return null;
+  const amount = stake * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${selection.length === 1 ? `一位不定位${selection}按独胆` : `两位不定位${selection}按双飞`}计算${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
+function calculatePositionWithInheritedUnpositioned(text, claimed, lotteryFactor) {
+  if (!/不定位/.test(text)) return null;
+  const position = text.match(/(百位?|十位?|个位?)\s*[:：]?\s*(\d{1,2})\s*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/);
+  const unpositioned = text.match(/不定位\s*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/);
+  if (!position || !unpositioned) return null;
+  const selection = position[2];
+  const positionStake = chineseAmount(position[3]) * (position[4] === '倍' ? 10 : ['毛', '角'].includes(position[4]) ? 0.1 : 1);
+  const unpositionedStake = chineseAmount(unpositioned[1]) * (unpositioned[2] === '倍' ? 10 : ['毛', '角'].includes(unpositioned[2]) ? 0.1 : 1);
+  const positionAmount = new Set(selection).size * positionStake;
+  const amount = (positionAmount + unpositionedStake) * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${position[1]}${selection}共${new Set(selection).size}项 × ${positionStake}元；${selection.length === 1 ? '一位不定位按独胆' : '两位不定位按双飞'}${unpositionedStake}元${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
+}
+
 function normalizePositionSelectionLists(text) {
   return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*[,，、][ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
     (match, label, digits) => `${label}${digits.replace(/\D/g, '')}`);
@@ -2689,6 +2717,7 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/(?<!\d)(\d{3})(?!\d)\s*[，,]\s*([一二两三四五六七八九十]|\d+)\s*倍(?=\s*[，,])/g, '$1直$2倍')
     .replace(/🈴/g, '合计')
     .replace(/合值/g, '和值')
+    .replace(/(?<!不)一定/g, '一码定位')
     .replace(/(?<!\d)(\d)\s*和\s*(\d)(?=\s*双?飞)/g, '$1$2')
     .replace(/(^|[\r\n,，;；。])(\s*(?:(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*)?)(\d{1,10})\s*(百位?|十位?|个位?)(?=$|[\s,，;；。])/gi, '$1$2$4$3')
     .replace(/(百位?|十位?|个位?)\s*定\s*(?=\d)/g, '$1')
@@ -2900,6 +2929,10 @@ function autoCalculateBet(text, allowCompound = true) {
   }
   // 定位含有三位数字集合时，必须先按百/十/个位做笛卡尔组合；
   // 不能先被“直各X元”的通用单式规则截获。
+  const positionWithInheritedUnpositioned = calculatePositionWithInheritedUnpositioned(clean, claimed, lotteryFactor);
+  if (positionWithInheritedUnpositioned) return positionWithInheritedUnpositioned;
+  const unpositionedBet = calculateUnpositionedBet(clean, claimed, lotteryFactor);
+  if (unpositionedBet) return unpositionedBet;
   const plainDigitPositionBet = calculatePlainDigitPositionBet(clean, claimed, lotteryFactor);
   if (plainDigitPositionBet) return plainDigitPositionBet;
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
