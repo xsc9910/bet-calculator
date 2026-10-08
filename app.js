@@ -2780,6 +2780,27 @@ function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) 
     reasons: [`按玩法区块计算：${details.join('；')}`] };
 }
 
+function calculateMultiPairPositionBet(text, claimed, lotteryFactor) {
+  if (!/[两二]码\s*(?:定位|定)/.test(text)) return null;
+  const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
+    .map(match => ({ name: match[1][0], label: match[1], values: match[2] }));
+  if (positions.length < 2 || positions.length % 2 !== 0) return null;
+  const pairs = [];
+  for (let index = 0; index < positions.length; index += 2) {
+    const pair = positions.slice(index, index + 2);
+    if (pair[0].name === pair[1].name) return null;
+    const combinations = pair.reduce((total, position) => total * new Set(position.values).size, 1);
+    pairs.push({ pair, combinations });
+  }
+  const rateMatch = text.match(/(?:各|每组|每注)\s*(?:记|打|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
+  if (!rateMatch) return null;
+  const rate = chineseAmount(rateMatch[1]) * (['毛', '角'].includes(rateMatch[2]) ? 0.1 : 1);
+  const totalCombinations = pairs.reduce((sum, pair) => sum + pair.combinations, 0);
+  const amount = totalCombinations * rate * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`两码定位${pairs.length}组，共${totalCombinations}注 × 每组${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
   if (lines.length < 3) return null;
@@ -3023,6 +3044,8 @@ function autoCalculateBet(text, allowCompound = true) {
     const earlyRotorBet = calculateFixedAmountPlay(clean, claimed, lotteryFactor);
     if (earlyRotorBet) return earlyRotorBet;
   }
+  const multiPairPositionBet = calculateMultiPairPositionBet(clean, claimed, lotteryFactor);
+  if (multiPairPositionBet) return multiPairPositionBet;
   const structuredGroupAndTwoCodeBlocks = calculateStructuredGroupAndTwoCodeBlocks(clean, claimed, lotteryFactor);
   if (structuredGroupAndTwoCodeBlocks) return structuredGroupAndTwoCodeBlocks;
   const originalAmbiguity = ambiguousOriginalStake(text);
