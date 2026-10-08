@@ -1614,6 +1614,33 @@ function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
     reasons: [`二码组三${pairs.length}组 × 每组${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateTwoCodeMultiPlayBet(text, claimed, lotteryFactor) {
+  let remainder = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ')
+    .trim().replace(/^[\s:：,，。]+/, '');
+  const selection = remainder.match(/^(\d{2}(?:[\s、，,。.\/\-]+\d{2})*)/);
+  if (!selection) return null;
+  const pairs = selection[1].match(/\d{2}/g) || [];
+  remainder = remainder.slice(selection[0].length);
+  const details = [];
+  while (remainder) {
+    remainder = remainder.replace(/^[\s、，,。;；:：\-]+/, '');
+    if (!remainder) break;
+    const part = remainder.match(/^(双飞|飞|(?:二码|两码)?组三)\s*(?:各(?:打)?|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/);
+    if (!part) return null;
+    const value = chineseAmount(part[2]);
+    const stake = part[3] === '倍' ? value * 10 : value * (['毛', '角'].includes(part[3]) ? 0.1 : 1);
+    details.push({ label: /飞/.test(part[1]) ? '双飞' : '组三', stake });
+    remainder = remainder.slice(part[0].length);
+  }
+  if (pairs.length < 1 || details.length < 2 || new Set(details.map(item => item.label)).size < 2) return null;
+  const perPair = details.reduce((sum, item) => sum + item.stake, 0);
+  const amount = pairs.length * perPair * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${pairs.length}组两位号码（${pairs.join('、')}）×（${details.map(item => `${item.label}${item.stake}元`).join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
   const isSum = /和值/.test(text);
   const isLeopardFullPack = /豹子全包/.test(text);
@@ -2765,6 +2792,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (implicitSingleDigitDan) return implicitSingleDigitDan;
   const hangingDanBet = calculateHangingDanBet(clean, claimed, lotteryFactor);
   if (hangingDanBet) return hangingDanBet;
+  const twoCodeMultiPlayBet = calculateTwoCodeMultiPlayBet(clean, claimed, lotteryFactor);
+  if (twoCodeMultiPlayBet) return twoCodeMultiPlayBet;
   const tieredFlyingBet = calculateTieredFlyingBet(clean, claimed, lotteryFactor);
   if (tieredFlyingBet) return tieredFlyingBet;
   if (allowCompound && !/[\r\n]/.test(clean) && /[；;]/.test(clean)) {
