@@ -2660,14 +2660,14 @@ function calculateTrailingParentheticalSubtotal(text, claimed) {
 }
 
 function calculateHouseMarkedNoteCount(text, claimed) {
-  const marker = text.match(/(福彩|[福褔]|体彩|[体體])\s*家\s*(\d+)(?=\s*(?:直选|直|组选|组|单))/);
+  const marker = text.match(/(福彩|[福褔]|体彩|[体體])\s*(?:家\s*(\d+)|(\d+)\s*注)(?=\s*(?:直选|直|组选|组|单))/);
   if (!marker) return null;
-  const actual = extractThreeDigitNumbers(text).length;
-  const stated = Number(marker[2]);
+  const withoutMarker = text.replace(marker[0], marker[1]);
+  const actual = extractThreeDigitNumbers(withoutMarker).length;
+  const stated = Number(marker[2] || marker[3]);
   if (!actual || actual !== stated) return { amount: '', claimed, confident: false,
     reasons: [`原文“${marker[0]}”标注${stated}注，实际列出${actual}个三位号码；标注注数不是下注号码。`],
     needs: ['请核对实际号码列表和标注注数；不一致时不能自动记录。'] };
-  const withoutMarker = text.replace(marker[0], marker[1]);
   const result = autoCalculateBet(withoutMarker, false);
   if (!result.confident || result.amount === '') return { amount: '', claimed, confident: false,
     reasons: [`已排除“${marker[0]}”中的标注注数，但剩余玩法仍无法可靠计算。`, ...(result.reasons || [])],
