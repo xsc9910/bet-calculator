@@ -1377,6 +1377,16 @@ function calculatePositionBet(text, claimed, lotteryFactor) {
   const multiplierRate = multiplierStake(text, 10);
   const stated = explicitMoney(text);
   const allThree = ['百位', '十位', '个位'].every(label => positions.some(position => position.name === label));
+  const isTwoPositionCombination = /(?:两定|二定|[两二]码\s*(?:定位|定))/.test(text)
+    && positions.length === 2 && new Set(positions.map(position => position.name)).size === 2;
+  if (isTwoPositionCombination && (eachRate != null || multiplierRate != null || stated != null)) {
+    const combinations = positions.reduce((total, position) =>
+      total * (position.values === '全部' ? 10 : new Set(position.values).size), 1);
+    const perCombination = eachRate ?? multiplierRate ?? stated;
+    const amount = combinations * perCombination * lotteryFactor;
+    return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+      reasons: [`两码定位${positions.map(position => `${position.name}${position.values}`).join('、')}：${combinations}注 × 每注${perCombination}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  }
 
   // 原文可连续写多组“百、十、个”定位；每三项是一组独立复式，
   // 不能把全部位置连乘成一组。
@@ -2855,6 +2865,7 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
+  text = text.replace(/(?:两定|二定)/g, '两码定位');
   // Some copied lists put the stated note count after the unit price
   // (“直各0.5元267注”). Move that count before the price so it remains
   // metadata and the decimal is still read as the per-note stake.
