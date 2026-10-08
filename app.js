@@ -2679,8 +2679,8 @@ function calculateHouseMarkedNoteCount(text, claimed) {
 function calculateCompleteIndependentLines(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return null;
-  const lotteryMarker = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])$/i;
-  const lotteryPrefix = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])/i;
+  const lotteryMarker = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])$/i;
+  const lotteryPrefix = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])/i;
   const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
   const play = /直选|直组|直选|直|组选|组六|组三|组|双?飞|独胆|胆|和值|定位|百位|十位|个位/;
   const stake = /(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块|直|组)|(?:直|组)\s*[零〇一二两三四五六七八九十百]+/;
@@ -2841,6 +2841,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/(百位?|十位?|个位?)\s*(\d+)\s*[（(]\s*(\d+(?:\.\d+)?)\s*[）)]/g, '$1$2各$3元')
     .replace(/[（(]\s*(\d+(?:\.\d+)?)\s*[）)]\s*(百位?|十位?|个位?)\s*(\d+)/g, '$2$3各$1元');
+  text = text.replace(/(组三|组六)\s*[:：]?\s*(\d{4,10})\s*[（(]\s*(\d+(?:\.\d+)?)\s*[）)]/g, '$2$1$3倍')
+    .replace(/(\d{4,10})\s*(组三|组六)\s*[（(]\s*(\d+(?:\.\d+)?)\s*[）)]/g, '$1$2$3倍');
   text = text.replace(/[－﹣]/g, '-');
   text = normalizeDotDelimitedMultiplier(text);
   text = text.replace(/((?:直选|组选|直|单|组)\s*[零〇一二两三四五六七八九十百\d]+\s*倍)\s*[.。]\s*((?:直选|组选|直|单|组)\s*[零〇一二两三四五六七八九十百\d]+\s*倍)/g, '$1 $2');
