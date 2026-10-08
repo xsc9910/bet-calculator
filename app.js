@@ -1349,6 +1349,22 @@ function calculateDirectGroupWithItemizedPositions(text, claimed, lotteryFactor)
     reasons: [`${numbers.length}个号码按直组计算${directGroupAmount}元；${positions.length}个定位字段分别计价${positionAmount}元${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
 }
 
+function calculateLeadingDigitSharedPositions(text, claimed, lotteryFactor) {
+  const body = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]/gi, ' ')
+    .trim();
+  const match = body.match(/^(\d)\s*((?:(?:百位?|十位?|个位?)\s*){2,3})(?:一码\s*(?:定位|定))?\s*([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*倍$/);
+  if (!match) return null;
+  const positions = match[2].match(/百位?|十位?|个位?/g) || [];
+  const uniquePositions = new Set(positions.map(position => position[0]));
+  if (uniquePositions.size !== positions.length) return null;
+  const times = numericValue(match[3]);
+  const amount = positions.length * times * 10 * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`数字${match[1]}分别投注${positions.join('、')}：${positions.length}项 × ${times}倍 × 每项10元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculatePositionBet(text, claimed, lotteryFactor) {
   if (!/(?:定位|百位?|十位?|个位?|个)/.test(text)) return null;
   const positionNames = { 百: '百位', 百位: '百位', 十: '十位', 十位: '十位', 个: '个位', 个位: '个位' };
@@ -3070,6 +3086,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (unpositionedBet) return unpositionedBet;
   const plainDigitPositionBet = calculatePlainDigitPositionBet(clean, claimed, lotteryFactor);
   if (plainDigitPositionBet) return plainDigitPositionBet;
+  const leadingDigitSharedPositions = calculateLeadingDigitSharedPositions(clean, claimed, lotteryFactor);
+  if (leadingDigitSharedPositions) return leadingDigitSharedPositions;
   const positionBet = calculatePositionBet(clean, claimed, lotteryFactor);
   if (positionBet) return positionBet;
   const dashedIndividualMoneyBet = calculateDashedIndividualMoneyBet(clean, claimed, lotteryFactor);
