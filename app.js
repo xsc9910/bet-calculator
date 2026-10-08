@@ -1655,7 +1655,7 @@ function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
 
 function calculateDelimitedCompound(text, claimed) {
   if (/\r?\n/.test(text)) return null;
-  if (/(?:\d{2}[\s,，、.。/\-]+){1,}\d{2}\s*双?飞/.test(text)) return null;
+  if (!/[；;]/.test(text) && /(?:\d{2}[\s,，、.。/\-]+){1,}\d{2}\s*双?飞/.test(text)) return null;
   // “独胆2，4，6各10米”是同一组选胆列表，逗号不是多玩法边界。
   if (/^(?:(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*)*(?:独胆|胆|独)\s*\d(?:\s*[,，、.。/\-]\s*\d)+\s*各/.test(text)) return null;
   // 中文句号也常用于分隔同一条中的不同玩法。
@@ -2727,6 +2727,18 @@ function autoCalculateBet(text, allowCompound = true) {
   if (hangingDanBet) return hangingDanBet;
   const tieredFlyingBet = calculateTieredFlyingBet(clean, claimed, lotteryFactor);
   if (tieredFlyingBet) return tieredFlyingBet;
+  if (allowCompound && !/[\r\n]/.test(clean) && /[；;]/.test(clean)) {
+    const inlineCompound = calculateDelimitedCompound(clean, claimed);
+    if (inlineCompound) return inlineCompound;
+    const inlineSegments = clean.split(/[；;]/).map(segment => segment.trim()).filter(segment => segment
+      && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(segment));
+    if (inlineSegments.length > 1 && inlineSegments.every(segment => /\d/.test(segment)
+      && /(直|单|组|飞|定位|独胆|胆|对子|跨度|胆拖|复式|复试|转圈|粘边|沾边|豹子|和值)/.test(segment))) {
+      return { amount: '', claimed, confident: false,
+        reasons: ['同一行包含多个完整投注段，其中至少一段无法可靠计算；不能只记录已识别部分。'],
+        needs: inlineSegments.map((segment, index) => `第${index + 1}段“${segment}”：请核对号码、玩法和金额或倍数。`) };
+    }
+  }
   const parentheticalSubtotal = calculateTrailingParentheticalSubtotal(clean, claimed);
   if (parentheticalSubtotal) return parentheticalSubtotal;
   const listedPerNoteMoneyBet = calculateListedPerNoteMoneyBet(clean, claimed, lotteryFactor);
