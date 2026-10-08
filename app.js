@@ -2591,6 +2591,17 @@ function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
   const header = lines[0].match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*(直选|直|单|组选|组)$/i);
   if (!header) return null;
   const play = /组/.test(header[1]) ? '组' : '直';
+  const sharedTail = lines.at(-1).match(/^(\d{3})\s*各?\s*打?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(直选|直|单|组选|组)\s*(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/);
+  if (sharedTail && lines.slice(1, -1).every(line => /^\d{3}$/.test(line))) {
+    const tailPlay = /组/.test(sharedTail[3]) ? '组' : '直';
+    const times = numericValue(sharedTail[2]);
+    if (tailPlay === play && Number.isFinite(times) && times > 0) {
+      const numbers = [...lines.slice(1, -1), sharedTail[1]];
+      const amount = numbers.length * times * 2 * lotteryFactor;
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`${numbers.length}个${play}选号码 × ${times}倍 × 2元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    }
+  }
   const items = [];
   for (const line of lines.slice(1)) {
     if (/^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
