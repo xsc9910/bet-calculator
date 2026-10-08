@@ -892,16 +892,18 @@ function calculateTieredFlyingBet(text, claimed, lotteryFactor) {
   // 一个“双飞/飞”标题后可连续写不同价位，后续两位号码仍继承双飞玩法。
   // 必须逐段消费，不能把第二段的金额（如“47打20”的20）当飞号。
   const body = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
-  const heading = body.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
+  const heading = body.match(/^(?:(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
   if (!heading) return null;
   let remainder = body.slice(heading[0].length);
+  let currentLotteryFactor = heading[1] ? (/福体|福彩体彩/.test(heading[1]) ? 2 : 1) : lotteryFactor;
   const tiers = [];
   const pattern = /^((?:\d{2}[\s/、，,。.\-]+)*\d{2})\s*(?:个打|各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/;
   while (remainder) {
     remainder = remainder.replace(/^[\s，,、。.;；/\-]+/, '');
     if (!remainder) break;
-    const repeatedHeading = remainder.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
+    const repeatedHeading = remainder.match(/^(?:(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:双飞|飞)\s*/i);
     if (repeatedHeading) {
+      if (repeatedHeading[1]) currentLotteryFactor = /福体|福彩体彩/.test(repeatedHeading[1]) ? 2 : 1;
       remainder = remainder.slice(repeatedHeading[0].length).replace(/^[\s，,、。.;；/\-]+/, '');
     }
     const match = remainder.match(pattern);
@@ -912,13 +914,13 @@ function calculateTieredFlyingBet(text, claimed, lotteryFactor) {
       reasons: [`飞号${pairs.join('、')}后“打${match[2]}”没有金额单位或“倍”，不能确定单组投注额。`],
       needs: [`请把“打${match[2]}”补成“${match[2]}元”或“${match[2]}倍”。`] };
     const stake = value * (match[3] === '倍' ? 10 : ['毛', '角'].includes(match[3]) ? 0.1 : 1);
-    tiers.push({ pairs, stake });
+    tiers.push({ pairs, stake, lotteryFactor: currentLotteryFactor });
     remainder = remainder.slice(match[0].length);
   }
   if (tiers.length < 2) return null;
-  const amount = tiers.reduce((sum, tier) => sum + tier.pairs.length * tier.stake, 0) * lotteryFactor;
+  const amount = tiers.reduce((sum, tier) => sum + tier.pairs.length * tier.stake * tier.lotteryFactor, 0);
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`双飞分档计算：${tiers.map(tier => `${tier.pairs.join('、')}共${tier.pairs.length}组 × 各${tier.stake}元`).join('；')}${lotteryFactor === 2 ? '；福彩体彩两边各算一次' : ''}`] };
+    reasons: [`双飞分档计算：${tiers.map(tier => `${tier.pairs.join('、')}共${tier.pairs.length}组 × 各${tier.stake}元${tier.lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`).join('；')}`] };
 }
 
 function chineseAmount(value) {
