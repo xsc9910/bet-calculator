@@ -1178,7 +1178,7 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
     if (!part) return null;
     const value = Number(part[2]);
     if (!part[3] && part[2].replace(/\D/g, '').length >= 4) return null;
-    if (!part[3] && (value < 10 || !Number.isInteger(value))) return null;
+    if (!part[3] && (!Number.isInteger(value) || value <= 0)) return null;
     const stake = part[3] === '倍' ? value * 10 : value * (['毛', '角'].includes(part[3]) ? 0.1 : 1);
     hasBareMoney ||= !part[3];
     perSet += stake;
@@ -1188,7 +1188,7 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   if (!hasBareMoney || !details.length) return null;
   const amount = sets.length * perSet * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${sets.length}组完整复式选码（${sets.join('、')}）×（${details.join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写单位的两位以上组选额度按金额，不按倍数`] };
+    reasons: [`${sets.length}组完整复式选码（${sets.join('、')}）×（${details.join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写单位的组选额度按金额，不按倍数`] };
 }
 
 function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
@@ -2801,7 +2801,7 @@ function autoCalculateBet(text, allowCompound = true) {
   // selection look like an ambiguous multiplier.
   const multiGroupLines = clean.split(/\r?\n/).filter(line => /\d{4,10}/.test(line) && /(?:组六|组三)/.test(line));
   const hasBareMultiGroupLine = multiGroupLines.length > 0 && multiGroupLines.every(line =>
-    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d+\s*[、，,。;；:：-]*\s*$/.test(line));
+    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d*\s*[、，,。;；:：-]*\s*)+$/.test(line));
   if (allowCompound && /[\r\n]/.test(clean) && hasBareMultiGroupLine) {
     const earlyMultilineCompound = calculateMultilineCompound(clean, claimed);
     if (earlyMultilineCompound) return earlyMultilineCompound;
