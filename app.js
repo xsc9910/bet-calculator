@@ -1641,6 +1641,26 @@ function calculateTwoCodeMultiPlayBet(text, claimed, lotteryFactor) {
     reasons: [`${pairs.length}组两位号码（${pairs.join('、')}）×（${details.map(item => `${item.label}${item.stake}元`).join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateBoughtPlayMultipliers(text, claimed, lotteryFactor) {
+  const clauses = [];
+  for (const match of text.matchAll(/买\s*([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*倍\s*(组选|直选|选|直|组)/g)) {
+    clauses.push({ play: /组|^选$/.test(match[2]) ? '组选' : '直选', times: numericValue(match[1]) });
+  }
+  for (const match of text.matchAll(/(组选|直选|选|直|组)\s*买\s*([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*倍/g)) {
+    clauses.push({ play: /组|^选$/.test(match[1]) ? '组选' : '直选', times: numericValue(match[2]) });
+  }
+  for (const match of text.matchAll(/买\s*(组选|直选|选|直|组)\s*([一二两三四五六七八九十]|\d+(?:\.\d+)?)\s*倍/g)) {
+    clauses.push({ play: /组|^选$/.test(match[1]) ? '组选' : '直选', times: numericValue(match[2]) });
+  }
+  if (clauses.length < 2 || clauses.some(clause => !Number.isFinite(clause.times) || clause.times <= 0)) return null;
+  const numbers = extractThreeDigitNumbers(text);
+  if (!numbers.length) return null;
+  const perNumber = clauses.reduce((sum, clause) => sum + clause.times * 2, 0);
+  const amount = numbers.length * perNumber * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${numbers.length}个号码 ×（${clauses.map(clause => `${clause.play}${clause.times}倍=${clause.times * 2}元`).join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
   const isSum = /和值/.test(text);
   const isLeopardFullPack = /豹子全包/.test(text);
@@ -2773,6 +2793,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const boughtPlayMultipliers = calculateBoughtPlayMultipliers(clean, claimed, lotteryFactor);
+  if (boughtPlayMultipliers) return boughtPlayMultipliers;
   const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
   if (trailingClaimAfterMultiplier) return trailingClaimAfterMultiplier;
   const parentheticalSingleCount = clean.match(/[（(]\s*(\d+)\s*注\s*(?:直选|直|组选|组(?!三|六))/);
