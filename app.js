@@ -2710,7 +2710,7 @@ function calculateImplicitSingleDigitDan(text, claimed, lotteryFactor) {
 function calculateHangingDanBet(text, claimed, lotteryFactor) {
   // “吊5.0.2个50”即三个独立独胆各50元；点号是胆码分隔符，不是小数。
   const body = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
-  const match = body.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?吊\s*([0-9](?:\s*[.。/、，,\-\s]+\s*[0-9])+)(?:\s*(?:个|各)(?:打)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/i);
+  const match = body.match(/^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd])\s*[:：]?\s*)?(?:胆\s*吊|吊(?:\s*胆)?)\s*([0-9](?:\s*[.。/、，,\-\s]+\s*[0-9])+)(?:\s*(?:个|各)(?:打)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/i);
   if (!match) return null;
   const digits = match[1].match(/\d/g) || [];
   const value = chineseAmount(match[2]);
