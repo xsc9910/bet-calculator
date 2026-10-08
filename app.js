@@ -1585,10 +1585,12 @@ function calculateDanTuoBet(text, claimed, lotteryFactor) {
       const scope = text.slice(start, end)
         .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, ' ')
         .replace(/(?:福|福彩|体|体彩)\s*/g, ' ');
+      const sharedBareGroupMoney = scope.match(/(?:组六\s*[、，,]?\s*组三|组三\s*[、，,]?\s*组六)\s*(\d+(?:\.\d+)?)(?![\d.]|\s*(?:倍|毛|角|元|米|块))/);
       const explicitAmount = rateFromText(scope);
       const multiplier = scope.match(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍/);
       const eachAmount = scope.match(/(?:各(?:打)?|打)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?!\s*(?:注|码))/);
-      const amount = explicitAmount ?? (multiplier ? numericValue(multiplier[1]) * 10 : eachAmount ? numericValue(eachAmount[1]) : null);
+      const amount = sharedBareGroupMoney ? Number(sharedBareGroupMoney[1]) * 2
+        : explicitAmount ?? (multiplier ? numericValue(multiplier[1]) * 10 : eachAmount ? numericValue(eachAmount[1]) : null);
       if (amount == null) return null;
       total += amount;
       details.push(`${row[1]}拖${row[2]}${row[3]}：${explicitAmount != null ? `每行金额${amount}元` : multiplier ? `${multiplier[1]}倍 × 胆拖赔率表基数10元 = ${amount}元` : `各${amount}元`}`);
@@ -1599,8 +1601,11 @@ function calculateDanTuoBet(text, claimed, lotteryFactor) {
   const combinedGroups = text.match(/(\d+)\s*拖\s*(\d+)\s*[，、,\s]*(?:组六\s*[、,，]?\s*组三|组三\s*[、,，]?\s*组六)\s*(\d+(?:\.\d+)?)(?:\s*(毛|角|元|米|块))?/);
   if (combinedGroups) {
     const stake = Number(combinedGroups[3]) * (['毛', '角'].includes(combinedGroups[4]) ? 0.1 : 1);
-    return { amount: Number((stake * lotteryFactor).toFixed(2)), claimed, confident: true,
-      reasons: [`${combinedGroups[1]}拖${combinedGroups[2]}的组三、组六按原文合并金额${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    const amount = stake * (combinedGroups[4] ? 1 : 2) * lotteryFactor;
+    return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+      reasons: [combinedGroups[4]
+        ? `${combinedGroups[1]}拖${combinedGroups[2]}的组三、组六按原文合并金额${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`
+        : `${combinedGroups[1]}拖${combinedGroups[2]}的组三、组六各${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
   const match = text.match(/(?:胆)?\s*(\d+)\s*拖\s*(\d+)/);
   if (!match || !/组六|组三/.test(text)) return null;
@@ -2938,10 +2943,11 @@ function autoCalculateBet(text, allowCompound = true) {
   const missingSpecialLine = missingSpecialUnit
     ? clean.slice(clean.lastIndexOf('\n', missingSpecialUnit.index) + 1, clean.indexOf('\n', missingSpecialUnit.index) < 0 ? clean.length : clean.indexOf('\n', missingSpecialUnit.index))
     : '';
+  const missingSpecialDanTuoLine = /(?:胆\s*)?\d+\s*拖\s*\d+/.test(missingSpecialLine);
   const missingSpecialIsDanTuoFixedAmount = missingSpecialUnit
-    && Number(missingSpecialUnit[0].match(/\d+(?:\.\d+)?\s*$/)?.[0]) >= 10
-    && /(?:胆\s*)?\d+\s*拖\s*\d+\s*$/.test(clean.slice(0, missingSpecialUnit.index))
-    && !(/组三/.test(missingSpecialLine) && /组六/.test(missingSpecialLine));
+    && missingSpecialDanTuoLine
+    && (Number(missingSpecialUnit[0].match(/\d+(?:\.\d+)?\s*$/)?.[0]) >= 10
+      || (/组三/.test(missingSpecialLine) && /组六/.test(missingSpecialLine)));
   if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount) {
     return { amount: '', claimed, confident: false,
       reasons: [`“${missingSpecialUnit[0]}”的投注额度未写单位，无法确定是金额还是倍数。`],
