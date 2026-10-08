@@ -1593,14 +1593,15 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
 }
 
 function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
-  const listed = text.match(/(?<!\d)(\d{2}(?:[\s、,，.\/\-]+\d{2})*)\s*组三\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
+  if (/转圈|转子|全倒/.test(text)) return null;
+  const listed = text.match(/(?<!\d)(\d{2}(?:[\s、,，.\/\-]+\d{2})*)\s*(?:组三\s*(?:两码|二码)?|(?:两码|二码)\s*组三)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
   if (listed && !/直|单|飞|拖|组六/.test(text)) {
     const pairs = listed[1].match(/\d{2}/g);
     const rate = chineseAmount(listed[2]) * (listed[3] === '倍' ? 10 : ['毛', '角'].includes(listed[3]) ? 0.1 : 1);
     return { amount: Number((pairs.length * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
       reasons: [`两码组三${pairs.length}组（${pairs.join('、')}） × 每组${rate}元`] };
   }
-  if (!/二码组三/.test(text)) return null;
+  if (!/(?:二码|两码)组三|组三(?:二码|两码)/.test(text)) return null;
   const scrubbed = text
     .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
     .replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:元|米)?/g, ' ')
@@ -2823,6 +2824,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (hangingDanBet) return hangingDanBet;
   const twoCodeMultiPlayBet = calculateTwoCodeMultiPlayBet(clean, claimed, lotteryFactor);
   if (twoCodeMultiPlayBet) return twoCodeMultiPlayBet;
+  const twoCodeGroupBet = calculateTwoCodeGroupBet(clean, claimed, lotteryFactor);
+  if (twoCodeGroupBet) return twoCodeGroupBet;
   const tieredFlyingBet = calculateTieredFlyingBet(clean, claimed, lotteryFactor);
   if (tieredFlyingBet) return tieredFlyingBet;
   if (allowCompound && !/[\r\n]/.test(clean) && /[；;]/.test(clean)) {
@@ -3048,8 +3051,6 @@ function autoCalculateBet(text, allowCompound = true) {
   if (implicitTwoDigitFlyBet) return implicitTwoDigitFlyBet;
   const pairOrSpanBet = calculatePairOrSpanBet(clean, claimed, lotteryFactor);
   if (pairOrSpanBet) return pairOrSpanBet;
-  const twoCodeGroupBet = calculateTwoCodeGroupBet(clean, claimed, lotteryFactor);
-  if (twoCodeGroupBet) return twoCodeGroupBet;
   const sumOrLeopardBet = calculateSumOrLeopardBet(clean, claimed, lotteryFactor);
   if (sumOrLeopardBet) return sumOrLeopardBet;
   const allDanTuoBet = calculateAllDanTuoBet(clean, claimed, lotteryFactor);
