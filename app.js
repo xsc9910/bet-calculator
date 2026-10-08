@@ -3111,6 +3111,11 @@ function playStake(text, kind) {
   // “排列三/排三”是彩票名称，其中的“三”不能被当成“直选三倍”。
   text = text.replace(/排列三|排三/g, '体彩');
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
+  const decimal = '((?:0|[1-9]\\d?)\\.\\d{1,2})';
+  const pairedAfter = text.match(new RegExp(`(?:直选|直|单)\\s*${decimal}\\s*(?:组选|组)\\s*${decimal}`));
+  if (pairedAfter) return Number(pairedAfter[kind === 'direct' ? 1 : 2]);
+  const pairedBefore = text.match(new RegExp(`${decimal}\\s*(?:直选|直|单)\\s*${decimal}\\s*(?:组选|组)`));
+  if (pairedBefore) return Number(pairedBefore[kind === 'direct' ? 1 : 2]);
   const leadingTimes = text.match(new RegExp(`([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍\\s*${keyword}`));
   if (leadingTimes) return numericValue(leadingTimes[1]) * 2;
   const moneyAfter = text.match(new RegExp(`${keyword}\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)`));
