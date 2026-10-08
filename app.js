@@ -2667,7 +2667,7 @@ function calculateCompleteIndependentLines(text, claimed) {
   const lotteryPrefix = /^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])/i;
   const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
   const play = /直选|直组|直选|直|组选|组六|组三|组|双?飞|独胆|胆|和值|定位|百位|十位|个位/;
-  const stake = /(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块)/;
+  const stake = /(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)\s*(?:倍|毛|角|元|米|块|直|组)|(?:直|组)\s*[零〇一二两三四五六七八九十百]+/;
   const bettingLines = lines.filter(line => !lotteryMarker.test(line) && !summary.test(line));
   // 行内另有小计或复合段时，交给既有复合解析器；逐行捷径只处理完整的独立投注行。
   if (bettingLines.length < 2 || !bettingLines.every(line => play.test(line) && stake.test(line) && !/(?:合计|总计|共计|一共|共)\s*\d/.test(line))) return null;
