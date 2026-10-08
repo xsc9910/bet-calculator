@@ -2710,9 +2710,47 @@ function calculateCompleteIndependentLines(text, claimed) {
     reasons: [`按换行分段计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) {
+  const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
+  if (lines.length < 5 || !/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*组选$/i.test(lines[0])) return null;
+  const groupSubtotalIndex = lines.findIndex((line, index) => index > 0 && /^共?\s*\d+\s*注\s*(?:合|共|计|合计)?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (groupSubtotalIndex < 2) return null;
+  const groupNumbers = lines.slice(1, groupSubtotalIndex).flatMap(line => line.match(/(?<!\d)\d{3}(?!\d)/g) || []);
+  const groupResidue = lines.slice(1, groupSubtotalIndex).join(' ')
+    .replace(/(?<!\d)\d{3}(?!\d)/g, ' ')
+    .replace(/[\s+＋、，,.。\-]+/g, '');
+  if (!groupNumbers.length || groupResidue) return null;
+  const groupSubtotal = lines[groupSubtotalIndex].match(/^共?\s*(\d+)\s*注\s*(?:合|共|计|合计)?\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?$/);
+  const groupAmount = groupNumbers.length * 2 * lotteryFactor;
+  if (Number(groupSubtotal[1]) !== groupNumbers.length || Number(groupSubtotal[2]) !== groupAmount) return null;
+  let amount = groupAmount;
+  const details = [`组选${groupNumbers.length}注=${groupAmount}元`];
+  let index = groupSubtotalIndex + 1;
+  while (index < lines.length) {
+    if (/^(?:总合计|总计|合计|共计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(lines[index])) {
+      index += 1;
+      continue;
+    }
+    const fly = lines[index].match(/^(?:组六\s*)?(?:双飞|飞)\s*((?:\d{2}[\s/、，,.。+＋\-]*)+)$/);
+    const group3 = lines[index].match(/^(?:组三\s*(?:两码|二码)|(?:两码|二码)\s*组三)\s*((?:\d{2}[\s/、，,.。+＋\-]*)+)$/);
+    if (!fly && !group3 || index + 1 >= lines.length) return null;
+    const subtotal = lines[index + 1].match(/^(?:合|共|计|合计|共计)\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?$/);
+    if (!subtotal) return null;
+    const pairs = (fly?.[1] || group3?.[1]).match(/\d{2}/g) || [];
+    const sectionAmount = pairs.length * 10 * lotteryFactor;
+    if (!pairs.length || Number(subtotal[1]) !== sectionAmount) return null;
+    amount += sectionAmount;
+    details.push(`${fly ? '双飞' : '两码组三'}${pairs.length}组=${sectionAmount}元`);
+    index += 2;
+  }
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`按玩法区块计算：${details.join('；')}`] };
+}
+
 function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
   if (lines.length < 3) return null;
+  if (lines.slice(1).some(line => /双飞|飞|两码|二码|定位|独胆|胆拖|和值|跨度/.test(line))) return null;
   const header = lines[0].match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*(直选|直|单|组选|组)$/i);
   if (!header) return null;
   const play = /组/.test(header[1]) ? '组' : '直';
@@ -2949,6 +2987,8 @@ function autoCalculateBet(text, allowCompound = true) {
     const earlyRotorBet = calculateFixedAmountPlay(clean, claimed, lotteryFactor);
     if (earlyRotorBet) return earlyRotorBet;
   }
+  const structuredGroupAndTwoCodeBlocks = calculateStructuredGroupAndTwoCodeBlocks(clean, claimed, lotteryFactor);
+  if (structuredGroupAndTwoCodeBlocks) return structuredGroupAndTwoCodeBlocks;
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
