@@ -2862,7 +2862,7 @@ function autoCalculateBet(text, allowCompound = true) {
   // selection look like an ambiguous multiplier.
   const multiGroupLines = clean.split(/\r?\n/).filter(line => /\d{4,10}/.test(line) && /(?:组六|组三)/.test(line));
   const hasBareMultiGroupLine = multiGroupLines.length > 0 && multiGroupLines.every(line =>
-    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d*\s*[、，,。;；:：-]*\s*)+$/.test(line));
+    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d*\s*[、，,。;；:：-]*\s*)+(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/.test(line));
   if (allowCompound && /[\r\n]/.test(clean) && hasBareMultiGroupLine) {
     const earlyMultilineCompound = calculateMultilineCompound(clean, claimed);
     if (earlyMultilineCompound) return earlyMultilineCompound;
