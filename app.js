@@ -1193,9 +1193,9 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
     .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
     .replace(/福彩|体彩|排列三|排三|三地|3\s*[Dd]|[福褔体體排]/gi, ' ')
     .trim().replace(/^[\s:：,，。]+/, '');
-  const selection = remainder.match(/^(\d{4,10}(?:[\s、，,。.\/-]+\d{4,10})*)/);
+  const selection = remainder.match(/^(\d{3,10}(?:[\s、，,。.\/-]+\d{3,10})*)/);
   if (!selection) return null;
-  const sets = selection[1].match(/\d{4,10}/g) || [];
+  const sets = selection[1].match(/\d{3,10}/g) || [];
   remainder = remainder.slice(selection[0].length).replace(/^\s*[四五六七八九十]?码\s*/, '').trim();
   let perSet = 0;
   let hasBareMoney = false;
@@ -3105,9 +3105,9 @@ function autoCalculateBet(text, allowCompound = true) {
   // amounts before the generic ambiguity guard. Mixed bet types are evaluated
   // per line, so a following single-play line cannot make a 4+ digit group
   // selection look like an ambiguous multiplier.
-  const multiGroupLines = clean.split(/\r?\n/).filter(line => /\d{4,10}/.test(line) && /(?:组六|组三)/.test(line));
+  const multiGroupLines = clean.split(/\r?\n/).filter(line => /\d{3,10}/.test(line) && /(?:组六|组三)/.test(line));
   const hasBareMultiGroupLine = multiGroupLines.length > 0 && multiGroupLines.every(line =>
-    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{4,10}(?:[ \t、,，.。/\-]+\d{4,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d*\s*[、，,。;；:：-]*\s*)+(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/.test(line));
+    /^\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?\d{3,10}(?:[ \t、,，.。/\-]+\d{3,10})*\s*[、，,。;；:：-]*\s*(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:组三|组六)\s*(?:各|打)?\s*[1-9]\d*\s*[、，,。;；:：-]*\s*)+(?:(?:福彩|福|体彩|体|排三|排列三|3\s*[Dd])\s*)?(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/.test(line));
   if (allowCompound && /[\r\n]/.test(clean) && hasBareMultiGroupLine) {
     const earlyMultilineCompound = calculateMultilineCompound(clean, claimed);
     if (earlyMultilineCompound) return earlyMultilineCompound;
@@ -3118,13 +3118,13 @@ function autoCalculateBet(text, allowCompound = true) {
   }
   const multiPairPositionBet = calculateMultiPairPositionBet(clean, claimed, lotteryFactor);
   if (multiPairPositionBet) return multiPairPositionBet;
+  const bareMultiGroupMoneyBet = calculateBareMultiGroupMoneyBet(clean, claimed, lotteryFactor);
+  if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
   const itemizedWildcardMoney = calculateItemizedWildcardMoney(clean, claimed);
   if (itemizedWildcardMoney) return itemizedWildcardMoney;
-  const bareMultiGroupMoneyBet = calculateBareMultiGroupMoneyBet(clean, claimed, lotteryFactor);
-  if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
   const missingSpecialUnit = clean.match(/(?:组三|组六|组[36])[ \t]*(?:各(?:打)?|打)?[ \t]*\d{1,2}(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/)
     || clean.match(/\d{4,10}[ \t]*(?:组三|组六)[ \t]*(?:各(?:打)?|打)?[ \t]*\d+(?![\d.])(?=[ \t]*(?:$|[,，;；。\r\n]|组三|组六|直组|单组|合计|共计|总计|共))/);
   const missingSpecialLine = missingSpecialUnit
