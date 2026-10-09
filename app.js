@@ -3024,6 +3024,15 @@ function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
 }
 
 function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
+  const commaSubtotal = text.match(/^(.*(?:直|单|组|飞|定位|独胆|跨|转圈|豹子|和值)[^,，\r\n]*\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍)\s*[,，]\s*(\d+(?:\.\d+)?)\s*(元|米|块)?$/s);
+  if (commaSubtotal) {
+    const calculated = autoCalculateBet(commaSubtotal[1].trim(), false);
+    if (calculated.confident && calculated.amount !== '') {
+      const statedTotal = Number(commaSubtotal[2]);
+      return { ...calculated, claimed: statedTotal,
+        reasons: [...(calculated.reasons || []), `逗号后的${statedTotal}${commaSubtotal[3] || '元'}作为原文小计核对，不重复计算`] };
+    }
+  }
   const compact = text.match(/^(.*(?<!\d)\d{3}(?!\d))\s*各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(直选|直|单|组选|组(?!三|六))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/s);
   if (compact) {
     const play = /组/.test(compact[3]) ? '组' : '直';
