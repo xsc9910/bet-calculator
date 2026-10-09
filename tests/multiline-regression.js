@@ -30,6 +30,9 @@ const cases = [
 cases.push(['slash-delimited multi group lines', '\u798f01469/\u7ec4\u4e09\u7ec4\u516d\u540410\u5143\n1469/\u7ec4\u516d\u7ec4\u4e0910\u5143\n\u517140', 40]);
 cases.push(['fullwidth slash multi group lines', '\u4f5312345\uff0f\u7ec4\u516d\u7ec4\u4e09\u54045\u7c73\n6789/\u7ec4\u4e09\u7ec4\u516d5\n\u517120', 20]);
 cases.push(['slash multi group multipliers', '\u798f1234/\u7ec4\u4e09\u7ec4\u516d\u54042\u500d\n5678/\u7ec4\u516d\u7ec4\u4e09\u4e00\u500d\n\u517160', 60]);
+cases.push(['leading multipliers with trailing number', '\u798f\u4e24\u76f4\u4e00\u7ec4386', 6]);
+cases.push(['reversed leading plays with trailing number', '\u4f53\u4e09\u7ec4\u4e24\u76f4579', 10]);
+cases.push(['leading plays and multipliers with trailing number', '\u798f\u76f4\u4e24\u7ec4\u4e00386', 6]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
