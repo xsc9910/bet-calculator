@@ -2696,6 +2696,32 @@ function calculateListedPerNoteMoneyBet(text, claimed, lotteryFactor) {
     reasons: [`实际列出${numbers.length}项${plays[0]}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateTrailingMetadataListBet(text, claimed, lotteryFactor) {
+  const compact = text.replace(/\r?\n/g, ' ').trim();
+  const leading = compact.match(/^((?:\d{3}(?:[\s、，,.。+＋\-]+|$))+)(.*)$/);
+  if (!leading || lotteryFactor < 1) return null;
+  const numbers = leading[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  let metadata = leading[2].trim();
+  const noteCount = metadata.match(/(?:注\s*(\d+)|(\d+)\s*注)/);
+  const playRate = metadata.match(/(组选|直选|组|直|单)\s*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?/);
+  if (!numbers.length || !noteCount || !playRate) return null;
+  metadata = metadata
+    .replace(noteCount[0], ' ')
+    .replace(playRate[0], ' ')
+    .replace(/福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd]/gi, ' ')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/[\s、，,.。:：;；]+/g, '');
+  if (metadata) return null;
+  const statedCount = Number(noteCount[1] || noteCount[2]);
+  if (statedCount !== numbers.length) return { amount: '', claimed, confident: false,
+    reasons: [`原文标注${statedCount}注，实际列出${numbers.length}项（重复号码也逐项计入），注数不一致。`],
+    needs: ['请核对号码列表或修正标注注数，不能按标注注数反推金额。'] };
+  const unitPrice = chineseAmount(playRate[2]) * (['毛', '角'].includes(playRate[3]) ? 0.1 : 1);
+  const amount = Number((numbers.length * unitPrice * lotteryFactor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`实际列出${numbers.length}项${/组/.test(playRate[1]) ? '组选' : '直选'}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
   const match = text.match(/^(.*(?:[零〇一二两三四五六七八九十百\d]+)\s*倍\s*(?:直组|单组|直选|组选|组六|组三|直|单|组))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
   if (!match || !/\d{3}/.test(match[1])) return null;
@@ -3010,6 +3036,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const trailingMetadataListBet = calculateTrailingMetadataListBet(clean, claimed, lotteryFactor);
+  if (trailingMetadataListBet) return trailingMetadataListBet;
   const slashDelimitedMultiGroupLines = calculateSlashDelimitedMultiGroupLines(clean, claimed, lotteryFactor);
   if (slashDelimitedMultiGroupLines) return slashDelimitedMultiGroupLines;
   const structuredGroupAndTwoCodeBlocks = calculateStructuredGroupAndTwoCodeBlocks(clean, claimed, lotteryFactor);
