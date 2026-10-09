@@ -43,6 +43,7 @@ cases.push(['shared direct list with one specified group pick', '\u798f440\uff0c
 cases.push(['multiple wildcard positions with shared money', '\u798fx09\uff0c90x\u540410\u5143\u5408\u8ba120', 20]);
 cases.push(['leading unit price before direct with subtotal', '\u4f53623.621.614.613\u4e00\u5143\u76f44\u5143', 4]);
 cases.push(['itemized digit dan fixed amounts', '\u798f\uff0c2\u7684\u80c6\uff0c200\n\u798f\uff0c3\u7684\u80c6\uff0c50\n\u798f\uff0c1\u7684\u80c6\uff0c50\n\u798f\uff0c0\u7684\u80c6\uff0c50\n\u5408\u8ba1350', 350]);
+cases.push(['sports shared direct list with distinct group pick', '\u4f53\uff0c324\uff0c432\u4e00\u76f4234\u4e00\u7ec4\u5408\u8ba16', 6]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

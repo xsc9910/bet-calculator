@@ -2301,7 +2301,7 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
 
 function calculateSplitBasicPlayLists(text, claimed, lotteryFactor) {
   const source = text
-    .replace(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i, '')
+    .replace(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[，,、:：]?\s*/i, '')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
     .trim();
   const list = '((?:\\d{3}[\\s、，,.。/\\-]+)*\\d{3})';
