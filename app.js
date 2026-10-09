@@ -2995,6 +2995,31 @@ function calculateTrailingLotteryMultiline(text, claimed) {
     reasons: [`末行${lottery}应用到前面各段：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculateSharedDirectGroupRatesByLotteryLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const tail = lines.at(-1).match(/^(?:直选|直|单)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*(?:组选|组)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*(?:合|合计|总计|共计|一共|共|计)\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?$/);
+  if (!tail || (!tail[2] && !tail[1].includes('.')) || (!tail[4] && !tail[3].includes('.'))) return null;
+  const directRate = Number(tail[1]) * (['毛', '角'].includes(tail[2]) ? 0.1 : 1);
+  const groupRate = Number(tail[3]) * (['毛', '角'].includes(tail[4]) ? 0.1 : 1);
+  let carriedLottery = '';
+  let amount = 0;
+  const details = [];
+  for (const line of lines.slice(0, -1)) {
+    const marker = line.match(/^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i);
+    if (marker) carriedLottery = marker[1];
+    if (!carriedLottery) return null;
+    const numberText = marker ? line.slice(marker[0].length).trim() : line;
+    if (!/^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/.test(numberText)) return null;
+    const numbers = numberText.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    const factor = lotteryTargets(carriedLottery).length;
+    amount += numbers.length * (directRate + groupRate) * factor;
+    details.push(`${carriedLottery}${numbers.length}注`);
+  }
+  return { amount: Number(amount.toFixed(2)), claimed: Number(tail[5]), confident: true,
+    reasons: [`按各行彩票归属计算：${details.join('；')}；每注直${directRate}元+组${groupRate}元`] };
+}
+
 function calculateMultiPairPositionBet(text, claimed, lotteryFactor) {
   if (!/[两二]码\s*(?:定位|定)/.test(text)) return null;
   const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
@@ -3197,6 +3222,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const sharedDirectGroupRatesByLotteryLines = calculateSharedDirectGroupRatesByLotteryLines(clean, claimed);
+  if (sharedDirectGroupRatesByLotteryLines) return sharedDirectGroupRatesByLotteryLines;
   const allDragGroup3 = calculateAllDragGroup3(clean, claimed, lotteryFactor);
   if (allDragGroup3) return allDragGroup3;
   const trailingLotteryMultiline = calculateTrailingLotteryMultiline(clean, claimed);
