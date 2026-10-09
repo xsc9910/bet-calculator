@@ -2749,6 +2749,29 @@ function calculateTrailingMetadataListBet(text, claimed, lotteryFactor) {
     reasons: [`实际列出${numbers.length}项${/组/.test(playRate[1]) ? '组选' : '直选'}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateItemizedDanFixedAmounts(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line
+    && !/^(?:合计|总计|共计|一共|共|计)\s*\d/.test(line));
+  if (!lines.length) return null;
+  const pattern = /^(?:(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[，,、:：]?\s*)?(\d)\s*的?\s*(?:独胆|胆)\s*[，,、:：]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/i;
+  const parsed = lines.map(line => line.match(pattern));
+  if (parsed.some(match => !match)) return null;
+  let inheritedLottery = '';
+  let amount = 0;
+  const details = [];
+  for (const match of parsed) {
+    if (match[1]) inheritedLottery = match[1];
+    if (!inheritedLottery) return null;
+    const factor = lotteryTargets(inheritedLottery).length;
+    const value = chineseAmount(match[3]);
+    const stake = match[4] === '倍' ? value * 10 : value * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+    amount += stake * factor;
+    details.push(`独胆${match[2]} ${stake}元${factor === 2 ? '×两边' : ''}`);
+  }
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`逐行独胆固定金额：${details.join(' + ')}`] };
+}
+
 function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
   const source = text
     .replace(/(?:合计|共计|总计|一共|共|计)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
@@ -2990,6 +3013,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
+  const rawItemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(text, extractClaimedAmount(text));
+  if (rawItemizedDanFixedAmounts) return rawItemizedDanFixedAmounts;
   text = text.replace(/((?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*)([一二两三四五六七八九十]+|\d+)\s*(直|单)\s*([一二两三四五六七八九十]+|\d+)\s*(组|组选)\s*(\d{3})(?!\d)/gi,
     '$1$6$3$2$5$4');
   text = text.replace(/((?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*)(直|单)\s*([一二两三四五六七八九十]+|\d+)\s*(组|组选)\s*([一二两三四五六七八九十]+|\d+)\s*(\d{3})(?!\d)/gi,
@@ -3078,6 +3103,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const itemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(clean, claimed);
+  if (itemizedDanFixedAmounts) return itemizedDanFixedAmounts;
   const sharedWildcardMoney = calculateSharedWildcardMoney(clean, claimed, lotteryFactor);
   if (sharedWildcardMoney) return sharedWildcardMoney;
   const splitBasicPlayLists = calculateSplitBasicPlayLists(clean, claimed, lotteryFactor);
