@@ -2863,6 +2863,8 @@ function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
 function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
   const match = text.match(/^(.*(?:[零〇一二两三四五六七八九十百\d]+)\s*倍\s*(?:直组|单组|直选|组选|组六|组三|直|单|组))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
   if (!match || !/\d{3}/.test(match[1])) return null;
+  const play = '(?:直组|单组|直选|组选|组六|组三|直|单|组)';
+  if (new RegExp(`${play}\\s*[零〇一二两三四五六七八九十百\\d]+\\s*倍\\s*${play}$`).test(match[1])) return null;
   const calculated = autoCalculateBet(match[1].trim(), false);
   if (!calculated.confident || calculated.amount === '') return null;
   const statedTotal = Number(match[2]);
