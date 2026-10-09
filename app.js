@@ -1200,6 +1200,27 @@ function calculateItemizedMultiGroupMoneyLines(text, claimed) {
     reasons: [`${header[2]}逐行固定金额：${items.map(item => `${item[1]}=${item[2]}元`).join(' + ')}${factor === 2 ? '，福彩体彩两边' : ''}`] };
 }
 
+function calculateItemizedPositionFixedMoney(text, claimed) {
+  const pattern = /(?:(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排列|排三|排)\s*)?(百位?|十位?|个位?)\s*(\d+)\s*[/／]\s*(\d+(?:\.\d+)?)\s*(元|米|块)?/gi;
+  const matches = [...text.matchAll(pattern)];
+  if (!matches.length || !matches.some(match => match[1])) return null;
+  const residue = text.replace(pattern, ' ').replace(/[\s,，、;；。]+/g, '');
+  if (residue) return null;
+  let activeLottery = '';
+  let total = 0;
+  const details = [];
+  for (const match of matches) {
+    activeLottery = match[1] || activeLottery;
+    if (!activeLottery) return null;
+    const factor = /福体|福彩体彩/.test(activeLottery) ? 2 : 1;
+    const amount = Number(match[4]);
+    total += amount * factor;
+    details.push(`${activeLottery}${match[2]}${match[3]}=${amount}元${factor === 2 ? '×2' : ''}`);
+  }
+  return { amount: Number(total.toFixed(2)), claimed, confident: true,
+    reasons: [`定位逐项固定金额：${details.join(' + ')}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -3247,6 +3268,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawItemizedPositionFixedMoney = calculateItemizedPositionFixedMoney(text, rawClaimed);
+  if (rawItemizedPositionFixedMoney) return rawItemizedPositionFixedMoney;
   const rawItemizedMultiGroupMoneyLines = calculateItemizedMultiGroupMoneyLines(text, rawClaimed);
   if (rawItemizedMultiGroupMoneyLines) return rawItemizedMultiGroupMoneyLines;
   const rawTrailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(text, rawClaimed);

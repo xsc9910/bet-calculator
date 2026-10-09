@@ -60,6 +60,7 @@ cases.push(['direct-group money plus group-six dantuo fixed amount', '\u798f734\
 cases.push(['multiline number grid with postfixed lottery and direct-group multipliers', '014.024.034.045\n046.047.048+049\n124.134.145.146\n147.148.149.234\n245.246.247.248\n249.345.346.347\n348.349.564.458\n457.459.467.468\n469.478.479.489\u798f\u5f691\u76f41\u7ec4\n\u5171144', 144]);
 cases.push(['multiline welfare number list with trailing each direct multiplier', '\u798f\n103 189 198 236 256 263 265 268 286 301 326 356 362 365 368 369 386 396 506 526 536 586 596 605 623 625 628 632 635 638 639 652 653 658 659 678 682 683 685 687 689 693 695 698 768 786 826 836 856 862 863 865 867 869 876 891 896 936 956 963 965 968 981 986\u5404\u4e00\u5355128\u7c73', 128]);
 cases.push(['group-six header with itemized dash money lines', '\u6392\u7ec4\u516d\n123457\u4e0030\u7c73\n023569\u4e0030\u7c73\n013479\u4e0010\u7c73', 70]);
+cases.push(['sports itemized positions with slash fixed money', '\u6392\u5217\u5341\u4f4d7/700\uff0c\u6392\u5217\u4e2a\u4f4d1/300', 1000]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
