@@ -3671,6 +3671,7 @@ function normalizeBetAliases(text) {
   let normalized = String(text || '')
     .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*快/g, '$1块')
     .replace(/毒\s*(?:胆|但)?/g, '独胆')
+    .replace(/(?:福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地])(?:\s*[，,、:：/＋+和与及]?\s*(?:福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]))+/gi, '福')
     .replace(/福\s*排/g, '福体')
     .replace(/全\s*倒/g, '转圈')
     .replace(/转一圈/g, '转圈')

@@ -53,6 +53,7 @@ cases.push(['multi-lottery number lines with shared direct-group rates', '\u798f
 cases.push(['compound group-six multiplier and fixed group-three amount', '\u798f\n\u4e94\u7801 61943\u7ec4\u516d1\u500d\u7ec4\u4e095\u7c73\n413\t317\t916\u76f4\u7ec41\u7c73\n\u5408\u8ba121', 21]);
 cases.push(['labeled multi-pick mixed multiplier and fixed money', '\u798f \u4e94\u7801 61943\u7ec4\u516d1\u500d\u7ec4\u4e095\u7c73', 15]);
 cases.push(['rotor money before number without direct label', '\u798f\u8f6c\u57081\u7c73109\u5408\u8ba16', 6]);
+cases.push(['duplicate welfare aliases are one lottery', '\u798f\u5f693D\uff0c\u4e09\u5730\uff0c123\u76f41\u500d\u5408\u8ba12', 2]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
