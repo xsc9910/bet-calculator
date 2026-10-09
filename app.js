@@ -1811,6 +1811,51 @@ function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
     reasons: [`${isSum ? `和值${count}项` : isLeopardFullPack ? '豹子全包' : `豹子${count}项`} × ${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateSumSpanAndLeopardBlocks(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    .filter(line => !/^(?:合计|总计|共计|一共|共)\s*\d/.test(line));
+  if (lines.length !== 4 || !lines.some(line => /和值/.test(line))
+    || !lines.some(line => /跨度/.test(line)) || !lines.some(line => /豹子/.test(line))) return null;
+  const lottery = '(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])?';
+  const value = '([一二两三四五六七八九十]|\\d+)';
+  const selectionLine = label => new RegExp(`^${lottery}\\s*${label}\\s*(\\d{1,2}(?:\\s*[-、，,./]\\s*\\d{1,2})*)\\s*各?\\s*${value}\\s*倍$`, 'i');
+  const parts = [];
+  let carriedLottery = '';
+  let specifiedLeopards = null;
+  for (const line of lines) {
+    const sum = line.match(selectionLine('和值'));
+    const span = line.match(selectionLine('跨度'));
+    if (sum || span) {
+      const match = sum || span;
+      if (match[1]) carriedLottery = match[1];
+      const selections = match[2].match(/\d{1,2}/g) || [];
+      const times = numericValue(match[3]);
+      if (!selections.length || !times || (sum && selections.some(number => Number(number) > 27))) return null;
+      const amount = selections.length * times * 10;
+      parts.push({ amount, detail: `${sum ? '和值' : '跨度'}${selections.length}项 × ${times}倍 × 10元=${amount}元` });
+      continue;
+    }
+    const digits = line.match(new RegExp(`^${lottery}\\s*(\\d{2,10})\\s*${value}\\s*倍$`, 'i'));
+    if (digits) {
+      if (digits[1]) carriedLottery = digits[1];
+      if (!carriedLottery) return null;
+      const count = digits[2].length;
+      const times = numericValue(digits[3]);
+      const factor = lotteryTargets(carriedLottery).length;
+      const amount = count * times * 2 * factor;
+      specifiedLeopards = { amount, detail: `指定豹子${digits[2].split('').join('、')}共${count}项 × ${times}倍 × 2元=${amount}元` };
+      parts.push(specifiedLeopards);
+      continue;
+    }
+    const leopard = line.match(/^豹子\s*(\d+(?:\.\d+)?)$/);
+    if (!leopard || !specifiedLeopards) return null;
+    parts.push({ amount: Number(leopard[1]), detail: `豹子固定金额${leopard[1]}元` });
+  }
+  if (parts.length !== 4) return null;
+  const amount = Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2));
+  return { amount, claimed, confident: true, reasons: [`按分行玩法分别计算：${parts.map(part => part.detail).join('；')}`] };
+}
+
 function calculateWildcardPositionCombination(text, claimed, lotteryFactor) {
   const positionCodes = (text.match(/(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])/g) || [])
     .filter(code => /[Xx]/.test(code) && /\d/.test(code));
@@ -3224,6 +3269,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const sumSpanAndLeopardBlocks = calculateSumSpanAndLeopardBlocks(clean, claimed);
+  if (sumSpanAndLeopardBlocks) return sumSpanAndLeopardBlocks;
   const sharedDirectGroupRatesByLotteryLines = calculateSharedDirectGroupRatesByLotteryLines(clean, claimed);
   if (sharedDirectGroupRatesByLotteryLines) return sharedDirectGroupRatesByLotteryLines;
   const allDragGroup3 = calculateAllDragGroup3(clean, claimed, lotteryFactor);
