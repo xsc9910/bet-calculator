@@ -62,6 +62,7 @@ cases.push(['multiline welfare number list with trailing each direct multiplier'
 cases.push(['group-six header with itemized dash money lines', '\u6392\u7ec4\u516d\n123457\u4e0030\u7c73\n023569\u4e0030\u7c73\n013479\u4e0010\u7c73', 70]);
 cases.push(['sports itemized positions with slash fixed money', '\u6392\u5217\u5341\u4f4d7/700\uff0c\u6392\u5217\u4e2a\u4f4d1/300', 1000]);
 cases.push(['multiline sports number list with trailing each direct multiplier', '\u4f53\n189 198 236 263 268 286 326 362 365 368 369 386 396 623 628 632 635 653 682 683 685 687 689 693 695 698 768 786 826 836 862 863 865 867 869 876 891 896 963 965\u5404\u4e00\u535580\u7c73', 80]);
+cases.push(['multiline numbers then shared direct-group multiplier and trailing lottery total', '570\n327\n\u76f4\u9009\u7ec4\u9009\u54041\u500d\n\u798f\u5408\u8ba18', 8]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

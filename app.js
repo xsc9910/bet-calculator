@@ -1221,6 +1221,24 @@ function calculateItemizedPositionFixedMoney(text, claimed) {
     reasons: [`定位逐项固定金额：${details.join(' + ')}`] };
 }
 
+function calculateNumbersThenSharedDirectGroupMultiplier(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const tail = lines.at(-1).match(/^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/i);
+  if (!tail) return null;
+  const play = lines.at(-2).match(/^(?:直选\s*组选|组选\s*直选|直\s*组|组\s*直|单\s*组|组\s*单)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍$/);
+  if (!play) return null;
+  const numberLines = lines.slice(0, -2);
+  if (!numberLines.every(line => /^\d{3}(?:[\s、，,.。/+＋-]+\d{3})*$/.test(line))) return null;
+  const numbers = numberLines.flatMap(line => line.match(/(?<!\d)\d{3}(?!\d)/g) || []);
+  if (!numbers.length) return null;
+  const times = numericValue(play[1]);
+  const factor = /福体|福彩体彩/.test(tail[1]) ? 2 : 1;
+  const amount = Number((numbers.length * times * 4 * factor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`${numbers.length}注 ×（直选${times}倍2元 + 组选${times}倍2元）${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -3268,6 +3286,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawNumbersThenSharedDirectGroupMultiplier = calculateNumbersThenSharedDirectGroupMultiplier(text, rawClaimed);
+  if (rawNumbersThenSharedDirectGroupMultiplier) return rawNumbersThenSharedDirectGroupMultiplier;
   const rawItemizedPositionFixedMoney = calculateItemizedPositionFixedMoney(text, rawClaimed);
   if (rawItemizedPositionFixedMoney) return rawItemizedPositionFixedMoney;
   const rawItemizedMultiGroupMoneyLines = calculateItemizedMultiGroupMoneyLines(text, rawClaimed);
