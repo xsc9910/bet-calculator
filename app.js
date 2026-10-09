@@ -769,14 +769,14 @@ function extractClaimedAmount(text) {
     return Number(last[1]) * (['毛', '角'].includes(last[2]) ? 0.1 : 1);
   }
   const claimedLines = clean.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const hasStandaloneTotal = claimedLines.some(line => /^(?:总合计|合计|总计|共计|一共|共)\s*[:：]?\s*\d/.test(line));
+  const hasStandaloneTotal = claimedLines.some(line => /^(?:总合计|合计|总计|共计|一共|共)(?:款)?\s*[:：]?\s*\d/.test(line));
   if (!hasStandaloneTotal) {
     const inlineSubtotals = claimedLines.flatMap(line => [...line.matchAll(/(?:合计|总计|共计)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g)]);
     if (inlineSubtotals.length >= 2) return Number(inlineSubtotals.reduce((sum, match) =>
       sum + Number(match[1]) * (['毛', '角'].includes(match[2]) ? 0.1 : 1), 0).toFixed(2));
   }
   const patterns = [
-    /(?:合计|总计|共计|一共|共)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)?/g,
+    /(?:合计|总计|共计|一共|共)(?:款)?\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)?/g,
     /(?:计)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)/g
   ];
   let found = null;
@@ -2773,7 +2773,10 @@ function calculateCompleteIndependentLines(text, claimed) {
 function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
   if (lines.length < 5 || !/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*组选$/i.test(lines[0])) return null;
-  const groupSubtotalIndex = lines.findIndex((line, index) => index > 0 && /^共?\s*\d+\s*注\s*(?:合|共|计|合计)?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  const groupSubtotalIndex = lines.findIndex((line, index) => index > 0 && (
+    /^共?\s*\d+\s*注\s*(?:合|共|计|合计)?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)
+    || /^各\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)?\s*(?:合|合计|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)
+  ));
   if (groupSubtotalIndex < 2) return null;
   const groupNumbers = lines.slice(1, groupSubtotalIndex).flatMap(line => line.match(/(?<!\d)\d{3}(?!\d)/g) || []);
   const groupResidue = lines.slice(1, groupSubtotalIndex).join(' ')
@@ -2781,13 +2784,18 @@ function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) 
     .replace(/[\s+＋、，,.。\-]+/g, '');
   if (!groupNumbers.length || groupResidue) return null;
   const groupSubtotal = lines[groupSubtotalIndex].match(/^共?\s*(\d+)\s*注\s*(?:合|共|计|合计)?\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?$/);
-  const groupAmount = groupNumbers.length * 2 * lotteryFactor;
-  if (Number(groupSubtotal[1]) !== groupNumbers.length || Number(groupSubtotal[2]) !== groupAmount) return null;
+  const pricedGroupSubtotal = lines[groupSubtotalIndex].match(/^各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*(?:合|合计|共|计)\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?$/);
+  const groupRate = pricedGroupSubtotal
+    ? chineseAmount(pricedGroupSubtotal[1]) * (['毛', '角'].includes(pricedGroupSubtotal[2]) ? 0.1 : 1)
+    : 2;
+  const groupAmount = groupNumbers.length * groupRate * lotteryFactor;
+  if (groupSubtotal && (Number(groupSubtotal[1]) !== groupNumbers.length || Number(groupSubtotal[2]) !== groupAmount)) return null;
+  if (pricedGroupSubtotal && Number(pricedGroupSubtotal[3]) !== groupAmount) return null;
   let amount = groupAmount;
   const details = [`组选${groupNumbers.length}注=${groupAmount}元`];
   let index = groupSubtotalIndex + 1;
   while (index < lines.length) {
-    if (/^(?:总合计|总计|合计|共计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(lines[index])) {
+    if (/^(?:总合计|总计|合计|共计)(?:款)?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(lines[index])) {
       index += 1;
       continue;
     }
@@ -3003,6 +3011,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const lotteryFactor = lotteryTargets(clean).length;
   const slashDelimitedMultiGroupLines = calculateSlashDelimitedMultiGroupLines(clean, claimed, lotteryFactor);
   if (slashDelimitedMultiGroupLines) return slashDelimitedMultiGroupLines;
+  const structuredGroupAndTwoCodeBlocks = calculateStructuredGroupAndTwoCodeBlocks(clean, claimed, lotteryFactor);
+  if (structuredGroupAndTwoCodeBlocks) return structuredGroupAndTwoCodeBlocks;
   const boughtPlayMultipliers = calculateBoughtPlayMultipliers(clean, claimed, lotteryFactor);
   if (boughtPlayMultipliers) return boughtPlayMultipliers;
   const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
@@ -3079,8 +3089,6 @@ function autoCalculateBet(text, allowCompound = true) {
   }
   const multiPairPositionBet = calculateMultiPairPositionBet(clean, claimed, lotteryFactor);
   if (multiPairPositionBet) return multiPairPositionBet;
-  const structuredGroupAndTwoCodeBlocks = calculateStructuredGroupAndTwoCodeBlocks(clean, claimed, lotteryFactor);
-  if (structuredGroupAndTwoCodeBlocks) return structuredGroupAndTwoCodeBlocks;
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };
