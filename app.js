@@ -1742,6 +1742,10 @@ function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
 }
 
 function calculateDanTuoBet(text, claimed, lotteryFactor) {
+  const prefixedPlay = text.match(/(组六|组三)\s*(?:胆\s*)?(\d+)\s*拖\s*(\d+)/);
+  if (prefixedPlay) {
+    text = `${text.slice(0, prefixedPlay.index)}${prefixedPlay[2]}拖${prefixedPlay[3]}${prefixedPlay[1]}${text.slice(prefixedPlay.index + prefixedPlay[0].length)}`;
+  }
   const rows = [...text.matchAll(/(?:胆\s*)?(\d+)\s*拖\s*(\d+)\s*(组六|组三)/g)];
   if (rows.length > 1) {
     const details = [];
@@ -1787,7 +1791,7 @@ function calculateDanTuoBet(text, claimed, lotteryFactor) {
       .replace(/(?:福彩|[福褔]|体彩|[体體]|各|打|按|共|合计|总计|元|米|块|毛|角|倍|\s)/g, '')
     : '';
   const hasLeadingTimes = /倍/.test(text.slice(danTuoEnd, labelIndex));
-  const trailingStake = text.slice(labelIndex + label.length).match(/^\s*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共))/);
+  const trailingStake = text.slice(labelIndex + label.length).match(/^[\s.。…，,；;]*(?:各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?(?=\s*(?:$|[，,；;。\r\n]|合计|共计|总计|共))/);
   const trailingValue = trailingStake ? chineseAmount(trailingStake[1]) : null;
   const trailingAmount = trailingStake && (trailingStake[2] || trailingValue >= 10)
     ? trailingValue * (trailingStake[2] === '倍' ? 10 : ['毛', '角'].includes(trailingStake[2]) ? 0.1 : 1)
@@ -2497,6 +2501,18 @@ function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
   return { amount: Number((expected * lotteryFactor).toFixed(2)), claimed,
     confident: true,
     reasons: [`${numbers.length}注各一${play}=1倍 × 2元/注 = ${money(expected)}元${match ? `；原文${match[1]}${match[2]}作为合计核对` : ''}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
+function calculateUnitDirectGroupWithTrailingSubtotal(text, claimed, lotteryFactor) {
+  if (/[\r\n]/.test(text)) return null;
+  const match = text.match(/((?<!\d)\d{3}(?!\d)(?:[\s、，,。.\/\-]+\d{3}(?!\d))*)[\s、，,。.\/\-]*(一(?:直|单)一组|一组一(?:直|单))\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*$/);
+  if (!match) return null;
+  const numbers = match[1].match(/\d{3}/g) || [];
+  if (!numbers.length) return null;
+  const subtotal = Number(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+  const amount = numbers.length * 4 * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${numbers.length}个号码各一注直选、一注组选，共${amount}元；行尾${subtotal}元作为本行小计核对，不作为单注金额`] };
 }
 
 function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
@@ -3347,6 +3363,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (rawPrefixedIndependentBetLines) return rawPrefixedIndependentBetLines;
   const rawNumbersThenSharedDirectGroupMultiplier = calculateNumbersThenSharedDirectGroupMultiplier(text, rawClaimed);
   if (rawNumbersThenSharedDirectGroupMultiplier) return rawNumbersThenSharedDirectGroupMultiplier;
+  const rawUnitDirectGroupWithTrailingSubtotal = calculateUnitDirectGroupWithTrailingSubtotal(text, rawClaimed, lotteryTargets(text).length);
+  if (rawUnitDirectGroupWithTrailingSubtotal) return rawUnitDirectGroupWithTrailingSubtotal;
   const rawItemizedPositionFixedMoney = calculateItemizedPositionFixedMoney(text, rawClaimed);
   if (rawItemizedPositionFixedMoney) return rawItemizedPositionFixedMoney;
   const rawItemizedMultiGroupMoneyLines = calculateItemizedMultiGroupMoneyLines(text, rawClaimed);
