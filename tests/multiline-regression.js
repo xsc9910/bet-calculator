@@ -48,6 +48,7 @@ cases.push(['dan before dual lottery shared fixed amount', '\u80c69\uff0c\u798f\
 cases.push(['leading digit set for all three positions', '\u798f0124579\u767e\u5341\u4e2a\u5b9a\u4f4d2\u6bdb\u5408\u8ba168.6', 68.6]);
 cases.push(['rotor play and money before number', '\u798f\u8f6c\u5708\u76f41\u7c73572\u5408\u8ba16', 6]);
 cases.push(['poison-dan alias with punctuation and money', '\u798f\uff1a\u6bd2\u80c64\u300120\u5143', 20]);
+cases.push(['all-drag group-three with mixed listed plays', '\u80c66\u5168\u6258\u7ec4\u4e09\u4e00\u500d\n336\uff0c688\u7ec4\u4e09\u4e00\u500d\n369\uff0c690\uff0c697\u7ec4\u516d\u4e00\u500d\n26\uff0c86\uff0c96\u98de\u4e00\u500d\n\u798f\u5408\u8ba150', 50]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

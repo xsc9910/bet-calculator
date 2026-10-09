@@ -2307,6 +2307,17 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
   return null;
 }
 
+function calculateAllDragGroup3(text, claimed, lotteryFactor) {
+  if (/\r?\n/.test(text)) return null;
+  const match = text.match(/(?:胆\s*(\d)\s*全托\s*组三|全托\s*组三\s*胆\s*(\d))\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/);
+  if (!match) return null;
+  const value = chineseAmount(match[3]);
+  const stake = match[4] === '倍' ? value * 10 : value * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+  const amount = stake * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`胆${match[1] || match[2]}全托组三${match[4] === '倍' ? `${value}倍 × 每倍10元` : `固定金额${stake}元`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSplitBasicPlayLists(text, claimed, lotteryFactor) {
   const source = text
     .replace(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[，,、:：]?\s*/i, '')
@@ -2968,6 +2979,22 @@ function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) 
     reasons: [`按玩法区块计算：${details.join('；')}`] };
 }
 
+function calculateTrailingLotteryMultiline(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const trailing = lines.at(-1).match(/^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*(?:(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?)?$/i);
+  if (!trailing || !/(?:合计|总计|共计|一共|共|计)\s*\d/.test(lines.at(-1))) return null;
+  const lottery = trailing[1];
+  const parts = lines.slice(0, -1).map(line => ({ line, result: autoCalculateBet(`${lottery} ${line}`, false) }));
+  const failed = parts.find(part => !part.result.confident || part.result.amount === '');
+  if (failed) return { amount: '', claimed, confident: false,
+    reasons: [`末行彩票已识别为${lottery}，但投注段“${failed.line}”无法可靠计算，整条不按部分金额记录。`, ...(failed.result.reasons || [])],
+    needs: failed.result.needs?.length ? failed.result.needs : [`请核对“${failed.line}”的玩法和额度。`] };
+  const amount = Number(parts.reduce((sum, part) => sum + Number(part.result.amount), 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`末行${lottery}应用到前面各段：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
+}
+
 function calculateMultiPairPositionBet(text, claimed, lotteryFactor) {
   if (!/[两二]码\s*(?:定位|定)/.test(text)) return null;
   const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
@@ -3170,6 +3197,10 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const allDragGroup3 = calculateAllDragGroup3(clean, claimed, lotteryFactor);
+  if (allDragGroup3) return allDragGroup3;
+  const trailingLotteryMultiline = calculateTrailingLotteryMultiline(clean, claimed);
+  if (trailingLotteryMultiline) return trailingLotteryMultiline;
   const itemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(clean, claimed);
   if (itemizedDanFixedAmounts) return itemizedDanFixedAmounts;
   const sharedWildcardMoney = calculateSharedWildcardMoney(clean, claimed, lotteryFactor);
