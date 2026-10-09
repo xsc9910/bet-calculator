@@ -2926,6 +2926,17 @@ function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
 }
 
 function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
+  const compact = text.match(/^(.*(?<!\d)\d{3}(?!\d))\s*各\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(直选|直|单|组选|组(?!三|六))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/s);
+  if (compact) {
+    const play = /组/.test(compact[3]) ? '组' : '直';
+    const perPick = numericValue(compact[2]) * 2;
+    const calculated = autoCalculateBet(`${compact[1].trim()} ${play}各${perPick}元`, false);
+    if (calculated.confident && calculated.amount !== '') {
+      const statedTotal = Number(compact[4]);
+      return { ...calculated, claimed: statedTotal,
+        reasons: [...(calculated.reasons || []), `末尾${statedTotal}${compact[5]}作为原文合计核对，不按每注金额计算`] };
+    }
+  }
   const match = text.match(/^(.*(?:[零〇一二两三四五六七八九十百\d]+)\s*倍\s*(?:直组|单组|直选|组选|组六|组三|直|单|组))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
   if (!match || !/\d{3}/.test(match[1])) return null;
   const play = '(?:直组|单组|直选|组选|组六|组三|直|单|组)';
@@ -3222,6 +3233,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawTrailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(text, rawClaimed);
+  if (rawTrailingClaimAfterMultiplier) return rawTrailingClaimAfterMultiplier;
   const rawPostfixedLotteryNumberGrid = calculatePostfixedLotteryNumberGrid(text, rawClaimed);
   if (rawPostfixedLotteryNumberGrid) return rawPostfixedLotteryNumberGrid;
   const rawOrderedRotorDirectMoney = calculateOrderedRotorDirectMoney(text, rawClaimed);
@@ -3324,6 +3337,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (sharedMultiGroupMultiplierByLotteryLines) return sharedMultiGroupMultiplierByLotteryLines;
   const sharedDirectGroupRatesByLotteryLines = calculateSharedDirectGroupRatesByLotteryLines(clean, claimed);
   if (sharedDirectGroupRatesByLotteryLines) return sharedDirectGroupRatesByLotteryLines;
+  const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
+  if (trailingClaimAfterMultiplier) return trailingClaimAfterMultiplier;
   const allDragGroup3 = calculateAllDragGroup3(clean, claimed, lotteryFactor);
   if (allDragGroup3) return allDragGroup3;
   const trailingLotteryMultiline = calculateTrailingLotteryMultiline(clean, claimed);
@@ -3342,8 +3357,6 @@ function autoCalculateBet(text, allowCompound = true) {
   if (structuredGroupAndTwoCodeBlocks) return structuredGroupAndTwoCodeBlocks;
   const boughtPlayMultipliers = calculateBoughtPlayMultipliers(clean, claimed, lotteryFactor);
   if (boughtPlayMultipliers) return boughtPlayMultipliers;
-  const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
-  if (trailingClaimAfterMultiplier) return trailingClaimAfterMultiplier;
   const parentheticalSingleCount = clean.match(/[（(]\s*(\d+)\s*注\s*(?:直选|直|组选|组(?!三|六))/);
   if (parentheticalSingleCount) {
     const actual = extractThreeDigitNumbers(clean).length;

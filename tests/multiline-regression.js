@@ -58,6 +58,7 @@ cases.push(['sum span and leopard blocks', '\u798f\u548c\u503c0-1-2-24-25-26-27\
 cases.push(['multi-lottery group-six sets with shared trailing multiplier', '\u798f124679\uff0c124589\n\n\u4f53134679\uff0c134568\n\u7ec4\u516d\u5404\u4e00\u500d\u300240\u7c73', 40]);
 cases.push(['direct-group money plus group-six dantuo fixed amount', '\u798f734\u53556\u5143\u7ec44\u5143\n\u7ec4\u516d\u80c6\u62d6\n3\u62d64796\u300210\u5143', 20]);
 cases.push(['multiline number grid with postfixed lottery and direct-group multipliers', '014.024.034.045\n046.047.048+049\n124.134.145.146\n147.148.149.234\n245.246.247.248\n249.345.346.347\n348.349.564.458\n457.459.467.468\n469.478.479.489\u798f\u5f691\u76f41\u7ec4\n\u5171144', 144]);
+cases.push(['multiline welfare number list with trailing each direct multiplier', '\u798f\n103 189 198 236 256 263 265 268 286 301 326 356 362 365 368 369 386 396 506 526 536 586 596 605 623 625 628 632 635 638 639 652 653 658 659 678 682 683 685 687 689 693 695 698 768 786 826 836 856 862 863 865 867 869 876 891 896 936 956 963 965 968 981 986\u5404\u4e00\u5355128\u7c73', 128]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
