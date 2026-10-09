@@ -2749,6 +2749,21 @@ function calculateTrailingMetadataListBet(text, claimed, lotteryFactor) {
     reasons: [`实际列出${numbers.length}项${/组/.test(playRate[1]) ? '组选' : '直选'}（保留重复号码） × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
+  const source = text
+    .replace(/(?:合计|共计|总计|一共|共|计)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd]/gi, ' ')
+    .trim();
+  const match = source.match(/^((?:[0-9Xx]{3}[\s、，,.。/\-]+)*[0-9Xx]{3})\s*(?:两码定位|定位)?\s*各(?:打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)$/);
+  if (!match || lotteryFactor < 1) return null;
+  const codes = match[1].match(/(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])/g) || [];
+  if (!codes.length || codes.some(code => (code.match(/[Xx]/g) || []).length !== 1)) return null;
+  const stake = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  const amount = codes.length * stake * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${codes.length}个两码定位（${codes.map(code => code.toUpperCase()).join('、')}） × 每个${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateTrailingClaimAfterExplicitMultiplier(text, claimed) {
   const match = text.match(/^(.*(?:[零〇一二两三四五六七八九十百\d]+)\s*倍\s*(?:直组|单组|直选|组选|组六|组三|直|单|组))\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
   if (!match || !/\d{3}/.test(match[1])) return null;
@@ -3063,6 +3078,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const sharedWildcardMoney = calculateSharedWildcardMoney(clean, claimed, lotteryFactor);
+  if (sharedWildcardMoney) return sharedWildcardMoney;
   const splitBasicPlayLists = calculateSplitBasicPlayLists(clean, claimed, lotteryFactor);
   if (splitBasicPlayLists) return splitBasicPlayLists;
   const trailingMetadataListBet = calculateTrailingMetadataListBet(clean, claimed, lotteryFactor);
