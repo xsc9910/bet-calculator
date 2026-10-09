@@ -768,6 +768,13 @@ function extractClaimedAmount(text) {
     const last = arithmeticTotal[arithmeticTotal.length - 1];
     return Number(last[1]) * (['毛', '角'].includes(last[2]) ? 0.1 : 1);
   }
+  const claimedLines = clean.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const hasStandaloneTotal = claimedLines.some(line => /^(?:总合计|合计|总计|共计|一共|共)\s*[:：]?\s*\d/.test(line));
+  if (!hasStandaloneTotal) {
+    const inlineSubtotals = claimedLines.flatMap(line => [...line.matchAll(/(?:合计|总计|共计)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g)]);
+    if (inlineSubtotals.length >= 2) return Number(inlineSubtotals.reduce((sum, match) =>
+      sum + Number(match[1]) * (['毛', '角'].includes(match[2]) ? 0.1 : 1), 0).toFixed(2));
+  }
   const patterns = [
     /(?:合计|总计|共计|一共|共)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)?/g,
     /(?:计)\s*[：:]?\s*(\d+(?:\.\d+)?)\s*(?:元|米)/g
@@ -1298,7 +1305,7 @@ function calculatePositionWithInheritedUnpositioned(text, claimed, lotteryFactor
 }
 
 function normalizePositionSelectionLists(text) {
-  return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*[,，、][ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
+  return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*[,，、.。][ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
     (match, label, digits) => `${label}${digits.replace(/\D/g, '')}`);
 }
 

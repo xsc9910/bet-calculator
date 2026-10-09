@@ -280,6 +280,12 @@ const cases = [
   ,['直选标题继承号码列表倍率', '福直\n819 426 479 147 489一倍', 10]
   ,['两定双位置中文十倍', '福，两定 百位9个位5十倍100', 100]
   ,['多组两码定位共享固定金额', '两码定位\n十位9个位0\n十位2个位0\n福彩各记20米合计40米', 40]
+  ,['一码定位分行各自小计', '福彩一码定位\n百位7，打一倍，合计10块钱\n个位4.8，都打一倍，合计20块钱', 30]
+  ,['单注三位转圈一倍后置彩票', '564，转圈一倍12福', 12]
+  ,['单注三位转圈玩法前置', '福转圈564一倍', 12]
+  ,['单注三位转圈倍率前置', '564一倍转圈福', 12]
+  ,['福体分别独胆各固定金额', '福2体1各三百', 600]
+  ,['两种彩票独胆与复式组选同行', '福4-7胆各20   1246789组六20组三5\n体3-9胆各20  0123679组六20组三5\n共130', 130]
 ];
 cases.push(['237注直选小数单价与尾部合计', `${Array.from({length: 237}, (_, index) => String(index).padStart(3, '0')).join(' ')}\n福237注直选各0.2米合计47.4元`, 47.4]);
 cases.push(['3注直选小数单价与尾部合计', '004 007 014\n福3注直选各0.2米合计0.6元', 0.6]);
@@ -302,6 +308,12 @@ for (const [name, text, expected] of cases) {
 }
 
 const danTuoClaimCheck = calculate('胆0拖134568组六两倍\n胆0拖345689组六一倍\n胆3拖014568组六一倍\n福合计40');
+const inlinePositionSubtotals = calculate('福彩一码定位\n百位7，打一倍，合计10块钱\n个位4.8，都打一倍，合计20块钱');
+if (!inlinePositionSubtotals.confident || inlinePositionSubtotals.amount !== 30 || inlinePositionSubtotals.claimed !== 30) {
+  failed += 1;
+  console.log(`FAIL 一码定位分行小计合并核对: ${JSON.stringify(inlinePositionSubtotals)}`);
+} else console.log('PASS 一码定位分行小计合并核对');
+
 if (danTuoClaimCheck.amount !== 40 || Number(danTuoClaimCheck.claimed) !== 40) {
   failed += 1;
   console.log(`FAIL 胆拖金额只作核对: ${JSON.stringify(danTuoClaimCheck)}`);
