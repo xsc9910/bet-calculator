@@ -2894,6 +2894,22 @@ function calculateOrderedRotorDirectMoney(text, claimed) {
     reasons: [`转圈直选${permutations}种排列 × 每注${rate}元${targets.length === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculatePostfixedLotteryNumberGrid(text, claimed) {
+  const body = text.replace(/\s*(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const match = body.match(/^(.*?)(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*([一二两三四五六七八九十]|\d+)\s*(?:直|单)\s*([一二两三四五六七八九十]|\d+)\s*组$/is);
+  if (!match) return null;
+  const numberText = match[1].trim();
+  if (!/^\d{3}(?:[\s、，,.。/+＋\-]+\d{3})*[\s、，,.。/+＋\-]*$/.test(numberText)) return null;
+  const numbers = numberText.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!numbers.length) return null;
+  const directTimes = numericValue(match[3]);
+  const groupTimes = numericValue(match[4]);
+  const factor = lotteryTargets(match[2]).length;
+  const amount = numbers.length * (directTimes + groupTimes) * 2 * factor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`多行号码网格${numbers.length}注 ×（直选${directTimes}倍 + 组选${groupTimes}倍） × 2元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
   const source = text
     .replace(/(?:合计|共计|总计|一共|共|计)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
@@ -3206,6 +3222,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawPostfixedLotteryNumberGrid = calculatePostfixedLotteryNumberGrid(text, rawClaimed);
+  if (rawPostfixedLotteryNumberGrid) return rawPostfixedLotteryNumberGrid;
   const rawOrderedRotorDirectMoney = calculateOrderedRotorDirectMoney(text, rawClaimed);
   if (rawOrderedRotorDirectMoney) return rawOrderedRotorDirectMoney;
   const rawDanWithPostfixedLotteryAmount = calculateDanWithPostfixedLotteryAmount(text, rawClaimed);
