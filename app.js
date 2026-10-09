@@ -4123,10 +4123,31 @@ const newBetBatchButton = $('newBetBatch');
 const newBetBatchFromLedgerButton = $('newBetBatchFromLedger');
 const renameBetBatchButton = $('renameBetBatch');
 const renameBetBatchFromLedgerButton = $('renameBetBatchFromLedger');
+const deleteBetBatchButton = $('deleteBetBatch');
 if (newBetBatchButton) newBetBatchButton.onclick = () => openBatchDialog('new');
 if (newBetBatchFromLedgerButton) newBetBatchFromLedgerButton.onclick = () => openBatchDialog('new');
 if (renameBetBatchButton) renameBetBatchButton.onclick = () => openBatchDialog('rename');
 if (renameBetBatchFromLedgerButton) renameBetBatchFromLedgerButton.onclick = () => openBatchDialog('rename');
+if (deleteBetBatchButton) deleteBetBatchButton.onclick = () => {
+  const batch = activeBetBatch();
+  if (!batch) { toast('当前批次不存在，请刷新后重试'); return; }
+  const summary = batchSummary(batch.id);
+  if (!confirm(`确定删除批次“${batch.label}”？\n该批次的${summary.count}条投注记录（合计${money(summary.total)}元）将一并删除，且无法恢复。`)) return;
+  const deletedIndex = betBatches.findIndex(item => item.id === batch.id);
+  betEntries = betEntries
+    .filter(entry => entryBatchId(entry) !== batch.id)
+    .map((entry, index) => ({...entry, record: index + 1}));
+  betBatches = betBatches.filter(item => item.id !== batch.id);
+  const nextBatch = betBatches[deletedIndex] || betBatches[deletedIndex - 1] || createBetBatch();
+  activeBetBatchId = nextBatch.id;
+  currentBetBatchFilter = 'active';
+  localStorage.setItem(ACTIVE_BET_BATCH_KEY, activeBetBatchId);
+  saveBetBatches();
+  saveBetEntries();
+  rebuildWinningEntries();
+  render();
+  toast(`已删除批次“${batch.label}”，并切换至${nextBatch.label}`);
+};
 if ($('newBatchCancel')) $('newBatchCancel').onclick = () => $('newBatchDialog').close();
 if ($('cancelNewBatch')) $('cancelNewBatch').onclick = () => $('newBatchDialog').close();
 if ($('newBatchForm')) $('newBatchForm').onsubmit = event => {
