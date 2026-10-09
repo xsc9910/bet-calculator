@@ -1239,6 +1239,51 @@ function calculateNumbersThenSharedDirectGroupMultiplier(text, claimed) {
     reasons: [`${numbers.length}注 ×（直选${times}倍2元 + 组选${times}倍2元）${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculatePrefixedIndependentBetLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const prefix = lines[0].match(/^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*(?=\d)/i)?.[1];
+  if (!prefix) return null;
+  const summary = /^(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  const betLines = lines.filter(line => !summary.test(line));
+  betLines[0] = betLines[0].replace(new RegExp(`^${prefix}\s*`, 'i'), '');
+  const selfContainedLine = line => /(?:[一二两三四五六七八九十]+|\d+)\s*(?:单|直)\s*(?:[一二两三四五六七八九十]+|\d+)\s*组/.test(line)
+    || /(?:直组|单组|组选)\s*(?:各\s*)?(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/.test(line)
+    || /跨\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍/.test(line)
+    || /^(?:(\d)\1\1[.。\s]*)+\s*(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍$/.test(line);
+  if (!betLines.every(selfContainedLine)) return null;
+  const parts = [];
+  for (const line of betLines) {
+    const result = autoCalculateBet(`${prefix} ${line}`, false);
+    if (!result.confident || result.amount === '') return { amount: '', claimed, confident: false,
+      reasons: [`首行彩票标记下的投注行“${line}”无法可靠计算，不能退回整条统一计价。`],
+      needs: result.needs?.length ? result.needs : ['请核对该行号码、玩法和金额或倍数。'] };
+    parts.push({ line, amount: Number(result.amount) });
+  }
+  const amount = Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`首行彩票标记下逐行计算：${parts.map(part => `${part.line}=${part.amount}元`).join('；')}`] };
+}
+
+function calculateListedLeopardSingles(text, claimed) {
+  if (/\r?\n/.test(text) || /豹子/.test(text)) return null;
+  const numbers = extractThreeDigitNumbers(text);
+  if (!numbers.length || numbers.some(number => new Set(number).size !== 1)) return null;
+  const multiplier = text.match(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍\s*$/);
+  if (!multiplier) return null;
+  const residue = text
+    .replace(/福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd]/gi, ' ')
+    .replace(/(?<!\d)\d{3}(?!\d)/g, ' ')
+    .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍/g, ' ')
+    .replace(/[\s、，,.。/+＋-]+/g, '');
+  if (residue) return null;
+  const times = numericValue(multiplier[1]);
+  const factor = lotteryTargets(text).length;
+  const amount = Number((numbers.length * times * 2 * factor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`列出${numbers.length}个豹子号码 × 直选${times}倍 × 2元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -3285,7 +3330,12 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
+  const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const rawListedLeopardSingles = calculateListedLeopardSingles(text, rawClaimed);
+  if (rawListedLeopardSingles) return rawListedLeopardSingles;
+  const rawPrefixedIndependentBetLines = calculatePrefixedIndependentBetLines(text, rawClaimed);
+  if (rawPrefixedIndependentBetLines) return rawPrefixedIndependentBetLines;
   const rawNumbersThenSharedDirectGroupMultiplier = calculateNumbersThenSharedDirectGroupMultiplier(text, rawClaimed);
   if (rawNumbersThenSharedDirectGroupMultiplier) return rawNumbersThenSharedDirectGroupMultiplier;
   const rawItemizedPositionFixedMoney = calculateItemizedPositionFixedMoney(text, rawClaimed);
@@ -3510,13 +3560,16 @@ function autoCalculateBet(text, allowCompound = true) {
       reasons: [`“${missingSpecialUnit[0]}”的投注额度未写单位，无法确定是金额还是倍数。`],
       needs: [`请在“${missingSpecialUnit[0]}”的额度后补“元/米/毛/角”或“倍”，不能仅凭原文合计推定。`] };
   }
-  if (/(?<!\d)\d{4,}(?!\d)/.test(normalizedSingleBetNumberSource(clean))
+  const oversizedSingleNumber = singleNumberValidationSource.split(/\r?\n/)
+    .map(line => normalizedSingleBetNumberSource(line).match(/(?<!\d)\d{4,}(?!\d)/)?.[0])
+    .find(Boolean);
+  if (oversizedSingleNumber
     && (/直组|单组|一直一组|一单一组/.test(clean)
       || (/(?:直|单)/.test(clean) && /组(?!三|六)/.test(clean)))
     && !/(组三|组六|复式|复试|转圈|转子|百|十位|个位|定位|拖|飞|独胆|粘边赖)/.test(clean)) {
     return { amount: '', claimed, confident: false,
-      reasons: ['直组单式中出现超过三位的数字，不能自动拆成三位号码。'],
-      needs: ['请确认该数字是完整复式号码，还是漏写分隔符的多个三位号码；复式请补明玩法，多个号码请加空格或标点。'] };
+      reasons: [`直组单式中出现超过三位的数字“${oversizedSingleNumber}”，不能自动拆成三位号码。`],
+      needs: [`请确认“${oversizedSingleNumber}”是完整复式号码，还是漏写分隔符的多个三位号码；复式请补明玩法，多个号码请加空格或标点。`] };
   }
 
   // Shared money before a simple direct/group pair applies to both plays.
