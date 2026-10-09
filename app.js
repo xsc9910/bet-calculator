@@ -2299,6 +2299,26 @@ function calculateExplicitEachMoneyBet(text, claimed, lotteryFactor) {
   return null;
 }
 
+function calculateSplitBasicPlayLists(text, claimed, lotteryFactor) {
+  const source = text
+    .replace(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i, '')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
+    .trim();
+  const list = '((?:\\d{3}[\\s、，,.。/\\-]+)*\\d{3})';
+  const directThenGroup = source.match(new RegExp(`^${list}\\s*(?:一(?:直|单)|(?:直|单)一?)\\s*${list}\\s*一?组$`));
+  const groupThenDirect = source.match(new RegExp(`^${list}\\s*一?组\\s*${list}\\s*(?:一(?:直|单)|(?:直|单)一?)$`));
+  const match = directThenGroup || groupThenDirect;
+  if (!match || lotteryFactor < 1) return null;
+  const first = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  const second = match[2].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!first.length || !second.length) return null;
+  const directNumbers = directThenGroup ? first : second;
+  const groupNumbers = directThenGroup ? second : first;
+  const amount = (directNumbers.length + groupNumbers.length) * 2 * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`直选${directNumbers.length}注 × 2元 + 组选${groupNumbers.length}注 × 2元${lotteryFactor === 2 ? '，福彩体彩两边' : ''}`] };
+}
+
 function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
   // “各一组/各一直”表示每个号码对应玩法打一倍；行尾金额是整段金额核对值，
   // 不能把它误当成每注金额。组和直的单倍基础投注额均为2元。
@@ -3043,6 +3063,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const splitBasicPlayLists = calculateSplitBasicPlayLists(clean, claimed, lotteryFactor);
+  if (splitBasicPlayLists) return splitBasicPlayLists;
   const trailingMetadataListBet = calculateTrailingMetadataListBet(clean, claimed, lotteryFactor);
   if (trailingMetadataListBet) return trailingMetadataListBet;
   const slashDelimitedMultiGroupLines = calculateSlashDelimitedMultiGroupLines(clean, claimed, lotteryFactor);

@@ -39,6 +39,7 @@ cases.push(['number list then note count lottery and group rate', '309 304 048 7
 cases.push(['multiple fixed-money group-three lines', '\u798f189\u7ec4\u4e0950\n\u798f2489\u7ec4\u4e0950', 100]);
 cases.push(['repeated numbers with each before direct and group rates', '548 548\u4f53\u76f4\u54042\u7c73\u7ec4\u54041\u7c73 2\u6ce8 \u51716\u7c73', 6]);
 cases.push(['plus separated spans with shared stake', '\u8de81+\u8de88\u540410\u5143\n\u540820\u5143', 20]);
+cases.push(['shared direct list with one specified group pick', '\u798f440\uff0c044\uff0c404\u4e00\u76f4044\u4e00\u7ec4\u5408\u8ba18', 8]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
