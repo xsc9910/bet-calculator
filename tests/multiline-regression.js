@@ -34,6 +34,7 @@ cases.push(['leading multipliers with trailing number', '\u798f\u4e24\u76f4\u4e0
 cases.push(['reversed leading plays with trailing number', '\u4f53\u4e09\u7ec4\u4e24\u76f4579', 10]);
 cases.push(['leading plays and multipliers with trailing number', '\u798f\u76f4\u4e24\u7ec4\u4e00386', 6]);
 cases.push(['priced group block with fly and two-code group', '3D\u7ec4\u9009\n677+667\n\u540410\u5143\u540820\u5143\u3002\n\u7ec4\u516d\u53cc\u98de67\uff0c\n\u540810\u5143\u3002\n\u7ec4\u4e09\u4e24\u780167\uff0c\n\u540810\u5143\u3002\n\u603b\u8ba1\u6b3e40\u5143\u3002', 40]);
+cases.push(['play then number list then multiplier', '\u798f\u76f4\n421 152 254 815 420 462 604 342 583 341\u4e00\u500d\n\u517120', 20]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

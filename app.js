@@ -2858,7 +2858,7 @@ function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
   for (const line of lines.slice(1)) {
     if (/^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
     if (new RegExp(`^(?:都是|全部|全是)\\s*(?:${play === '直' ? '直选|直|单' : '组选|组'})$`).test(line)) continue;
-    const item = line.match(/^(\d{3})\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍\s*(直选|直|单|组选|组)?$/);
+    const item = line.match(/^((?:\d{3}[\s、，,.。+＋\-]+)*\d{3})\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍\s*(直选|直|单|组选|组)?$/);
     if (!item || (item[3] && (/组/.test(item[3]) ? '组' : '直') !== play)) return {
       amount: '', claimed, confident: false,
       reasons: [`逐行${play}选倍率中存在无法归属的内容“${line}”，不能按同一个倍率计算所有号码。`],
@@ -2867,7 +2867,8 @@ function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
     const times = numericValue(item[2]);
     if (!Number.isFinite(times) || times <= 0) return { amount: '', claimed, confident: false,
       reasons: [`“${line}”的倍数无效。`], needs: ['请填写大于零的明确倍数。'] };
-    items.push({ number: item[1], times });
+    const numbers = item[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+    items.push(...numbers.map(number => ({ number, times })));
   }
   if (!items.length) return null;
   const amount = Number((items.reduce((sum, item) => sum + item.times * 2, 0) * lotteryFactor).toFixed(2));
