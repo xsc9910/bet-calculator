@@ -55,6 +55,7 @@ cases.push(['labeled multi-pick mixed multiplier and fixed money', '\u798f \u4e9
 cases.push(['rotor money before number without direct label', '\u798f\u8f6c\u57081\u7c73109\u5408\u8ba16', 6]);
 cases.push(['duplicate welfare aliases are one lottery', '\u798f\u5f693D\uff0c\u4e09\u5730\uff0c123\u76f41\u500d\u5408\u8ba12', 2]);
 cases.push(['sum span and leopard blocks', '\u798f\u548c\u503c0-1-2-24-25-26-27\u5404\u4e00\u500d\n\u8de8\u5ea61-2-9\u5404\u4e00\u500d\n\n\u4f5301234\u4e94\u500d\n\u8c79\u5b5020\n\u5171170', 170]);
+cases.push(['multi-lottery group-six sets with shared trailing multiplier', '\u798f124679\uff0c124589\n\n\u4f53134679\uff0c134568\n\u7ec4\u516d\u5404\u4e00\u500d\u300240\u7c73', 40]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

@@ -3067,6 +3067,33 @@ function calculateSharedDirectGroupRatesByLotteryLines(text, claimed) {
     reasons: [`按各行彩票归属计算：${details.join('；')}；每注直${directRate}元+组${groupRate}元`] };
 }
 
+function calculateSharedMultiGroupMultiplierByLotteryLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const tail = lines.at(-1).match(/^(组三|组六)\s*(?:各|打)?\s*([一二两三四五六七八九十]|\d+)\s*倍\s*[。，,;；]?\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/);
+  if (!tail) return null;
+  const times = numericValue(tail[2]);
+  let carriedLottery = '';
+  let amount = 0;
+  let setCount = 0;
+  const details = [];
+  for (const line of lines.slice(0, -1)) {
+    const marker = line.match(/^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i);
+    if (marker) carriedLottery = marker[1];
+    if (!carriedLottery) return null;
+    const numberText = marker ? line.slice(marker[0].length).trim() : line;
+    if (!/^\d{4,10}(?:[\s、，,.。/\-]+\d{4,10})*[\s、，,.。/\-]*$/.test(numberText)) return null;
+    const sets = numberText.match(/(?<!\d)\d{4,10}(?!\d)/g) || [];
+    const factor = lotteryTargets(carriedLottery).length;
+    amount += sets.length * times * 10 * factor;
+    setCount += sets.length * factor;
+    details.push(`${carriedLottery}${sets.length}组`);
+  }
+  if (!setCount) return null;
+  return { amount: Number(amount.toFixed(2)), claimed: Number(tail[3]), confident: true,
+    reasons: [`按各行彩票归属计算：${details.join('；')}；${tail[1]}共${setCount}组 × ${times}倍 × 10元`] };
+}
+
 function calculateMultiPairPositionBet(text, claimed, lotteryFactor) {
   if (!/[两二]码\s*(?:定位|定)/.test(text)) return null;
   const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
@@ -3271,6 +3298,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const lotteryFactor = lotteryTargets(clean).length;
   const sumSpanAndLeopardBlocks = calculateSumSpanAndLeopardBlocks(clean, claimed);
   if (sumSpanAndLeopardBlocks) return sumSpanAndLeopardBlocks;
+  const sharedMultiGroupMultiplierByLotteryLines = calculateSharedMultiGroupMultiplierByLotteryLines(clean, claimed);
+  if (sharedMultiGroupMultiplierByLotteryLines) return sharedMultiGroupMultiplierByLotteryLines;
   const sharedDirectGroupRatesByLotteryLines = calculateSharedDirectGroupRatesByLotteryLines(clean, claimed);
   if (sharedDirectGroupRatesByLotteryLines) return sharedDirectGroupRatesByLotteryLines;
   const allDragGroup3 = calculateAllDragGroup3(clean, claimed, lotteryFactor);
