@@ -994,7 +994,7 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
     const wantsGroup6 = /组六/.test(text);
     const times = multiplierStake(text, 1) || 1;
     const perNoteMoney = text.match(/转一?圈\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
-    if (perNoteMoney && !/各|每注|每个|直选|直|单/.test(text)) {
+    if (perNoteMoney && !hasOnlyThreeDigitNumbers && !/各|每注|每个|直选|直|单/.test(text)) {
       const amount = chineseAmount(perNoteMoney[1]) * (['毛', '角'].includes(perNoteMoney[2]) ? 0.1 : 1) * lotteryFactor;
       return { amount: Number(amount.toFixed(2)), claimed, confident: true,
         reasons: ['转圈按明确金额整项投注，不乘排列数量'] };

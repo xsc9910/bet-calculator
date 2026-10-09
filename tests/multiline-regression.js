@@ -52,6 +52,7 @@ cases.push(['all-drag group-three with mixed listed plays', '\u80c66\u5168\u6258
 cases.push(['multi-lottery number lines with shared direct-group rates', '\u798f423\u3002425\u3002428\u3002426\u3002427\n\u798f517.616.805.418.\n\n\u4f53338.388.668.688\n\u76f40.2\u7ec40.5\u54089.1', 9.1]);
 cases.push(['compound group-six multiplier and fixed group-three amount', '\u798f\n\u4e94\u7801 61943\u7ec4\u516d1\u500d\u7ec4\u4e095\u7c73\n413\t317\t916\u76f4\u7ec41\u7c73\n\u5408\u8ba121', 21]);
 cases.push(['labeled multi-pick mixed multiplier and fixed money', '\u798f \u4e94\u7801 61943\u7ec4\u516d1\u500d\u7ec4\u4e095\u7c73', 15]);
+cases.push(['rotor money before number without direct label', '\u798f\u8f6c\u57081\u7c73109\u5408\u8ba16', 6]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
