@@ -1245,7 +1245,7 @@ function calculateSingleDigitBet(text, claimed, lotteryFactor) {
     return { amount: Number((count * rate * lotteryFactor).toFixed(2)), claimed, confident: true,
       reasons: [`${count}个独立独胆各${rate}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
-  const nakedDanAmount = text.match(/(?:独胆|毒[胆但]?|扣|胆)\s*([0-9])\s*[，,]\s*(\d{2,}(?:\.\d+)?)(?![\d.]|\s*倍)/);
+  const nakedDanAmount = text.match(/(?:独胆|毒[胆但]?|扣|胆)\s*([0-9])\s*[，,、:：。.]+\s*(\d{2,}(?:\.\d+)?)(?![\d.]|\s*倍)/);
   if (nakedDanAmount && !/(组|直|飞|定位|跨度|拖)/.test(text)) {
     return { amount: Number(nakedDanAmount[2]) * lotteryFactor, claimed, confident: true,
       reasons: [`独胆${nakedDanAmount[1]}按分隔符后的固定金额${nakedDanAmount[2]}元`] };
@@ -3610,6 +3610,7 @@ function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
     .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*快/g, '$1块')
+    .replace(/毒\s*(?:胆|但)?/g, '独胆')
     .replace(/福\s*排/g, '福体')
     .replace(/全\s*倒/g, '转圈')
     .replace(/转一圈/g, '转圈')
