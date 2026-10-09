@@ -1186,6 +1186,20 @@ function calculateSlashDelimitedMultiGroupLines(text, claimed, lotteryFactor) {
     reasons: [`斜杠分隔的多行复式分别计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
 }
 
+function calculateItemizedMultiGroupMoneyLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const header = lines[0].match(/^(?:(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(组三|组六)$/i);
+  if (!header) return null;
+  const items = lines.slice(1).map(line => line.match(/^(\d{4,10})\s*(?:一|[-—–:：])\s*(\d+(?:\.\d+)?)\s*(元|米|块)$/));
+  if (items.some(item => !item)) return null;
+  const factor = /福体|福彩体彩/.test(header[1] || '') ? 2 : 1;
+  const subtotal = items.reduce((sum, item) => sum + Number(item[2]), 0);
+  const amount = Number((subtotal * factor).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`${header[2]}逐行固定金额：${items.map(item => `${item[1]}=${item[2]}元`).join(' + ')}${factor === 2 ? '，福彩体彩两边' : ''}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -3233,6 +3247,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawItemizedMultiGroupMoneyLines = calculateItemizedMultiGroupMoneyLines(text, rawClaimed);
+  if (rawItemizedMultiGroupMoneyLines) return rawItemizedMultiGroupMoneyLines;
   const rawTrailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(text, rawClaimed);
   if (rawTrailingClaimAfterMultiplier) return rawTrailingClaimAfterMultiplier;
   const rawPostfixedLotteryNumberGrid = calculatePostfixedLotteryNumberGrid(text, rawClaimed);
