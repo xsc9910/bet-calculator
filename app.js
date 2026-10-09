@@ -994,7 +994,7 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
     const wantsGroup6 = /组六/.test(text);
     const times = multiplierStake(text, 1) || 1;
     const perNoteMoney = text.match(/转一?圈\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
-    if (perNoteMoney && !/各|每注|每个/.test(text)) {
+    if (perNoteMoney && !/各|每注|每个|直选|直|单/.test(text)) {
       const amount = chineseAmount(perNoteMoney[1]) * (['毛', '角'].includes(perNoteMoney[2]) ? 0.1 : 1) * lotteryFactor;
       return { amount: Number(amount.toFixed(2)), claimed, confident: true,
         reasons: ['转圈按明确金额整项投注，不乘排列数量'] };
@@ -2802,6 +2802,38 @@ function calculateDanWithPostfixedLotteryAmount(text, claimed) {
     reasons: [`独胆${digit} × ${lotteryTargets(lotteryText).join('、')}各${stake}元`] };
 }
 
+function calculateOrderedRotorDirectMoney(text, claimed) {
+  const targets = lotteryTargets(text);
+  if (!targets.length) return null;
+  const body = text
+    .replace(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[，,、:：]?\s*/i, '')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
+    .replace(/[，,、:：;；。]+$/, '')
+    .trim();
+  const codes = '((?:\\d{3}[\\s、，,.。/\\-]+)*\\d{3})';
+  const value = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)';
+  const patterns = [
+    new RegExp(`^转一?圈\\s*(?:直选|直|单)\\s*(?:各)?\\s*${value}\\s*${codes}$`),
+    new RegExp(`^${codes}\\s*转一?圈\\s*(?:直选|直|单)\\s*(?:各)?\\s*${value}$`),
+    new RegExp(`^转一?圈\\s*${codes}\\s*(?:直选|直|单)\\s*(?:各)?\\s*${value}$`)
+  ];
+  const matches = patterns.map(pattern => body.match(pattern));
+  const patternIndex = matches.findIndex(Boolean);
+  if (patternIndex < 0) return null;
+  const matched = matches[patternIndex];
+  const codeText = patternIndex === 0 ? matched[3] : matched[1];
+  const amountText = patternIndex === 0 ? matched[1] : matched[2];
+  const unit = patternIndex === 0 ? matched[2] : matched[3];
+  const numbers = codeText.match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!numbers.length) return null;
+  const rate = chineseAmount(amountText) * (['毛', '角'].includes(unit) ? 0.1 : 1);
+  const permutations = numbers.reduce((total, number) => total
+    + (new Set(number).size === 3 ? 6 : new Set(number).size === 2 ? 3 : 1), 0);
+  const amount = permutations * rate * targets.length;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`转圈直选${permutations}种排列 × 每注${rate}元${targets.length === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
   const source = text
     .replace(/(?:合计|共计|总计|一共|共|计)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
@@ -3044,6 +3076,8 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const rawClaimed = extractClaimedAmount(text);
+  const rawOrderedRotorDirectMoney = calculateOrderedRotorDirectMoney(text, rawClaimed);
+  if (rawOrderedRotorDirectMoney) return rawOrderedRotorDirectMoney;
   const rawDanWithPostfixedLotteryAmount = calculateDanWithPostfixedLotteryAmount(text, rawClaimed);
   if (rawDanWithPostfixedLotteryAmount) return rawDanWithPostfixedLotteryAmount;
   const rawItemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(text, rawClaimed);

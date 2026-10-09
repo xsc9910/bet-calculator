@@ -46,6 +46,7 @@ cases.push(['itemized digit dan fixed amounts', '\u798f\uff0c2\u7684\u80c6\uff0c
 cases.push(['sports shared direct list with distinct group pick', '\u4f53\uff0c324\uff0c432\u4e00\u76f4234\u4e00\u7ec4\u5408\u8ba16', 6]);
 cases.push(['dan before dual lottery shared fixed amount', '\u80c69\uff0c\u798f\u4f53\u5404100\uff0c\u5408\u8ba1200', 200]);
 cases.push(['leading digit set for all three positions', '\u798f0124579\u767e\u5341\u4e2a\u5b9a\u4f4d2\u6bdb\u5408\u8ba168.6', 68.6]);
+cases.push(['rotor play and money before number', '\u798f\u8f6c\u5708\u76f41\u7c73572\u5408\u8ba16', 6]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
