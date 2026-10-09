@@ -2181,7 +2181,7 @@ function calculateNormalizedBasicSingleBet(text, claimed, lotteryFactor) {
     ? chineseAmount(match[1]) * (['毛', '角'].includes(match[2]) ? 0.1 : 1)
     : null;
   const rateFor = play => amountOf(
-    text.match(new RegExp(`(?:${play})\\s*(?:各|每(?:注|个)?)?\\s*${money}`))
+    text.match(new RegExp(`(?:${play})\\s*(?:\\d+\\s*注\\s*)?(?:各|每(?:注|个)?)?\\s*${money}`))
     || text.match(new RegExp(`${money}\\s*(?:${play})`))
   );
   const eachRate = amountOf(text.match(new RegExp(`(?:\\d+\\s*注\\s*)?(?:各|每(?:注|个)?)\\s*${money}`)));

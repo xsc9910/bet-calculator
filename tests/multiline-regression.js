@@ -37,6 +37,7 @@ cases.push(['priced group block with fly and two-code group', '3D\u7ec4\u9009\n6
 cases.push(['play then number list then multiplier', '\u798f\u76f4\n421 152 254 815 420 462 604 342 583 341\u4e00\u500d\n\u517120', 20]);
 cases.push(['number list then note count lottery and group rate', '309 304 048 704 705 741 745 748 743 439 419 416 415 485 459 195 951 956 958 986 168 158 156 867 865 850 809 860 619 609\n\u6ce830\uff0c\u798f\uff0c\u7ec40.5\uff0c\u4e00\u517115', 15]);
 cases.push(['multiple fixed-money group-three lines', '\u798f189\u7ec4\u4e0950\n\u798f2489\u7ec4\u4e0950', 100]);
+cases.push(['repeated numbers with each before direct and group rates', '548 548\u4f53\u76f4\u54042\u7c73\u7ec4\u54041\u7c73 2\u6ce8 \u51716\u7c73', 6]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
