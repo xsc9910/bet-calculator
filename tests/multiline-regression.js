@@ -41,6 +41,7 @@ cases.push(['repeated numbers with each before direct and group rates', '548 548
 cases.push(['plus separated spans with shared stake', '\u8de81+\u8de88\u540410\u5143\n\u540820\u5143', 20]);
 cases.push(['shared direct list with one specified group pick', '\u798f440\uff0c044\uff0c404\u4e00\u76f4044\u4e00\u7ec4\u5408\u8ba18', 8]);
 cases.push(['multiple wildcard positions with shared money', '\u798fx09\uff0c90x\u540410\u5143\u5408\u8ba120', 20]);
+cases.push(['leading unit price before direct with subtotal', '\u4f53623.621.614.613\u4e00\u5143\u76f44\u5143', 4]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],

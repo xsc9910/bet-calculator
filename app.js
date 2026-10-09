@@ -2947,7 +2947,7 @@ function calculatePerLineMultiplierSingles(text, claimed, lotteryFactor) {
 function calculateLeadingSinglePriceWithSubtotal(text, lotteryFactor) {
   // “097.680.一元直8元”：点号仅分号码，前置单价用于逐注计算，
   // 玩法后的金额是整段小计，不能再当作每注单价。
-  const match = text.match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[:：]?\s*((?:\d{3}[\s.。、,，\-]+)+)([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(直选|直|单|组选|组)\s*(\d+(?:\.\d+)?)\s*(元|米|块)\s*$/i);
+  const match = text.match(/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[:：]?\s*((?:\d{3}[\s.。、,，\-]+)*\d{3})\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(直选|直|单|组选|组)\s*(\d+(?:\.\d+)?)\s*(元|米|块)\s*$/i);
   if (!match) return null;
   const numbers = match[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
   if (!numbers.length) return null;
