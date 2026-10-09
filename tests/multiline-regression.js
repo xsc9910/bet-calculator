@@ -27,6 +27,10 @@ const cases = [
   ['行尾小计和末尾总计', '福\n123 456直各1元 合计2元\n飞12各10元 合计10元\n共12元', 12]
 ];
 
+cases.push(['slash-delimited multi group lines', '\u798f01469/\u7ec4\u4e09\u7ec4\u516d\u540410\u5143\n1469/\u7ec4\u516d\u7ec4\u4e0910\u5143\n\u517140', 40]);
+cases.push(['fullwidth slash multi group lines', '\u4f5312345\uff0f\u7ec4\u516d\u7ec4\u4e09\u54045\u7c73\n6789/\u7ec4\u4e09\u7ec4\u516d5\n\u517120', 20]);
+cases.push(['slash multi group multipliers', '\u798f1234/\u7ec4\u4e09\u7ec4\u516d\u54042\u500d\n5678/\u7ec4\u516d\u7ec4\u4e09\u4e00\u500d\n\u517160', 60]);
+
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
   ['组选', '福789 987组各1元', 2],

@@ -1166,6 +1166,26 @@ function calculateMultiGroupBet(text, claimed, lotteryFactor) {
     reasons: [`${sets.length}组完整组选号码（${sets.join('、')}） ×（${labels}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；按明确的组三/组六计价，不按直选复式或拆成三位单式`] };
 }
 
+function calculateSlashDelimitedMultiGroupLines(text, claimed, lotteryFactor) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line
+    && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d/.test(line));
+  if (lines.length < 2 || !lines.every(line => /[/／]/.test(line))) return null;
+  const details = [];
+  let total = 0;
+  for (const line of lines) {
+    const body = line.replace(/^(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i, '').trim();
+    const match = body.match(/^(\d{4,10})\s*[/／]\s*(组三\s*组六|组六\s*组三)\s*(?:各\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/);
+    if (!match) return null;
+    const value = chineseAmount(match[3]);
+    const stake = match[4] === '倍' ? value * 10 : value * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+    total += stake * 2;
+    details.push(`${match[1]}的组三、组六各${stake}元`);
+  }
+  const amount = total * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`斜杠分隔的多行复式分别计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -2977,6 +2997,8 @@ function autoCalculateBet(text, allowCompound = true) {
   const claimed = extractClaimedAmount(clean);
   const reasons = [];
   const lotteryFactor = lotteryTargets(clean).length;
+  const slashDelimitedMultiGroupLines = calculateSlashDelimitedMultiGroupLines(clean, claimed, lotteryFactor);
+  if (slashDelimitedMultiGroupLines) return slashDelimitedMultiGroupLines;
   const boughtPlayMultipliers = calculateBoughtPlayMultipliers(clean, claimed, lotteryFactor);
   if (boughtPlayMultipliers) return boughtPlayMultipliers;
   const trailingClaimAfterMultiplier = calculateTrailingClaimAfterExplicitMultiplier(clean, claimed);
