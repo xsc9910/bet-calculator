@@ -3439,7 +3439,8 @@ function autoCalculateBet(text, allowCompound = true) {
       needs: [`请在“${missingSpecialUnit[0]}”的额度后补“元/米/毛/角”或“倍”，不能仅凭原文合计推定。`] };
   }
   if (/(?<!\d)\d{4,}(?!\d)/.test(normalizedSingleBetNumberSource(clean))
-    && /直组|单组|一直一组|一单一组/.test(clean)
+    && (/直组|单组|一直一组|一单一组/.test(clean)
+      || (/(?:直|单)/.test(clean) && /组(?!三|六)/.test(clean)))
     && !/(组三|组六|复式|复试|转圈|转子|百|十位|个位|定位|拖|飞|独胆|粘边赖)/.test(clean)) {
     return { amount: '', claimed, confident: false,
       reasons: ['直组单式中出现超过三位的数字，不能自动拆成三位号码。'],
