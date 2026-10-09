@@ -2772,6 +2772,28 @@ function calculateItemizedDanFixedAmounts(text, claimed) {
     reasons: [`逐行独胆固定金额：${details.join(' + ')}`] };
 }
 
+function calculateDanWithPostfixedLotteryAmount(text, claimed) {
+  const source = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
+    .replace(/[，,、:：;；。]+$/, '')
+    .trim();
+  const lottery = '(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const value = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)?';
+  const danFirst = source.match(new RegExp(`^(?:独胆|胆)\\s*(\\d)\\s*[，,、:：]?\\s*${lottery}\\s*各(?:打)?\\s*${value}$`, 'i'));
+  const lotteryFirst = source.match(new RegExp(`^${lottery}\\s*[，,、:：]?\\s*(?:独胆|胆)\\s*(\\d)\\s*各(?:打)?\\s*${value}$`, 'i'));
+  if (!danFirst && !lotteryFirst) return null;
+  const lotteryText = danFirst ? danFirst[2] : lotteryFirst[1];
+  const digit = danFirst ? danFirst[1] : lotteryFirst[2];
+  const amountText = danFirst ? danFirst[3] : lotteryFirst[3];
+  const unit = danFirst ? danFirst[4] : lotteryFirst[4];
+  const factor = lotteryTargets(lotteryText).length;
+  const amountValue = chineseAmount(amountText);
+  const stake = unit === '倍' ? amountValue * 10 : amountValue * (['毛', '角'].includes(unit) ? 0.1 : 1);
+  const amount = stake * factor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`独胆${digit} × ${lotteryTargets(lotteryText).join('、')}各${stake}元`] };
+}
+
 function calculateSharedWildcardMoney(text, claimed, lotteryFactor) {
   const source = text
     .replace(/(?:合计|共计|总计|一共|共|计)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
@@ -3013,7 +3035,10 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
-  const rawItemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(text, extractClaimedAmount(text));
+  const rawClaimed = extractClaimedAmount(text);
+  const rawDanWithPostfixedLotteryAmount = calculateDanWithPostfixedLotteryAmount(text, rawClaimed);
+  if (rawDanWithPostfixedLotteryAmount) return rawDanWithPostfixedLotteryAmount;
+  const rawItemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(text, rawClaimed);
   if (rawItemizedDanFixedAmounts) return rawItemizedDanFixedAmounts;
   text = text.replace(/((?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*)([一二两三四五六七八九十]+|\d+)\s*(直|单)\s*([一二两三四五六七八九十]+|\d+)\s*(组|组选)\s*(\d{3})(?!\d)/gi,
     '$1$6$3$2$5$4');
