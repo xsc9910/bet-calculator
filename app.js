@@ -1998,7 +1998,7 @@ function calculateMultilineCompound(text, claimed) {
     .filter(line => !/^(?:直选|直|组选|组)\s*\d+\s*注$/.test(line));
   if (rawLines.length < 2) return null;
   const playLine = /(飞|直选|直|单|组选|组|组六|组三|定位|百位|十位|个位|独胆|胆|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/;
-  const playHeader = /^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(?:组六|组三|直选|直|组选|组)$/i;
+  const playHeader = /^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(?:(?:组六|组三)胆拖|组六|组三|直选|直|组选|组)$/i;
   const inheritedPlayLines = [];
   let activePlayHeader = '';
   for (const line of rawLines) {
@@ -2009,11 +2009,15 @@ function calculateMultilineCompound(text, claimed) {
     const hasNumberSelection = /(?<!\d)\d{3,10}(?!\d)/.test(line);
     const hasStake = /(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)?\s*$/.test(line);
     if (activePlayHeader && hasNumberSelection && hasStake && !playLine.test(line)) {
+      const danTuoHeader = activePlayHeader.match(/^((?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(组六|组三)胆拖$/i);
+      const danTuoData = line.match(/^(\d+)\s*拖\s*(\d+)\s*[。，,、;；]?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/);
       const groupHeader = activePlayHeader.match(/^((?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(组六|组三|组选|组)$/i);
       const groupData = line.match(/^(\d{4,10})\s+([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?$/);
-      inheritedPlayLines.push(groupHeader && groupData
-        ? `${groupHeader[1] || ''}${groupData[1]}${groupHeader[2]}${groupData[2]}${groupData[3] || ''}`
-        : `${activePlayHeader} ${line}`);
+      inheritedPlayLines.push(danTuoHeader && danTuoData
+        ? `${danTuoHeader[1] || ''}${danTuoData[1]}拖${danTuoData[2]}${danTuoHeader[2]}${danTuoData[3]}${danTuoData[4] || ''}`
+        : groupHeader && groupData
+          ? `${groupHeader[1] || ''}${groupData[1]}${groupHeader[2]}${groupData[2]}${groupData[3] || ''}`
+          : `${activePlayHeader} ${line}`);
       continue;
     }
     activePlayHeader = '';
