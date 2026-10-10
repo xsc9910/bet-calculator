@@ -3322,6 +3322,14 @@ function calculateLeadingSinglePriceWithSubtotal(text, lotteryFactor) {
     reasons: [`实际列出${numbers.length}注${/组/.test(match[4]) ? '组选' : '直选'} × 每注${unitPrice}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；尾部${match[5]}元只用于核对小计`] };
 }
 
+function calculateBareSingleDoubleFixedAmount(text, claimed) {
+  const match = text.match(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|排家|排|3\s*[Dd]|三\s*[DdBb]|三[弟地])\s*[，,、:：]?\s*(单|双)\s*[，,、:：]?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*$/i);
+  if (!match) return null;
+  const amount = chineseAmount(match[2]) * (['毛', '角'].includes(match[3]) ? 0.1 : 1);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`“${match[1]}${match[2]}${match[3] || ''}”按整条固定金额${amount}元计入`] };
+}
+
 function calculateImplicitSingleDigitDan(text, claimed, lotteryFactor) {
   // 单独的一位选码即独胆；只在整段只有这一个选码且写明下注额/倍数时启用。
   // “买70”是70元，明确写“倍”才按独胆每倍10元换算。
@@ -3357,6 +3365,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const rawBareSingleDoubleFixedAmount = calculateBareSingleDoubleFixedAmount(text, rawClaimed);
+  if (rawBareSingleDoubleFixedAmount) return rawBareSingleDoubleFixedAmount;
   const rawListedLeopardSingles = calculateListedLeopardSingles(text, rawClaimed);
   if (rawListedLeopardSingles) return rawListedLeopardSingles;
   const rawPrefixedIndependentBetLines = calculatePrefixedIndependentBetLines(text, rawClaimed);
