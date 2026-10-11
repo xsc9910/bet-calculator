@@ -503,6 +503,10 @@ function runStandaloneFormulaComparison() {
   let externalFlags = new Set();
   const lines = [`当前合计：${money(current.total)}（${current.terms.length || 1}项）　对比合计：${money(external.total)}（${external.terms.length || 1}项）`];
   let mismatch = totalsDiffer;
+  if (totalsDiffer) {
+    if (!current.terms.length) currentFlags.add(0);
+    if (!external.terms.length) externalFlags.add(0);
+  }
   const currentDeclaredMismatch = current.declaredTotal != null && Number((current.declaredTotal - current.total).toFixed(2)) !== 0;
   const externalDeclaredMismatch = external.declaredTotal != null && Number((external.declaredTotal - external.total).toFixed(2)) !== 0;
   if (currentDeclaredMismatch) {
