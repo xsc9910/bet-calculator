@@ -2553,6 +2553,34 @@ function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
     reasons: [`组合玩法分段计算：${reasons.join('；')}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateCountedDirectGroupLines(text, claimed, lotteryFactor) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  let amount = 0;
+  const details = [];
+  const marker = /^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i;
+  const summary = /(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/;
+  for (let line of lines) {
+    if (/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])$/i.test(line)) continue;
+    line = line.replace(summary, '').trim();
+    const count = line.match(/(?:([一二两三四五六七八九十]+)|(?<=\s)(\d{1,2}))\s*单\s*(?:([一二两三四五六七八九十]+)|(?<=\s)(\d{1,2}))\s*组/);
+    if (!count) return null;
+    const numbers = extractThreeDigitNumbers(line);
+    const residue = line.replace(marker, '')
+      .replace(/(?<!\d)\d{3}(?!\d)/g, ' ')
+      .replace(count[0], ' ')
+      .replace(/[\s、，,.。/+＋-]/g, '');
+    if (!numbers.length || residue) return null;
+    const directCount = numericValue(count[1] || count[2]);
+    const groupCount = numericValue(count[3] || count[4]);
+    const partAmount = numbers.length * (directCount * 2 + groupCount * 2) * lotteryFactor;
+    amount += partAmount;
+    details.push(`${line}=${partAmount}元`);
+  }
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`每行按单式注数与组选注数分别计价：${details.join('；')}`] };
+}
+
 function calculateItemizedWildcardMoney(text, claimed) {
   if (!/定位/.test(text)) return null;
   const source = text.replace(/(?:合计|共计|总计|共)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
@@ -3366,6 +3394,10 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const claimedMatch = text.match(/(?:合计|总计|共计|一共|共)\s*[:：]?\s*(\d+(?:\.\d+)?)/);
+  const countedLotteryFactor = /(?:福|福彩|褔)/.test(text) && /(?:体|体彩|體|排列三|排三)/.test(text) ? 2 : 1;
+  const countedDirectGroupLines = calculateCountedDirectGroupLines(text, claimedMatch ? Number(claimedMatch[1]) : '', countedLotteryFactor);
+  if (countedDirectGroupLines) return countedDirectGroupLines;
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);

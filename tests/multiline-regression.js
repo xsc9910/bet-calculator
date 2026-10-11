@@ -68,6 +68,7 @@ cases.push(['welfare rotor direct multiplier with trailing subtotal', '\u798f234
 cases.push(['welfare direct-group line plus group-six and group-three dantuo money', '\u798f713.913.743.943.673.693.793.\u4e00\u7ec4\u4e00\u535528\u7c73\n\u7ec4\u516d3\u62d64679..20\u7c73\n\u7ec4\u4e093\u62d64679..20', 68]);
 cases.push(['sports bare single fixed amount', '\u6392\u4e09\u5355800', 800]);
 cases.push(['welfare bare double fixed amount', '\u798f\u5f69\u53cc700', 700]);
+cases.push(['separate lines with different direct-group counts and shared total', '\u798f928\u4e09\u5355\u4e00\u7ec4\n542\u4e24\u5355\u4e00\u7ec4  \u517114\u7c73', 14]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
