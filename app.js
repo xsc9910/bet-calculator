@@ -2557,11 +2557,17 @@ function calculateCountedDirectGroupLines(text, claimed, lotteryFactor) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return null;
   let amount = 0;
+  let carriedLotteryFactor = lotteryFactor;
   const details = [];
-  const marker = /^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i;
+  const marker = /^(?:福彩体彩|福体|福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i;
   const summary = /(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/;
+  const markerFactor = value => /(?:福体|福彩体彩)/i.test(value) ? 2 : 1;
   for (let line of lines) {
-    if (/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])$/i.test(line)) continue;
+    const lotteryMarker = line.match(marker);
+    if (/^(?:福彩体彩|福体|福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])$/i.test(line)) {
+      carriedLotteryFactor = markerFactor(line);
+      continue;
+    }
     line = line.replace(summary, '').trim();
     const count = line.match(/(?:([一二两三四五六七八九十]+)|(?<=\s)(\d{1,2}))\s*单\s*(?:([一二两三四五六七八九十]+)|(?<=\s)(\d{1,2}))\s*组/);
     if (!count) return null;
@@ -2573,7 +2579,9 @@ function calculateCountedDirectGroupLines(text, claimed, lotteryFactor) {
     if (!numbers.length || residue) return null;
     const directCount = numericValue(count[1] || count[2]);
     const groupCount = numericValue(count[3] || count[4]);
-    const partAmount = numbers.length * (directCount * 2 + groupCount * 2) * lotteryFactor;
+    const partLotteryFactor = lotteryMarker ? markerFactor(lotteryMarker[0]) : carriedLotteryFactor;
+    if (lotteryMarker) carriedLotteryFactor = partLotteryFactor;
+    const partAmount = numbers.length * (directCount * 2 + groupCount * 2) * partLotteryFactor;
     amount += partAmount;
     details.push(`${line}=${partAmount}元`);
   }
