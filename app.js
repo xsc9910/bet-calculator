@@ -3365,6 +3365,39 @@ function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) 
     reasons: [`按玩法区块计算：${details.join('；')}`] };
 }
 
+function calculateListedGroupThreeDirectTotal(text, claimed) {
+  const match = text.trim().match(/^(?:(福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])\s*)?(\d{3})[\s、，,.。]+(\d{3})[\s、，,.。]+(\d{3})\s*(?:直选|直)\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)\s*$/i);
+  if (!match) return null;
+  const numbers = match.slice(2, 5);
+  const signature = numbers[0].split('').sort().join('');
+  if (new Set(numbers).size !== 3 || new Set(signature).size !== 2 || !numbers.every(number => number.split('').sort().join('') === signature)) return null;
+  return { amount: Number(match[5]), claimed, confident: true,
+    reasons: [`组三三个不同排列未写“各”的直选金额按整行合计：${numbers.join('、')}共${match[5]}元`] };
+}
+
+function calculateTrailingLotteryBlocks(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const marker = /^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])$/i;
+  if (!lines.length || /^(?:福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])/i.test(lines[0]) || !lines.some(line => marker.test(line))) return null;
+  const parts = [];
+  let pending = [];
+  for (const line of lines) {
+    const lottery = line.match(marker);
+    if (lottery) {
+      if (!pending.length) return null;
+      const prefix = lottery[1] === '排' ? '体' : lottery[1];
+      const result = autoCalculateBet(`${prefix}\n${pending.join('\n')}`);
+      if (!result.confident || result.amount === '') return { ...result, claimed };
+      parts.push({ lottery: prefix, amount: Number(result.amount), reasons: result.reasons });
+      pending = [];
+    } else if (!/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) pending.push(line);
+  }
+  if (pending.length && parts.length) return { amount: '', claimed, confident: false, reasons: ['段尾彩票分段后仍有未归属的投注，请补充彩票类型。'] };
+  if (!parts.length) return null;
+  return { amount: Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: parts.map(part => `段尾${part.lottery}归属前面投注：${part.amount}元；${part.reasons.join('；')}`) };
+}
+
 function calculateTrailingLotteryMultiline(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 3) return null;
@@ -3624,6 +3657,10 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const listedGroupThreeDirectTotal = calculateListedGroupThreeDirectTotal(text, rawClaimed);
+  if (listedGroupThreeDirectTotal) return listedGroupThreeDirectTotal;
+  const trailingLotteryBlocks = calculateTrailingLotteryBlocks(text, rawClaimed);
+  if (trailingLotteryBlocks) return trailingLotteryBlocks;
   const sharedBasicHeaderLists = calculateSharedBasicHeaderLists(text, rawClaimed);
   if (sharedBasicHeaderLists) return sharedBasicHeaderLists;
   const structuredDanTuo = calculateStructuredDanTuo(text, rawClaimed);
@@ -3860,7 +3897,8 @@ function autoCalculateBet(text, allowCompound = true) {
     && (Number(missingSpecialUnit[0].match(/\d+(?:\.\d+)?\s*$/)?.[0]) >= 10
       || (/组三/.test(missingSpecialLine) && /组六/.test(missingSpecialLine)));
   const missingSpecialIsTwoCodeMoney = missingSpecialUnit && calculateTwoCodeGroupBet(missingSpecialLine, '', 1)?.confident;
-  if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount && !missingSpecialIsTwoCodeMoney) {
+  const missingSpecialIsMultiGroupMoney = missingSpecialUnit && calculateBareMultiGroupMoneyBet(missingSpecialLine, '', 1)?.confident;
+  if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount && !missingSpecialIsTwoCodeMoney && !missingSpecialIsMultiGroupMoney) {
     return { amount: '', claimed, confident: false,
       reasons: [`“${missingSpecialUnit[0]}”的投注额度未写单位，无法确定是金额还是倍数。`],
       needs: [`请在“${missingSpecialUnit[0]}”的额度后补“元/米/毛/角”或“倍”，不能仅凭原文合计推定。`] };
