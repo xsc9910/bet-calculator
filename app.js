@@ -760,7 +760,8 @@ function showResult(result, values) {
 }
 
 function normalizeStatedArithmeticTotals(text) {
-  return text.replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2')
+  return text.replace(/(?:合计|总计|共计|一共|共)(?:\s*(?:合计|总计|共计|一共|共))*\s*[:：]?\s*(?:\d+(?:\.\d+)?\s*[+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '合计$1')
+    .replace(/((?:合计|总计|共计|一共|共)\s*[：:]?\s*)\d+(?:\.\d+)?\s*\\?[*×xX]\s*\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)/g, '$1$2')
     .replace(/(^|\n|(?<=[元米块毛角]))[ \t]*(?:\d+(?:\.\d+)?\s*\\?[*×xX+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)(?=\s*(?:元|米|块|毛|角)?\s*(?:$|\n|[）)]))/g, '$1 合计$2');
 }
 
@@ -2136,6 +2137,18 @@ function calculateMultilineCompound(text, claimed) {
   let rawLines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
     .filter(line => !/^(?:直选|直|组选|组)\s*\d+\s*注$/.test(line));
   if (rawLines.length < 2) return null;
+  for (let index = 0; index < rawLines.length; index += 1) {
+    if (!/^(?:(?:福彩|福|体彩|体|排列三|排三)\s*)?[两二]码\s*定位$/.test(rawLines[index])) continue;
+    let end = index + 1;
+    while (end < rawLines.length && /^(?:[百十个]位?\s*[:：]?\s*\d+\s*)+/.test(rawLines[end])) {
+      const rated = /(?:各|每组|每注)\s*(?:记|打|买)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)/.test(rawLines[end]);
+      end += 1;
+      if (rated) {
+        rawLines.splice(index, end - index, rawLines.slice(index, end).join(' '));
+        break;
+      }
+    }
+  }
   const playLine = /(飞|直选|直|单|组选|组|组六|组三|定位|百位|十位|个位|独胆|胆|对子|跨度|胆拖|复式|复试|转圈|粘边赖|豹子|和值)/;
   const playHeader = /^(?:(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排家|排|3\s*[Dd])\s*)?(?:(?:组六|组三)胆拖|组六|组三|直选|直|组选|组)$/i;
   const inheritedPlayLines = [];
@@ -2335,7 +2348,8 @@ function calculateMultilineCompound(text, claimed) {
   // 多行原文可能每一段都写了“合计”。这时把这些分段原金额相加，
   // 以便总额核对，而不是错误地仅采用最后一段的金额。
   const lineClaims = lines.map(line => extractClaimedAmount(line)).filter(value => value !== '');
-  const compoundClaimed = lineClaims.length === parts.length
+  const hasStandaloneClaim = text.split(/\r?\n/).some(line => /^\s*(?:总合计|合计|总计|共计|一共|共)(?:款)?\s*[:：]?\s*\d/.test(line));
+  const compoundClaimed = !hasStandaloneClaim && lineClaims.length === parts.length
     ? Number(lineClaims.reduce((sum, value) => sum + Number(value), 0).toFixed(2))
     : claimed;
   return {
@@ -3323,6 +3337,13 @@ function calculateSharedMultiGroupMultiplierByLotteryLines(text, claimed) {
 
 function calculateMultiPairPositionBet(text, claimed, lotteryFactor) {
   if (!/[两二]码\s*(?:定位|定)/.test(text)) return null;
+  const remainder = text
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:毛|角|元|米|块)?/g, '')
+    .replace(/(?:各|每组|每注)\s*(?:记|打|买)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)/g, '')
+    .replace(/[两二]码\s*(?:定位|定)|(?:百位?|十位?|个位?)\s*[:：]?\s*\d+/g, '')
+    .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福体]/g, '')
+    .replace(/[\s,，、。;；:：]/g, '');
+  if (remainder) return null;
   const positions = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
     .map(match => ({ name: match[1][0], label: match[1], values: match[2] }));
   if (positions.length < 2 || positions.length % 2 !== 0) return null;
@@ -4039,6 +4060,9 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
+    .replace(/((?<!\d)\d{3}(?!\d)(?:[ \t、,，.。\-]+\d{3}(?!\d))*)[ \t]*各[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)/g,
+      (match, numbers, first, firstUnit, firstPlay, second, secondUnit, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
+        ? `${numbers} ${firstPlay}${first}${firstUnit} ${secondPlay}${second}${secondUnit}` : match)
     .replace(/[！!]+/g, '\n')
     .replace(/三码\s*(直选|组选)/g, '$1')
     .replace(/胆码\s*(?=\d(?!\d)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍))/g, '独胆')
