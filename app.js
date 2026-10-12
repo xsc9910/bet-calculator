@@ -3576,6 +3576,41 @@ function calculateExclamationCompound(text, claimed) {
     reasons: [`逐段计算：${parts.map(part => `${part.segment} = ${part.amount}元`).join('；')}`] };
 }
 
+function calculateSharedBasicHeaderLists(text, claimed) {
+  if (/组三|组六|沾边|粘边/.test(text)) return null;
+  const lines = normalizeStatedArithmeticTotals(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const headerPattern = /^(?:(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*[,，:：]?\s*)?(直选|组选|直|组)\s*(?:各|每注)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|元|米|块|毛|角)$/;
+  const lotteryPattern = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*[,，:：]?$/;
+  const first = lines.find(line => !lotteryPattern.test(line));
+  if (!first || !headerPattern.test(first)) return null;
+  let lottery = '福';
+  let active = null;
+  const groups = [];
+  for (const line of lines) {
+    const lotteryOnly = line.match(lotteryPattern);
+    if (lotteryOnly) { lottery = lotteryOnly[1]; active = null; continue; }
+    const header = line.match(headerPattern);
+    if (header) {
+      lottery = header[1] || lottery;
+      const stake = chineseAmount(header[3]) * (header[4] === '倍' ? 2 : ['毛', '角'].includes(header[4]) ? 0.1 : 1);
+      active = { lottery, play: header[2], stake, count: 0 };
+      groups.push(active);
+      continue;
+    }
+    if (/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
+    if (/^\d{3}(?:[\s,，、.。\/\-]+\d{3})*[\s,，、.。\/\-]*$/.test(line) && active) {
+      active.count += (line.match(/\d{3}/g) || []).length;
+      continue;
+    }
+    if (/直|组|飞|定位|胆|跨度|和值|豹子/.test(line)) return null;
+    return { amount: '', claimed, confident: false, reasons: [`共享玩法标题下的“${line}”无法确定归属，不能只计算前面的号码。`], needs: ['请核对号码或为新一段补充玩法和单价。'] };
+  }
+  if (!groups.length || groups.some(group => !group.count || !(group.stake > 0))) return null;
+  const amount = groups.reduce((total, group) => total + group.count * group.stake * lotteryTargets(group.lottery).length, 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: groups.map(group => `${group.lottery}${group.play}共${group.count}注 × 每注${group.stake}元${lotteryTargets(group.lottery).length === 2 ? ' × 福体两边' : ''}；中途小计不终止标题作用范围，也不重复计入金额`) };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
   if (/[！!]/.test(text)) {
@@ -3589,6 +3624,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const sharedBasicHeaderLists = calculateSharedBasicHeaderLists(text, rawClaimed);
+  if (sharedBasicHeaderLists) return sharedBasicHeaderLists;
   const structuredDanTuo = calculateStructuredDanTuo(text, rawClaimed);
   if (structuredDanTuo) return structuredDanTuo;
   const rawBareSingleDoubleFixedAmount = calculateBareSingleDoubleFixedAmount(text, rawClaimed);
