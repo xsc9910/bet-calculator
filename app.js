@@ -1939,6 +1939,20 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
 
 function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
   if (/转圈|转子|全倒/.test(text)) return null;
+  const body = text.replace(/^\s*(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*[:：]?\s*/i, '')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const leading = body.match(/^(组三|组六)\s*((?:\d{2}[ \t、,，.\/\-]+)*\d{2})[ \t]+((?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍)?)$/);
+  const ordered = leading ? `${leading[2]}${leading[1]}${leading[3]}` : body;
+  const complete = ordered.match(/^(\d{2}(?:[ \t、,，.\/\-]+\d{2})*)\s*(组三|组六)\s*(?:各(?:打)?|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)?$/);
+  if (complete) {
+    const value = chineseAmount(complete[3]);
+    if (value > 0 && (complete[4] || value >= 10)) {
+      const pairs = complete[1].match(/\d{2}/g);
+      const stake = value * (complete[4] === '倍' ? 10 : ['毛', '角'].includes(complete[4]) ? 0.1 : 1);
+      return { amount: Number((pairs.length * stake * lotteryFactor).toFixed(2)), claimed, confident: true,
+        reasons: [`两码${complete[2]}${pairs.length}组（${pairs.join('、')}） × 每组${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；明写倍数按每倍10元，未写单位的额度按金额`] };
+    }
+  }
   const listed = text.match(/(?<!\d)(\d{2}(?:[\s、,，.\/\-]+\d{2})*)\s*(?:组三\s*(?:两码|二码)?|(?:两码|二码)\s*组三)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
   if (listed && !/直|单|飞|拖|组六/.test(text)) {
     const pairs = listed[1].match(/\d{2}/g);
@@ -3808,7 +3822,8 @@ function autoCalculateBet(text, allowCompound = true) {
     && missingSpecialDanTuoLine
     && (Number(missingSpecialUnit[0].match(/\d+(?:\.\d+)?\s*$/)?.[0]) >= 10
       || (/组三/.test(missingSpecialLine) && /组六/.test(missingSpecialLine)));
-  if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount) {
+  const missingSpecialIsTwoCodeMoney = missingSpecialUnit && calculateTwoCodeGroupBet(missingSpecialLine, '', 1)?.confident;
+  if (missingSpecialUnit && !missingSpecialIsDanTuoFixedAmount && !missingSpecialIsTwoCodeMoney) {
     return { amount: '', claimed, confident: false,
       reasons: [`“${missingSpecialUnit[0]}”的投注额度未写单位，无法确定是金额还是倍数。`],
       needs: [`请在“${missingSpecialUnit[0]}”的额度后补“元/米/毛/角”或“倍”，不能仅凭原文合计推定。`] };
