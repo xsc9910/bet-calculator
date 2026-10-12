@@ -764,8 +764,13 @@ function normalizeStatedArithmeticTotals(text) {
     .replace(/(^|\n|(?<=[元米块毛角]))[ \t]*(?:\d+(?:\.\d+)?\s*\\?[*×xX+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)(?=\s*(?:元|米|块|毛|角)?\s*(?:$|\n|[）)]))/g, '$1 合计$2');
 }
 
+function normalizeChineseClaimedTotals(text) {
+  return text.replace(/((?:总合计|合计|总计|共计|一共|共)(?:款)?\s*[:：]?\s*)([零〇一二两三四五六七八九十百]+)(?=\s*(?:元|米|块|[！!；;。\r\n]|$))/g,
+    (match, prefix, amount) => `${prefix}${chineseAmount(amount)}`);
+}
+
 function extractClaimedAmount(text) {
-  const clean = normalizeStatedArithmeticTotals(text.replace(/&#x20;|&nbsp;/gi, ' '))
+  const clean = normalizeStatedArithmeticTotals(normalizeChineseClaimedTotals(text).replace(/&#x20;|&nbsp;/gi, ' '))
     .replace(/(?:共|合计|总计|共计)?\s*\d+\s*注/g, ' ');
   const arithmeticTotal = [...clean.matchAll(/(?:^|\n)\s*(?:合计|总计|共计)?\s*(?:\d+(?:\.\d+)?\s*[+＋]\s*)+\d+(?:\.\d+)?\s*[=＝]\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*(?=$|\n)/g)];
   if (arithmeticTotal.length) {
@@ -3429,7 +3434,35 @@ function calculateHangingDanBet(text, claimed, lotteryFactor) {
     reasons: [`“吊”按独胆：${digits.join('、')}共${digits.length}个胆码 × 每个${each}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function calculateExclamationCompound(text, claimed) {
+  const segments = text.split(/[！!]+/).map(part => part.trim()).filter(Boolean);
+  if (segments.length < 2) return null;
+  let prefix = lotteryTargets(text).map(target => target === '福彩' ? '福' : '体').join('');
+  const parts = [];
+  for (const segment of segments) {
+    if (/^(?:总合计|合计|总计|共计|一共|共)(?:款)?\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(segment)) continue;
+    if (/福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd]/i.test(segment)) {
+      prefix = lotteryTargets(segment).map(target => target === '福彩' ? '福' : '体').join('');
+    }
+    if (/^(?:福彩|福|体彩|体|排列三|排三|3\s*[Dd])$/i.test(segment)) continue;
+    const result = autoCalculateBet(`${prefix} ${segment}`);
+    if (!result.confident || result.amount === '') {
+      return { amount: '', claimed, confident: false,
+        reasons: [`“${segment}”无法可靠计算，不能只记录其他分段。`], needs: result.needs || result.reasons };
+    }
+    parts.push({ segment, amount: Number(result.amount) });
+  }
+  if (!parts.length) return null;
+  return { amount: Number(parts.reduce((total, part) => total + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`逐段计算：${parts.map(part => `${part.segment} = ${part.amount}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
+  text = normalizeChineseClaimedTotals(text);
+  if (/[！!]/.test(text)) {
+    const exclamationCompound = calculateExclamationCompound(text, extractClaimedAmount(text));
+    if (exclamationCompound) return exclamationCompound;
+  }
   const claimedMatch = text.match(/(?:合计|总计|共计|一共|共)\s*[:：]?\s*(\d+(?:\.\d+)?)/);
   const countedLotteryFactor = /(?:福|福彩|褔)/.test(text) && /(?:体|体彩|體|排列三|排三)/.test(text) ? 2 : 1;
   const countedDirectGroupLines = calculateCountedDirectGroupLines(text, claimedMatch ? Number(claimedMatch[1]) : '', countedLotteryFactor);
@@ -4006,6 +4039,9 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
+    .replace(/[！!]+/g, '\n')
+    .replace(/三码\s*(直选|组选)/g, '$1')
+    .replace(/胆码\s*(?=\d(?!\d)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍))/g, '独胆')
     .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*快/g, '$1块')
     .replace(/毒\s*(?:胆|但)?/g, '独胆')
     .replace(/(?:福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地])(?:\s*[，,、:：/＋+和与及]?\s*(?:福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]))+/gi, '福')
