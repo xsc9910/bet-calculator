@@ -1653,11 +1653,13 @@ function calculatePairOrSpanBet(text, claimed, lotteryFactor) {
     count = (pairText.match(/(?<!\d)\d{2}(?!\d)/g) || []).length || 1;
   }
   if (span) {
+    const sharedSpanList = text.match(/(?:跨度|跨)\s*([0-9](?:[\s.。、，,+＋/\-]+[0-9])+)\s*(?=各|每)/);
     const repeatedSpanValues = [
       ...text.matchAll(/(?:跨度|跨)\s*(\d)/g),
       ...text.matchAll(/(?<!\d)(\d)\s*跨(?!度)/g)
     ];
-    if (repeatedSpanValues.length > 1) count = repeatedSpanValues.length;
+    if (sharedSpanList && repeatedSpanValues.length === 1) count = sharedSpanList[1].match(/[0-9]/g).length;
+    else if (repeatedSpanValues.length > 1) count = repeatedSpanValues.length;
     else {
       const beforeSpan = text.split(/跨度|跨/)[0];
       count = (beforeSpan.match(/(?<!\d)\d(?!\d)/g) || []).length || repeatedSpanValues.length || 1;
