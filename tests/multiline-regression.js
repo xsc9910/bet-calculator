@@ -69,6 +69,7 @@ cases.push(['welfare direct-group line plus group-six and group-three dantuo mon
 cases.push(['sports bare single fixed amount', '\u6392\u4e09\u5355800', 800]);
 cases.push(['welfare bare double fixed amount', '\u798f\u5f69\u53cc700', 700]);
 cases.push(['separate lines with different direct-group counts and shared total', '\u798f928\u4e09\u5355\u4e00\u7ec4\n542\u4e24\u5355\u4e00\u7ec4  \u517114\u7c73', 14]);
+cases.push(['counted direct-group lines separated by newline without lottery prefix', '928\u4e09\u5355\u4e00\u7ec4\n542\u4e24\u5355\u4e00\u7ec4  \u517114\u7c73', 14]);
 
 const independentSegments = [
   ['直选', '福123 456直各1元', 2],
