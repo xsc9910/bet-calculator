@@ -1751,6 +1751,89 @@ function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
     reasons: [`同一行分段归属并逐项计算：${details.map(detail => `${detail.type}${detail.codes.join('、')} × 每码${detail.unit}元 = ${detail.amount}元`).join('；')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`] };
 }
 
+function calculateStructuredDanTuo(text, claimed) {
+  if (!/\d\s*拖|拖码/.test(text)) return null;
+  const blocked = () => ({ amount: '', claimed, confident: false,
+    reasons: ['胆拖内容未完整对应号码、玩法和额度，不能只计算部分项目或跨福体继承金额。'],
+    needs: ['请核对每组胆码、拖码及组三/组六额度；号码与数字金额连写时请加空格，换彩票后请重新写明玩法和额度。'] });
+  if (!/组三|组六|六组/.test(text)) return blocked();
+  if (/直|单|组选|双?飞|定位|独胆|豹子|和值|跨度|转圈|全拖|全托|粘边|沾边/.test(text)) {
+    const lotteryBlocks = text.split(/(?=福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])/);
+    if (lotteryBlocks.some(block => /\d\s*拖|拖码/.test(block) && !/组三|组六|六组/.test(block))) return blocked();
+    return null;
+  }
+  let source = text.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, '')
+    .replace(/胆码?\s*[:：]?\s*(\d+)\s*[,，、]?\s*拖码?\s*[:：]?\s*(\d+)/g, '$1拖$2')
+    .replace(/拖码\s*[:：]?\s*(\d+)\s*[,，、]?\s*胆码?\s*[:：]?\s*(\d+)/g, '$2拖$1')
+    .replace(/胆拖/g, '').replace(/(?<!组)六组/g, '组六').trim();
+  const lotteryMarkers = [...source.matchAll(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體]/g)];
+  if (lotteryMarkers.length === 1) source = `${lotteryMarkers[0][0]} ${source.replace(lotteryMarkers[0][0], '')}`;
+  const scopes = [];
+  let scope = { lottery: lotteryTargets(text).length === 1 ? lotteryTargets(text)[0] : '福彩', tokens: [] };
+  while (source) {
+    source = source.replace(/^[\s,，、;；.。:：]+/, '');
+    if (!source) break;
+    const lottery = source.match(/^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])/);
+    const selection = source.match(/^(?:胆\s*)?(\d+)\s*拖\s*(\d+)/);
+    const play = source.match(/^(组三|组六)/);
+    const rate = source.match(/^(各(?:打)?|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|元|米|块|毛|角)?/);
+    if (lottery) {
+      if (scope.tokens.length) scopes.push(scope);
+      scope = { lottery: /福/.test(lottery[0]) && /体/.test(lottery[0]) ? '福体' : /体|排/.test(lottery[0]) ? '体彩' : '福彩', tokens: [] };
+      source = source.slice(lottery[0].length);
+    } else if (selection) {
+      scope.tokens.push({ type: 'selection', text: `${selection[1]}拖${selection[2]}` });
+      source = source.slice(selection[0].length);
+    } else if (play) {
+      scope.tokens.push({ type: 'play', text: play[0] });
+      source = source.slice(play[0].length);
+    } else if (rate) {
+      scope.tokens.push({ type: 'rate', value: chineseAmount(rate[2]), unit: rate[3], each: !!rate[1] });
+      source = source.slice(rate[0].length);
+    } else return blocked();
+  }
+  if (scope.tokens.length) scopes.push(scope);
+  const parseStakes = tokens => {
+    if (tokens[0]?.type === 'rate' && tokens.slice(1).every(token => token.type === 'play')) tokens = [...tokens.slice(1), tokens[0]];
+    const stakes = [];
+    let plays = [];
+    for (const token of tokens) {
+      if (token.type === 'play') { plays.push(token.text); continue; }
+      if (token.type !== 'rate' || !plays.length || !(token.value > 0)) return null;
+      if (!token.unit && token.value < 10 && tokens.filter(item => item.type === 'play').length < 2) return null;
+      const perPlay = token.value * (token.unit === '倍' ? 10 : ['毛', '角'].includes(token.unit) ? 0.1 : 1);
+      const combinedMoney = plays.length > 1 && token.unit && token.unit !== '倍' && !token.each;
+      stakes.push({ amount: perPlay * (combinedMoney ? 1 : plays.length), detail: `${plays.join('、')}${combinedMoney ? '合并' : '各'}${perPlay}元` });
+      plays = [];
+    }
+    return plays.length || !stakes.length ? null : stakes;
+  };
+  const details = [];
+  let total = 0;
+  for (const block of scopes) {
+    const first = block.tokens.findIndex(token => token.type === 'selection');
+    if (first < 0) return blocked();
+    const prefix = block.tokens.slice(0, first);
+    let pending = [];
+    for (let index = first; index < block.tokens.length;) {
+      if (block.tokens[index].type !== 'selection') return blocked();
+      pending.push(block.tokens[index].text);
+      index += 1;
+      const suffix = [];
+      while (index < block.tokens.length && block.tokens[index].type !== 'selection') suffix.push(block.tokens[index++]);
+      if (!suffix.length && index < block.tokens.length) continue;
+      const stakes = parseStakes([...prefix, ...suffix]);
+      if (!stakes) return blocked();
+      const amount = pending.length * stakes.reduce((sum, stake) => sum + stake.amount, 0) * (block.lottery === '福体' ? 2 : 1);
+      total += amount;
+      details.push(`${block.lottery} ${pending.join('、')}：${stakes.map(stake => stake.detail).join(' + ')}，共${amount}元`);
+      pending = [];
+    }
+    if (pending.length) return blocked();
+  }
+  return details.length ? { amount: Number(total.toFixed(2)), claimed, confident: true, reasons: [`胆拖逐组计算：${details.join('；')}`] } : blocked();
+}
+
 function calculateSharedDanTuoStakes(text, claimed, lotteryFactor) {
   const sharedBody = text
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '')
@@ -2195,7 +2278,8 @@ function calculateMultilineCompound(text, claimed) {
   };
   const isPositionLine = line => /^(?:百位?|十位?|个位?)\s*[:：]?\s*(?:全部|\d+)\s*$/.test(
     line.replace(/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, ''));
-  const isDanTuoOnlyLine = line => /^(?:胆)?\s*\d+\s*拖\s*\d+\s*$/.test(line);
+  const isDanTuoOnlyLine = line => /^(?:胆)?\s*\d+\s*拖\s*\d+\s*$/.test(
+    line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, ''));
   const isWildcardFixedLine = line => /(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])\s*[=＝]\s*\d/.test(line);
   // 号码可先发一行、玩法和金额写在下一行。将连续的纯号码行并入
   // 紧随的玩法行，避免遗漏前一行号码（也保留重复号码）。
@@ -3491,6 +3575,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const structuredDanTuo = calculateStructuredDanTuo(text, rawClaimed);
+  if (structuredDanTuo) return structuredDanTuo;
   const rawBareSingleDoubleFixedAmount = calculateBareSingleDoubleFixedAmount(text, rawClaimed);
   if (rawBareSingleDoubleFixedAmount) return rawBareSingleDoubleFixedAmount;
   const rawListedLeopardSingles = calculateListedLeopardSingles(text, rawClaimed);
