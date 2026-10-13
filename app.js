@@ -1330,6 +1330,14 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
 
 function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
   if (/(?<!\d)\d{4,10}(?!\d)|拖|组三.*组六|组六.*组三/.test(text)) return null;
+  const multiplierText = text.replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ').trim();
+  const multiplier = multiplierText.match(/^(\d{3})\s*组三\s*(?:各(?:打)?|打)?\s*([一二两三四五六七八九十]|\d+)\s*倍$/);
+  if (multiplier && new Set(multiplier[1]).size === 3) {
+    const numbers = [multiplier[1]];
+    const stake = numericValue(multiplier[2]) * 10;
+    return { amount: numbers.length * stake * lotteryFactor, claimed, confident: true,
+      reasons: [`${numbers.length}个组三选码 × ${multiplier[2]}倍 × 每倍10元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  }
   // 三位单式组选可连续列出，例如“146，369组六各20，共40”。
   // 有明确单位时直接按每个号码金额；无单位整数必须由原文合计反证，
   // 否则保留人工补充，不能把“20”武断地当作金额或倍数。
