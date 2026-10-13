@@ -3322,6 +3322,42 @@ function calculateCompleteIndependentLines(text, claimed) {
     reasons: [`按换行分段计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculateBlankLineCompoundBets(text, claimed) {
+  if (/(?:和值|跨度|豹子)/.test(text)
+    || !/(?:百位定|十位定|个位定)/.test(text)
+    || !/双飞/.test(text)) return null;
+  const groups = text.split(/\r?\n\s*\r?\n/).map(group => group.trim()).filter(Boolean);
+  if (groups.length < 2) return null;
+  const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  const lotteryMarker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|福|褔|体|體|排/g;
+  const lotteryToken = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|福|褔|体|體|排/;
+  let carriedLottery = '';
+  const parts = [];
+  for (const group of groups) {
+    const lines = group.split(/\r?\n/).map(line => line.trim().replace(/[，,；;]+$/g, '')).filter(line => line && !summary.test(line));
+    if (!lines.length) continue;
+    const markers = group.match(lotteryMarker);
+    if (markers?.length) carriedLottery = markers.at(-1);
+    const scoped = value => lotteryToken.test(value) ? value : `${carriedLottery} ${value}`;
+    const individual = lines.map(line => autoCalculateBet(scoped(line), false));
+    let amount;
+    let detail;
+    if (individual.length > 1 && individual.every(result => result.confident && result.amount !== '')) {
+      amount = individual.reduce((sum, result) => sum + Number(result.amount), 0);
+      detail = lines.map((line, index) => `${line}=${individual[index].amount}元`).join('；');
+    } else {
+      const whole = autoCalculateBet(scoped(lines.join('\n')), false);
+      if (!whole.confident || whole.amount === '') return null;
+      amount = Number(whole.amount);
+      detail = `${lines.join(' / ')}=${amount}元`;
+    }
+    parts.push({ amount, detail });
+  }
+  if (parts.length < 2) return null;
+  return { amount: Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`空行分段逐项计算：${parts.map(part => part.detail).join('；')}`] };
+}
+
 function calculateMixedSpecialMultilineBets(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
@@ -3693,6 +3729,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const blankLineCompoundBets = calculateBlankLineCompoundBets(text, rawClaimed);
+  if (blankLineCompoundBets) return blankLineCompoundBets;
   const mixedSpecialMultilineBets = calculateMixedSpecialMultilineBets(text, rawClaimed);
   if (mixedSpecialMultilineBets) return mixedSpecialMultilineBets;
   const listedGroupThreeDirectTotal = calculateListedGroupThreeDirectTotal(text, rawClaimed);
