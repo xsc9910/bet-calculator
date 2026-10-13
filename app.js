@@ -5101,8 +5101,19 @@ $('exportBetData').onclick = () => {
   a.download = `投注金额记录-${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
 };
 $('resetBetData').onclick = () => {
-  if (!confirm('确定清空全部投注金额记录？此操作不能撤销。')) return;
-  betEntries = []; saveBetEntries(); render(); toast('投注金额记录已清空');
+  if (currentBetBatchFilter === 'all') { toast('请先选择要清空的具体批次'); return; }
+  const batchId = currentBetBatchFilter === 'active' ? activeBetBatchId : currentBetBatchFilter;
+  const batch = betBatches.find(item => item.id === batchId);
+  if (!batch) { toast('当前批次不存在，请重新选择'); return; }
+  const summary = batchSummary(batchId);
+  if (!summary.count) { toast('当前批次没有投注记录'); return; }
+  if (!confirm(`确定清空批次“${batch.label}”的${summary.count}条投注记录（合计${money(summary.total)}元）？\n只清空此批次，保留批次名称及其他批次。此操作不能撤销。`)) return;
+  betEntries = betEntries.filter(entry => entryBatchId(entry) !== batchId)
+    .map((entry, index) => ({ ...entry, record: index + 1 }));
+  saveBetEntries();
+  rebuildWinningEntries();
+  render();
+  toast(`已清空批次“${batch.label}”，其他批次已保留`);
 };
 $('ledgerBody').onclick = e => {
   const btn = e.target.closest('.delete');
