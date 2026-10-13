@@ -3322,6 +3322,40 @@ function calculateCompleteIndependentLines(text, claimed) {
     reasons: [`按换行分段计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculateMixedSpecialMultilineBets(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const summary = /^(?:合计|总计|共计|一共|共)\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  const bettingLines = lines.filter(line => !summary.test(line));
+  if (bettingLines.length < 3
+    || !bettingLines.some(line => /(?:组六|组三|胆\s*\d+\s*拖)/.test(line))
+    || !bettingLines.some(line => /(?:一|1)(?:直|单)(?:一|1)组|豹子/.test(line))) return null;
+  const lotteryMarker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|福|褔|体|體|排/g;
+  let carriedLottery = '';
+  const parts = [];
+  for (const rawLine of bettingLines) {
+    const markers = rawLine.match(lotteryMarker);
+    if (markers?.length) carriedLottery = markers.at(-1);
+    if (!carriedLottery) return null;
+    const line = rawLine.replace(lotteryMarker, '').trim();
+    const directGroup = line.match(/^((?:\d{3}[\s、，,.。/\-]+)*\d{3})(?:一|1)(?:直|单)(?:一|1)组$/);
+    let result;
+    if (directGroup) {
+      const numbers = directGroup[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+      if (!numbers.length) return null;
+      const factor = lotteryTargets(carriedLottery).length;
+      result = { amount: numbers.length * 2 * factor, confident: true,
+        reasons: [`${numbers.length}注 ×（直1元 + 组1元）`] };
+    } else {
+      result = autoCalculateBet(`${carriedLottery} ${line}`, false);
+    }
+    if (!result.confident || result.amount === '') return null;
+    parts.push({ line: rawLine, result });
+  }
+  const amount = Number(parts.reduce((sum, part) => sum + Number(part.result.amount), 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`混合玩法逐行计算：${parts.map(part => `${part.line}=${part.result.amount}元`).join('；')}`] };
+}
+
 function calculateStructuredGroupAndTwoCodeBlocks(text, claimed, lotteryFactor) {
   const lines = text.split(/\r?\n/).map(line => line.trim().replace(/[。，，；;]+$/g, '')).filter(Boolean);
   if (lines.length < 5 || !/^(?:福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*组选$/i.test(lines[0])) return null;
@@ -3659,6 +3693,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const mixedSpecialMultilineBets = calculateMixedSpecialMultilineBets(text, rawClaimed);
+  if (mixedSpecialMultilineBets) return mixedSpecialMultilineBets;
   const listedGroupThreeDirectTotal = calculateListedGroupThreeDirectTotal(text, rawClaimed);
   if (listedGroupThreeDirectTotal) return listedGroupThreeDirectTotal;
   const trailingLotteryBlocks = calculateTrailingLotteryBlocks(text, rawClaimed);
@@ -4242,6 +4278,7 @@ function normalizeBetAliases(text) {
       (match, numbers, first, firstUnit, firstPlay, second, secondUnit, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
         ? `${numbers} ${firstPlay}${first}${firstUnit} ${secondPlay}${second}${secondUnit}` : match)
     .replace(/[！!]+/g, '\n')
+    .replace(/陪/g, '倍')
     .replace(/三码\s*(直选|组选)/g, '$1')
     .replace(/胆码\s*(?=\d(?!\d)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍))/g, '独胆')
     .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*快/g, '$1块')
