@@ -3694,6 +3694,28 @@ function calculateExclamationCompound(text, claimed) {
     reasons: [`逐段计算：${parts.map(part => `${part.segment} = ${part.amount}元`).join('；')}`] };
 }
 
+function calculateExclamationHeaderNumbers(text, claimed) {
+  if (!/[！!]/.test(text)) return null;
+  const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const play = '(直组|单组|一直一组|一单一组|直选|直|组选|组)';
+  const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
+  const pattern = new RegExp(`${lottery}\\s*${play}\\s*${value}\\s*倍\\s*[！!]\\s*(\\d{3})(?!\\d)`, 'gi');
+  const matches = [...text.matchAll(pattern)];
+  if (!matches.length) return null;
+  const residue = text.replace(pattern, ' ')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/[\s、，,.。/\-;；:：！!]+/g, '');
+  if (residue) return null;
+  const parts = matches.map(match => ({
+    source: `${match[1]} ${match[4]} ${match[2]}${match[3]}倍`,
+    result: autoCalculateBet(`${match[1]} ${match[4]} ${match[2]}${match[3]}倍`, false)
+  }));
+  if (parts.some(part => !part.result.confident || part.result.amount === '')) return null;
+  const amount = parts.reduce((total, part) => total + Number(part.result.amount), 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`玩法标题与感叹号后号码分别配对：${parts.map(part => `${part.source}=${part.result.amount}元`).join('；')}`] };
+}
+
 function calculateSharedBasicHeaderLists(text, claimed) {
   if (/组三|组六|沾边|粘边/.test(text)) return null;
   const lines = normalizeStatedArithmeticTotals(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -3806,6 +3828,8 @@ function calculateLotteryRowsWithSharedPlay(text, claimed) {
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
   if (/[！!]/.test(text)) {
+    const exclamationHeaderNumbers = calculateExclamationHeaderNumbers(text, extractClaimedAmount(text));
+    if (exclamationHeaderNumbers) return exclamationHeaderNumbers;
     const exclamationCompound = calculateExclamationCompound(text, extractClaimedAmount(text));
     if (exclamationCompound) return exclamationCompound;
   }
