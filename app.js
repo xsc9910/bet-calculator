@@ -2776,6 +2776,52 @@ function calculateCountHeaderWithNumberList(text, claimed) {
     reasons: [`${header[1]}标题${statedCount}注与号码列表一致：直${directTimes}倍 + 组${groupTimes}倍，每注${(directTimes + groupTimes) * 2}元`] };
 }
 
+function calculatePositionAndMultiGroupLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    .filter(line => !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (lines.length < 2 || !lines.some(line => /百十个/.test(line)) || !lines.some(line => /(?:组三|组六)/.test(line))) return null;
+  const marker = /^(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*/i;
+  const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
+  const positionPattern = new RegExp(`^(\\d{3,10})\\s*百十个\\s*${value}\\s*(毛|角|元|米|块)$`);
+  let lottery = '福';
+  const parts = [];
+  for (const rawLine of lines) {
+    const lotteryMatch = rawLine.match(marker);
+    if (lotteryMatch) lottery = lotteryMatch[1];
+    const line = rawLine.replace(marker, '').trim();
+    const position = line.match(positionPattern);
+    if (position) {
+      const digitCount = new Set(position[1]).size;
+      const rate = chineseAmount(position[2]) * (['毛', '角'].includes(position[3]) ? 0.1 : 1);
+      const amount = digitCount ** 3 * rate * lotteryTargets(lottery).length;
+      parts.push({ detail: `${lottery}${position[1]}百十个${digitCount ** 3}注 × ${rate}元`, amount });
+      continue;
+    }
+    const compound = line.match(/^(\d{4,10})\s*(.+)$/);
+    if (compound) {
+      let rest = compound[2].replace(/\s+/g, '');
+      const groupItems = [];
+      while (rest) {
+        const item = rest.match(/^(组六|组三)([零〇一二两三四五六七八九十]+|\d+(?:\.\d+)?)(毛|角|元|米|块)?/);
+        if (!item) break;
+        groupItems.push({ play: item[1], amount: chineseAmount(item[2]) * (['毛', '角'].includes(item[3]) ? 0.1 : 1) });
+        rest = rest.slice(item[0].length);
+      }
+      if (groupItems.length && !rest) {
+        const amount = groupItems.reduce((total, item) => total + item.amount, 0) * lotteryTargets(lottery).length;
+        parts.push({ detail: `${lottery}${compound[1]}${groupItems.map(item => `${item.play}${item.amount}元`).join('、')}`, amount });
+        continue;
+      }
+    }
+    const group = calculateBareMultiGroupMoneyBet(`${lottery} ${line}`, '', lotteryTargets(lottery).length);
+    if (!group?.confident) return null;
+    parts.push({ detail: `${lottery}${line}`, amount: Number(group.amount) });
+  }
+  const amount = parts.reduce((total, part) => total + part.amount, 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`百十个定位与复式逐行计算：${parts.map(part => `${part.detail}=${part.amount}元`).join('；')}`] };
+}
+
 function calculateItemizedWildcardMoney(text, claimed) {
   if (!/定位/.test(text)) return null;
   const source = text.replace(/(?:合计|共计|总计|共)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
@@ -3878,6 +3924,8 @@ function calculateLotteryMarkedDirectGroupLines(text, claimed) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
+  const positionAndMultiGroupLines = calculatePositionAndMultiGroupLines(text, extractClaimedAmount(text));
+  if (positionAndMultiGroupLines) return positionAndMultiGroupLines;
   const countHeaderWithNumberList = calculateCountHeaderWithNumberList(text, extractClaimedAmount(text));
   if (countHeaderWithNumberList) return countHeaderWithNumberList;
   if (/[！!]/.test(text)) {
