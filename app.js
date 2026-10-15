@@ -3825,6 +3825,30 @@ function calculateLotteryRowsWithSharedPlay(text, claimed) {
     reasons: [`按盘别共用玩法计算：${parts.map(part => `${part.source}=${part.result.amount}元`).join('；')}`] };
 }
 
+function calculateLotteryMarkedDirectGroupLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    .filter(line => !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (lines.length < 2) return null;
+  const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const numbers = '((?:\\d{3}[\\s、，,.。/\\-]+)*\\d{3})';
+  const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
+  const linePattern = new RegExp(`^${lottery}\\s*${numbers}\\s*${value}\\s*(?:单|直选|直)\\s*${value}\\s*(?:组选|组)\\s*(?:合计|总计|共计|一共|共|计)?\\s*\\d*(?:\\.\\d+)?\\s*(?:元|米|块)?$`, 'i');
+  const parts = lines.map(line => line.match(linePattern));
+  if (parts.some(part => !part)) return null;
+  const details = parts.map(part => {
+    const count = part[2].match(/\d{3}/g).length;
+    const directTimes = chineseAmount(part[3]);
+    const groupTimes = chineseAmount(part[4]);
+    const factor = lotteryTargets(part[1]).length;
+    return { lottery: part[1], count, directTimes, groupTimes, factor,
+      amount: count * (directTimes + groupTimes) * 2 * factor };
+  });
+  if (details.some(detail => !(detail.directTimes > 0) || !(detail.groupTimes > 0))) return null;
+  const amount = details.reduce((total, detail) => total + detail.amount, 0);
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`按每行盘别与倍率计算：${details.map(detail => `${detail.lottery}${detail.count}注 ×（直${detail.directTimes}倍 + 组${detail.groupTimes}倍）=${detail.amount}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
   if (/[！!]/.test(text)) {
@@ -3840,6 +3864,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const lotteryMarkedDirectGroupLines = calculateLotteryMarkedDirectGroupLines(text, rawClaimed);
+  if (lotteryMarkedDirectGroupLines) return lotteryMarkedDirectGroupLines;
   const postfixedLotterySegments = calculatePostfixedLotterySegments(text, rawClaimed);
   if (postfixedLotterySegments) return postfixedLotterySegments;
   const lotteryRowsWithSharedPlay = calculateLotteryRowsWithSharedPlay(text, rawClaimed);
