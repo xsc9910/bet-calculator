@@ -3922,8 +3922,27 @@ function calculateLotteryMarkedDirectGroupLines(text, claimed) {
     reasons: [`按每行盘别与倍率计算：${details.map(detail => `${detail.lottery}${detail.count}注 ×（直${detail.directTimes}倍 + 组${detail.groupTimes}倍）=${detail.amount}元`).join('；')}`] };
 }
 
+function calculateExplicitGroupSelectionMoney(text, claimed) {
+  const source = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
+  const unit = '(毛|角|元|米|块)?';
+  const pattern = new RegExp(`^${lottery}?\\s*(?:组选|组)\\s*((?:\\d{3}\\s*(?:---|[、，,。\\s-]+)\\s*)*\\d{3})\\s*(?:(各打|每注|打)\\s*)?(?:一(?:注|组|码)?\\s*)?${value}\\s*${unit}$`, 'i');
+  const match = source.match(pattern);
+  if (!match || (!match[3] && !match[5])) return null;
+  const selections = match[2].match(/\d{3}/g) || [];
+  if (!selections.length) return null;
+  const stake = chineseAmount(match[4]) * (['毛', '角'].includes(match[5]) ? 0.1 : 1);
+  const factor = lotteryTargets(match[1] || source).length;
+  const amount = selections.length * stake * factor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${match[1] || lotteryTargets(source)[0]}组选${selections.join('、')}，明确每注${stake}元：${selections.length}注=${amount}元`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
+  const explicitGroupSelectionMoney = calculateExplicitGroupSelectionMoney(text, extractClaimedAmount(text));
+  if (explicitGroupSelectionMoney) return explicitGroupSelectionMoney;
   const positionAndMultiGroupLines = calculatePositionAndMultiGroupLines(text, extractClaimedAmount(text));
   if (positionAndMultiGroupLines) return positionAndMultiGroupLines;
   const countHeaderWithNumberList = calculateCountHeaderWithNumberList(text, extractClaimedAmount(text));
