@@ -32,6 +32,7 @@ const cases = [
   ['福123 456\n体789\n一直一组', 12],
   ['福直组一倍！622\n体直组一倍！983\n合计8', 8],
   ['福314，319，364，369，814，819，864，869，308三直一组合计72元\n体102，107，152，157，602，607，652，657，308三直一组合计72元\n合计144', 144],
+  ['福通用幸运36注✅️一直一组\n108 513 910 659 321 024 251 126 721 247 482 249 479 718 917 189 489 377 657 568 115 559 652 773 257 821 129 899 025 298 456 547 026 207 306 028合计144', 144],
 ];
 
 for (const [input, amount] of cases) {
@@ -41,4 +42,5 @@ for (const [input, amount] of cases) {
 }
 
 assert.equal(api.autoCalculateBet('福\n组六一倍\n13579\n组三一倍\n3478\n共22元').claimed, 22);
+assert.equal(api.autoCalculateBet('福幸运3注一直一组\n123 456合计12').confident, false);
 console.log(`PASS ${cases.length + 1} scoped group and leopard cases`);

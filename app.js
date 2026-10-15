@@ -2749,6 +2749,33 @@ function calculateCountedDirectGroupLines(text, claimed, lotteryFactor) {
     reasons: [`每行按单式注数与组选注数分别计价：${details.join('；')}`] };
 }
 
+function calculateCountHeaderWithNumberList(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
+  const header = lines[0].match(new RegExp(`^${lottery}.*?(\\d+)\\s*注.*?${value}\\s*(?:单|直选|直)\\s*${value}\\s*(?:组选|组)\\s*$`, 'i'));
+  if (!header) return null;
+  const selections = [];
+  for (const line of lines.slice(1)) {
+    const source = line.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ').trim();
+    if (!source) continue;
+    if (!/^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/.test(source)) return null;
+    selections.push(...(source.match(/\d{3}/g) || []));
+  }
+  const statedCount = Number(header[2]);
+  if (!selections.length) return null;
+  if (selections.length !== statedCount) return { amount: '', claimed, confident: false,
+    reasons: [`标题写${statedCount}注，实际列出${selections.length}个三位号码，不能按其中一方推定金额。`],
+    needs: ['请核对注数标题或补齐/删除号码后再计算。'] };
+  const directTimes = chineseAmount(header[3]);
+  const groupTimes = chineseAmount(header[4]);
+  const factor = lotteryTargets(header[1]).length;
+  const amount = statedCount * (directTimes + groupTimes) * 2 * factor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${header[1]}标题${statedCount}注与号码列表一致：直${directTimes}倍 + 组${groupTimes}倍，每注${(directTimes + groupTimes) * 2}元`] };
+}
+
 function calculateItemizedWildcardMoney(text, claimed) {
   if (!/定位/.test(text)) return null;
   const source = text.replace(/(?:合计|共计|总计|共)\s*[，,:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
@@ -3851,6 +3878,8 @@ function calculateLotteryMarkedDirectGroupLines(text, claimed) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
+  const countHeaderWithNumberList = calculateCountHeaderWithNumberList(text, extractClaimedAmount(text));
+  if (countHeaderWithNumberList) return countHeaderWithNumberList;
   if (/[！!]/.test(text)) {
     const exclamationHeaderNumbers = calculateExclamationHeaderNumbers(text, extractClaimedAmount(text));
     if (exclamationHeaderNumbers) return exclamationHeaderNumbers;
