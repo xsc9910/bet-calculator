@@ -1029,6 +1029,44 @@ function explicitMoney(text) {
   return value * (['毛', '角'].includes(match[2]) ? 0.1 : 1);
 }
 
+function calculateImplicitRotorDirectBet(text, claimed, lotteryFactor) {
+  // “0958 组六直一倍 48”是全倒/转圈直选的常用简写：0958 的全部排列共 24 注。
+  // 仅接受完整的“六码（组六）直”行，避免把普通组六复式误作转圈。
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  let currentFactor = lotteryFactor;
+  const parts = [];
+  for (const sourceLine of lines) {
+    if (/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/.test(sourceLine)) continue;
+    let line = sourceLine;
+    const marker = line.match(/福体|福彩体彩|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/i);
+    if (marker) {
+      currentFactor = lotteryTargets(marker[0]).length;
+      line = line.replace(marker[0], ' ').trim();
+    }
+    if (!line) continue;
+    const match = line.match(/^(\d{3,10})\s*组六\s*(?:直选|直)\s*([一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍(?:\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?)?$/);
+    if (!match) return null;
+    const digits = match[1];
+    const counts = [...digits].reduce((all, digit) => ({ ...all, [digit]: (all[digit] || 0) + 1 }), {});
+    const factorial = value => Array.from({ length: value }, (_, index) => index + 1).reduce((total, item) => total * item, 1);
+    const permutations = factorial(digits.length) / Object.values(counts).reduce((total, count) => total * factorial(count), 1);
+    const times = chineseAmount(match[2]);
+    const amount = permutations * times * 2 * currentFactor;
+    const stated = match[3] === undefined ? null : Number(match[3]);
+    if (stated != null && Math.abs(amount - stated) > 0.000001) {
+      return { amount: '', claimed, confident: false,
+        reasons: [`全倒直选“${digits}”按${permutations}种排列应为${money(amount)}元，但本行写${money(stated)}元。`],
+        needs: ['请核对该行的全倒号码、倍率或金额。'] };
+    }
+    parts.push({ digits, permutations, times, amount, factor: currentFactor });
+  }
+  if (!parts.length) return null;
+  const amount = Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`全倒（组六直）按全部排列直选：${parts.map(part => `${part.digits}共${part.permutations}种排列 × ${part.times}倍 × 2元${part.factor === 2 ? ' × 福彩体彩两边' : ''} = ${money(part.amount)}元`).join('；')}`] };
+}
+
 function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   const fixedMatch = text.match(/(复式|复试|转一?圈|转子|打包组三|组三全包|组三包)/);
   if (!fixedMatch) return null;
@@ -4223,6 +4261,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (rawPostfixedLotteryNumberGrid) return rawPostfixedLotteryNumberGrid;
   const rawOrderedRotorDirectMoney = calculateOrderedRotorDirectMoney(text, rawClaimed);
   if (rawOrderedRotorDirectMoney) return rawOrderedRotorDirectMoney;
+  const implicitRotorDirectBet = calculateImplicitRotorDirectBet(text, rawClaimed, lotteryTargets(text).length);
+  if (implicitRotorDirectBet) return implicitRotorDirectBet;
   const rawDanWithPostfixedLotteryAmount = calculateDanWithPostfixedLotteryAmount(text, rawClaimed);
   if (rawDanWithPostfixedLotteryAmount) return rawDanWithPostfixedLotteryAmount;
   const rawItemizedDanFixedAmounts = calculateItemizedDanFixedAmounts(text, rawClaimed);
