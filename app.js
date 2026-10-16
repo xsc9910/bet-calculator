@@ -4672,14 +4672,15 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   for (const number of threeDigitNumbers) {
     if (wantsDirect && number === draw) {
-      wins.push(makeWinningEntry(entry, lottery, '直选', number, directStake, 950, winIndex++));
+      wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, directStake, plays.direct.prize / plays.direct.base, winIndex++));
     }
     if (wantsGroup && [...number].sort().join('') === sortedDraw && drawSet.size > 1) {
       const explicitGroup3 = /组三/.test(text) && !/组六/.test(text);
       const explicitGroup6 = /组六/.test(text) && !/组三/.test(text);
       if ((!explicitGroup3 || drawSet.size === 2) && (!explicitGroup6 || drawSet.size === 3)) {
         const group3 = drawSet.size === 2;
-        wins.push(makeWinningEntry(entry, lottery, group3 ? '组三' : '组六', number, groupStake, group3 ? 310 : 155, winIndex++));
+        const groupPlay = group3 ? plays.group3 : plays.group6;
+        wins.push(makeWinningEntry(entry, lottery, groupPlay.name, number, groupStake, groupPlay.prize / groupPlay.base, winIndex++));
       }
     }
   }
@@ -4708,7 +4709,7 @@ function scanEntryForDraw(entry, lottery, draw) {
     const digits = (after?.[1] || before?.[1] || '').replace(/\D/g, '').split('').filter(Boolean);
     const stake = specialStake(text, 10, entry, digits.length);
     digits.forEach(digit => {
-      if (drawDigits.includes(digit)) wins.push(makeWinningEntry(entry, lottery, '独胆', digit, stake, 3.5, winIndex++));
+      if (drawDigits.includes(digit)) wins.push(makeWinningEntry(entry, lottery, plays.singleDigit.name, digit, stake, plays.singleDigit.prize / plays.singleDigit.base, winIndex++));
     });
   }
 
@@ -4716,7 +4717,7 @@ function scanEntryForDraw(entry, lottery, draw) {
     const pairs = text.match(/(?<!\d)\d{2}(?!\d)/g) || [];
     const stake = specialStake(text, 10, entry, pairs.length);
     pairs.forEach(pair => {
-      if ([...pair].every(digit => drawDigits.includes(digit))) wins.push(makeWinningEntry(entry, lottery, '双飞', pair, stake, 17, winIndex++));
+      if ([...pair].every(digit => drawDigits.includes(digit))) wins.push(makeWinningEntry(entry, lottery, plays.doubleFly.name, pair, stake, plays.doubleFly.prize / plays.doubleFly.base, winIndex++));
     });
   }
 
@@ -4725,8 +4726,27 @@ function scanEntryForDraw(entry, lottery, draw) {
     const selected = text.match(/(?<!\d)\d{1,2}(?!\d)/g) || [];
     const stake = specialStake(text, 10, entry, selected.length);
     selected.forEach(value => {
-      if (value.includes(repeated)) wins.push(makeWinningEntry(entry, lottery, '对子', value, stake, 32, winIndex++));
+      if (value.includes(repeated)) wins.push(makeWinningEntry(entry, lottery, plays.pair.name, value, stake, plays.pair.prize / plays.pair.base, winIndex++));
     });
+  }
+
+  const positionIndexes = { 百: 0, 百位: 0, 十: 1, 十位: 1, 个: 2, 个位: 2 };
+  const positionBets = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
+    .map(match => ({ label: match[1], index: positionIndexes[match[1]], digits: [...new Set(match[2].split(''))] }));
+  if (positionBets.length === 1) {
+    const bet = positionBets[0];
+    const stake = specialStake(text, plays.pos1.base, entry, bet.digits.length);
+    bet.digits.filter(digit => drawDigits[bet.index] === digit).forEach(digit => {
+      wins.push(makeWinningEntry(entry, lottery, plays.pos1.name, `${bet.label}${digit}`, stake,
+        plays.pos1.prize / plays.pos1.base, winIndex++));
+    });
+  } else if (positionBets.length === 2) {
+    const stake = specialStake(text, plays.pos2.base, entry, 1);
+    if (positionBets.every(bet => bet.digits.includes(drawDigits[bet.index]))) {
+      const hit = positionBets.map(bet => `${bet.label}${drawDigits[bet.index]}`).join('、');
+      wins.push(makeWinningEntry(entry, lottery, plays.pos2.name, hit, stake,
+        plays.pos2.prize / plays.pos2.base, winIndex++));
+    }
   }
 
   if (/跨度|\d跨/.test(text)) {
@@ -4740,7 +4760,7 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   if (/打包组三|组三全包/.test(text) && drawSet.size === 2) {
     const stake = specialStake(text, 180, entry, 1);
-    wins.push(makeWinningEntry(entry, lottery, '组三全包', draw, stake, 600 / 180, winIndex++));
+    wins.push(makeWinningEntry(entry, lottery, plays.group3Pack.name, draw, stake, plays.group3Pack.prize / plays.group3Pack.base, winIndex++));
   }
 
   if (/和值/.test(text)) {
@@ -4755,7 +4775,7 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   if (/豹子全包/.test(text) && drawSet.size === 1) {
     const stake = specialStake(text, 10, entry, 1);
-    wins.push(makeWinningEntry(entry, lottery, '豹子全包', draw, stake, 80, winIndex++));
+    wins.push(makeWinningEntry(entry, lottery, plays.leopardPack.name, draw, stake, plays.leopardPack.prize / plays.leopardPack.base, winIndex++));
   }
 
   if (lottery === '体彩' && /转一?圈/.test(text)) {
@@ -4766,7 +4786,7 @@ function scanEntryForDraw(entry, lottery, draw) {
     const circleBase = circlePlay.baseBySize[circleDigits.length];
     if (correctType && circleBase && drawDigits.every(digit => circleDigits.includes(digit))) {
       const stake = specialStake(text, circleBase, entry, 1);
-      wins.push(makeWinningEntry(entry, lottery, circlePlay.name, circleDigits.join(''), stake, 1900 / circleBase, winIndex++));
+      wins.push(makeWinningEntry(entry, lottery, circlePlay.name, circleDigits.join(''), stake, circlePlay.prize / circleBase, winIndex++));
     }
   }
 
@@ -4795,7 +4815,8 @@ function scanEntryForDraw(entry, lottery, draw) {
     const stickyBase = stickyPlay.baseByCount[selectedDigits.length];
     if (correctType && stickyBase) {
       selectedDigits.filter(digit => drawDigits.includes(digit)).forEach(digit => {
-        wins.push(makeWinningEntry(entry, lottery, stickyPlay.name, `胆${digit}`, stickyBase, stickyPlay.prize / stickyBase, winIndex++));
+        const stake = specialStake(text, stickyBase, entry, selectedDigits.length);
+        wins.push(makeWinningEntry(entry, lottery, stickyPlay.name, `胆${digit}`, stake, stickyPlay.prize / stickyBase, winIndex++));
       });
     }
   }
