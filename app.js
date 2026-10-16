@@ -3922,6 +3922,25 @@ function calculateLotteryMarkedDirectGroupLines(text, claimed) {
     reasons: [`按每行盘别与倍率计算：${details.map(detail => `${detail.lottery}${detail.count}注 ×（直${detail.directTimes}倍 + 组${detail.groupTimes}倍）=${detail.amount}元`).join('；')}`] };
 }
 
+function calculatePrefixedGroupDirectNumbers(text, claimed) {
+  const source = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
+  const value = '([零〇一二两三四五六七八九十]+|\\d+)';
+  const numbers = '((?:\\d{3}(?:[\\s、，,。-]+|$))+)' ;
+  const pattern = new RegExp(`^${lottery}?\\s*${value}\\s*(?:组选|组)\\s*${value}\\s*(?:直选|直)\\s*${numbers}$`, 'i');
+  const match = source.match(pattern);
+  if (!match) return null;
+  const selections = match[4].match(/(?<!\d)\d{3}(?!\d)/g) || [];
+  if (!selections.length || selections.join(' ').length === 0) return null;
+  const groupTimes = chineseAmount(match[2]);
+  const directTimes = chineseAmount(match[3]);
+  if (!(groupTimes > 0) || !(directTimes > 0)) return null;
+  const factor = lotteryTargets(match[1] || source).length;
+  const amount = selections.length * (directTimes + groupTimes) * 2 * factor;
+  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`前置组直倍率：${selections.length}注 ×（组${groupTimes}倍 + 直${directTimes}倍）=${amount}元`] };
+}
+
 function calculateExplicitGroupSelectionMoney(text, claimed) {
   const source = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
@@ -3941,6 +3960,8 @@ function calculateExplicitGroupSelectionMoney(text, claimed) {
 
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
+  const prefixedGroupDirectNumbers = calculatePrefixedGroupDirectNumbers(text, extractClaimedAmount(text));
+  if (prefixedGroupDirectNumbers) return prefixedGroupDirectNumbers;
   const explicitGroupSelectionMoney = calculateExplicitGroupSelectionMoney(text, extractClaimedAmount(text));
   if (explicitGroupSelectionMoney) return explicitGroupSelectionMoney;
   const positionAndMultiGroupLines = calculatePositionAndMultiGroupLines(text, extractClaimedAmount(text));
