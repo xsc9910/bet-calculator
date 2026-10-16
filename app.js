@@ -4860,7 +4860,7 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
   }
 
-  if (lottery === '体彩' && /胆\s*\d+\s*拖\s*\d+/.test(text)) {
+  if (/胆\s*\d+\s*拖\s*\d+/.test(text)) {
     const danMatch = text.match(/胆\s*(\d+)\s*拖\s*(\d+)/);
     const danDigits = [...new Set((danMatch?.[1] || '').split(''))];
     const dragDigits = [...new Set((danMatch?.[2] || '').split(''))];

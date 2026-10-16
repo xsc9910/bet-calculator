@@ -50,6 +50,12 @@ assert.equal(eachGroupWins.length, 1, JSON.stringify(eachGroupWins));
 assert.equal(eachGroupWins[0].stake, 2, JSON.stringify(eachGroupWins));
 assert.equal(eachGroupWins[0].prize, app.plays.group6.prize, JSON.stringify(eachGroupWins));
 
+const welfareDanTuoWin = app.scanEntryForDraw(entry('福胆1拖234组六一倍', 10), '福彩', '123');
+assert.equal(welfareDanTuoWin.length, 1, JSON.stringify(welfareDanTuoWin));
+assert.equal(welfareDanTuoWin[0].match, '组六胆拖：胆1拖234', JSON.stringify(welfareDanTuoWin));
+const missingDragDanTuoWin = app.scanEntryForDraw(entry('福胆1拖456组六一倍', 10), '福彩', '123');
+assert.equal(missingDragDanTuoWin.length, 0, JSON.stringify(missingDragDanTuoWin));
+
 const duplicatePositionWins = app.scanEntryForDraw(entry(`福
 百位定4
 十位定3
