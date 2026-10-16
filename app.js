@@ -4765,9 +4765,9 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
   }
 
-  if (/(独胆|毒|扣)/.test(text)) {
-    const after = text.match(/(?:独胆|毒|扣)\s*([0-9](?:[、，,.。/\-]?[0-9])*)/);
-    const before = text.match(/([0-9](?:[、，,.。/\-][0-9])*)\s*(?:独胆|毒|扣)/);
+  if (/(独胆|毒|扣)/.test(text) || /胆\s*\d+(?!\s*(?:拖|粘边赖))/.test(text)) {
+    const after = text.match(/(?:独胆|毒|扣|胆)\s*([0-9](?:[、，,.。/\-]?[0-9])*)/);
+    const before = text.match(/([0-9](?:[、，,.。/\-][0-9])*)\s*(?:独胆|毒|扣|胆)/);
     const digits = (after?.[1] || before?.[1] || '').replace(/\D/g, '').split('').filter(Boolean);
     const stake = specialStake(text, 10, entry, digits.length);
     digits.forEach(digit => {

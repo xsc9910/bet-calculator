@@ -75,5 +75,7 @@ assert.equal(compactGroupWins[0].stake, 2, JSON.stringify(compactGroupWins));
 const scopedPositionWins = app.scanEntryForDraw(entry('胆3 3倍 十位2 2倍 3D合计50', 50), '福彩', '823');
 const scopedPositionWin = scopedPositionWins.find(win => win.match.startsWith('一码定位：'));
 assert.equal(scopedPositionWin?.stake, 20, JSON.stringify(scopedPositionWins));
+const scopedSingleWin = scopedPositionWins.find(win => win.match.startsWith('独胆：'));
+assert.equal(scopedSingleWin?.stake, 30, JSON.stringify(scopedPositionWins));
 
 console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 8} failed=0`);
