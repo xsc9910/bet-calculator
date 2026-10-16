@@ -1416,7 +1416,7 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   while (remainder) {
     remainder = remainder.replace(/^[\s、，,.。;；:：-]+/, '');
     if (!remainder) break;
-    const part = remainder.match(/^(组三|组六)\s*(?:各|打)?\s*(\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/);
+    const part = remainder.match(/^(组三|组六)\s*(?:各|打|记|买)?\s*(\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?/);
     if (!part) return null;
     const value = Number(part[2]);
     if (!part[3] && part[2].replace(/\D/g, '').length >= 4) return null;
@@ -1431,6 +1431,28 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   const amount = sets.length * perSet * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
     reasons: [`${sets.length}组完整复式选码（${sets.join('、')}）×（${details.join(' + ')}）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写单位的组选额度按金额，不按倍数`] };
+}
+
+function calculateRecordedGroupFixedMoney(text, claimed) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  let currentFactor = 1;
+  const parts = [];
+  for (const sourceLine of lines) {
+    if (/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/.test(sourceLine)) continue;
+    const markers = sourceLine.match(/福体|福彩体彩|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
+    if (markers.length) currentFactor = lotteryTargets(markers[markers.length - 1]).length;
+    const line = sourceLine.replace(/福体|福彩体彩|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ').trim();
+    if (!line) continue;
+    const match = line.match(/^(\d{3,10})\s*(组三|组六)\s*(?:记|买)\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)$/);
+    if (!match) return null;
+    const stake = Number(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
+    parts.push({ number: match[1], play: match[2], stake, factor: currentFactor });
+  }
+  if (!parts.length) return null;
+  const amount = Number(parts.reduce((sum, part) => sum + part.stake * part.factor, 0).toFixed(2));
+  return { amount, claimed, confident: true,
+    reasons: [`组选按“记/买”固定金额：${parts.map(part => `${part.number}${part.play}记${money(part.stake)}元${part.factor === 2 ? ' × 福彩体彩两边' : ''}`).join('；')}`] };
 }
 
 function calculateListedSingleGroupBet(text, claimed, lotteryFactor) {
@@ -4221,6 +4243,8 @@ function autoCalculateBet(text, allowCompound = true) {
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
   const rawClaimed = extractClaimedAmount(text);
+  const recordedGroupFixedMoney = calculateRecordedGroupFixedMoney(text, rawClaimed);
+  if (recordedGroupFixedMoney) return recordedGroupFixedMoney;
   const lotteryMarkedDirectGroupLines = calculateLotteryMarkedDirectGroupLines(text, rawClaimed);
   if (lotteryMarkedDirectGroupLines) return lotteryMarkedDirectGroupLines;
   const postfixedLotterySegments = calculatePostfixedLotterySegments(text, rawClaimed);
