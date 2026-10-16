@@ -129,6 +129,11 @@ function entriesForBetBatch(filter = currentBetBatchFilter) {
   const batchId = filter === 'active' ? activeBetBatchId : filter;
   return betEntries.filter(entry => entryBatchId(entry) === batchId);
 }
+function matchesBetBatch(entry, filter = currentBetBatchFilter) {
+  if (filter === 'all') return true;
+  const batchId = filter === 'active' ? activeBetBatchId : filter;
+  return !entry.batchId || entry.batchId === batchId;
+}
 function batchSummary(batchId) {
   const rows = betEntries.filter(entry => entryBatchId(entry) === batchId);
   return { count: rows.length, total: sumMoney(rows.map(entry => entry.amount)) };
@@ -163,7 +168,17 @@ function render() {
   $('anomalyCount').textContent = anomalyTotal;
 
   const q = $('searchInput').value.trim().toLowerCase();
-  const visible = entries.filter(e => (currentFilter === 'all' || e.lottery === currentFilter) &&
+  const winBatchFilter = $('winBatchFilter');
+  if (winBatchFilter) {
+    winBatchFilter.innerHTML = [
+      `<option value="active">当前批次（${activeBetBatch()?.label || '未命名'}）</option>`,
+      '<option value="all">全部批次</option>',
+      ...betBatches.map(batch => `<option value="${batch.id}">${batch.label}</option>`)
+    ].join('');
+    if (![...winBatchFilter.options].some(option => option.value === currentBetBatchFilter)) currentBetBatchFilter = 'active';
+    winBatchFilter.value = currentBetBatchFilter;
+  }
+  const visible = entries.filter(e => matchesBetBatch(e) && (currentFilter === 'all' || e.lottery === currentFilter) &&
     (!q || `${e.record} ${e.lottery} ${e.match}`.toLowerCase().includes(q)));
   $('ledgerBody').innerHTML = visible.length ? visible.map(e => `
     <tr>
@@ -4650,6 +4665,7 @@ function makeWinningEntry(entry, lottery, playName, hit, stake, odds, index) {
   return {
     id: `auto-win-${entry.id}-${lottery}-${playName}-${index}`,
     record: entry.record,
+    batchId: entryBatchId(entry),
     lottery,
     match: `${playName}：${hit}`,
     stake: Number(stake.toFixed(2)),
