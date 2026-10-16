@@ -4851,7 +4851,7 @@ function positionStake(text, bet, base, entry) {
 function lotteryTargets(text) {
   text = normalizeBetAliases(text);
   const welfare = /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
-  const sports = /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d])/.test(text);
+  const sports = /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d]|直|组|单)/.test(text);
   const targets = [];
   if (welfare) targets.push('福彩');
   if (sports) targets.push('体彩');
