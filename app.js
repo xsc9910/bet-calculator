@@ -2289,6 +2289,9 @@ function calculateDelimitedCompound(text, claimed) {
   if (!/[；;]/.test(text) && /(?:\d{2}[\s,，、.。/\-]+){1,}\d{2}\s*双?飞/.test(text)) return null;
   // “独胆2，4，6各10米”是同一组选胆列表，逗号不是多玩法边界。
   if (/^(?:(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*)*(?:独胆|胆|独)\s*\d(?:\s*[,，、.。/\-]\s*\d)+\s*各/.test(text)) return null;
+  // “15、16点和值各20米”中的符号是和值选项列表，不能拆成“15”和“16点和值”。
+  if (/(?:^|(?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*)(?:和值\s*)?\d{1,2}(?:\s*[、，,./\-]\s*\d{1,2})+\s*(?:点\s*)?和值/.test(text)
+    || /和值\s*\d{1,2}(?:\s*[、，,./\-]\s*\d{1,2})+/.test(text)) return null;
   // 中文句号也常用于分隔同一条中的不同玩法。
   const segments = text.split(/[，,；;。、]/).map(segment => segment.trim()).filter(segment => segment
     && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(segment));
