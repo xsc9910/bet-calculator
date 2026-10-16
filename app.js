@@ -4116,6 +4116,28 @@ function calculateMixedDanTuoMultiline(text, claimed) {
     reasons: [`胆拖共享额度及后续玩法逐行计算：${parts.map(part => `${part.line}=${money(part.amount)}元`).join('；')}`] };
 }
 
+function calculateBareFixedDanAndSumLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    .filter(line => !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (!lines.length) return null;
+  const marker = /^(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[,，:：]?\s*/i;
+  let inheritedLottery = '';
+  const parts = [];
+  for (const line of lines) {
+    const matched = line.match(marker);
+    if (matched) inheritedLottery = matched[1];
+    const body = (matched ? line.slice(matched[0].length) : line).trim();
+    if (!inheritedLottery) return null;
+    const dan = body.match(/^(?:胆\s*)?(\d)\s*(?:的\s*)?胆\s*[,，:：]?\s*(\d+(?:\.\d+)?)$/);
+    const sum = body.match(/^和值\s*([大小单双])\s*[,，:：]?\s*(\d+(?:\.\d+)?)$/);
+    if (!dan && !sum) return null;
+    const amount = Number((dan ? dan[2] : sum[2])) * lotteryTargets(inheritedLottery).length;
+    parts.push({ label: dan ? `独胆${dan[1]}` : `和值${sum[1]}`, amount });
+  }
+  return { amount: Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`独立固定金额逐项计算：${parts.map(part => `${part.label}${money(part.amount)}元`).join(' + ')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text)
     // “拖码”常被写成同音的“托码”；仅在数字夹着该字时统一，避免改动普通文本。
@@ -4124,6 +4146,8 @@ function autoCalculateBet(text, allowCompound = true) {
     .replace(/(?<!\d)(\d)\1\s*对(?=\s*(?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块))/g, '$1$1对子');
   const mixedDanTuoMultiline = allowCompound ? calculateMixedDanTuoMultiline(text, extractClaimedAmount(text)) : null;
   if (mixedDanTuoMultiline) return mixedDanTuoMultiline;
+  const bareFixedDanAndSumLines = calculateBareFixedDanAndSumLines(text, extractClaimedAmount(text));
+  if (bareFixedDanAndSumLines) return bareFixedDanAndSumLines;
   const lotterySeparatedBasicLines = calculateLotterySeparatedBasicLines(text, extractClaimedAmount(text));
   if (lotterySeparatedBasicLines) return lotterySeparatedBasicLines;
   const prefixedGroupDirectNumbers = calculatePrefixedGroupDirectNumbers(text, extractClaimedAmount(text));
