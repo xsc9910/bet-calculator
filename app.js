@@ -4080,8 +4080,50 @@ function calculateLotterySeparatedBasicLines(text, claimed) {
   };
 }
 
+function calculateMixedDanTuoMultiline(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    .filter(line => !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
+  if (lines.length < 4) return null;
+  const marker = /^(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])\s*[,，:：]?\s*/i;
+  let lottery = '';
+  const body = [];
+  for (const line of lines) {
+    const matched = line.match(marker);
+    if (matched) {
+      const current = matched[1];
+      if (lottery && current !== lottery) return null;
+      lottery = current;
+      const rest = line.slice(matched[0].length).trim();
+      if (rest) body.push(rest);
+    } else body.push(line);
+  }
+  if (!lottery) return null;
+  const dantuo = body.filter(line => /^(?:胆\s*)?\d+\s*拖\s*\d+$/.test(line));
+  const sharedPlay = body.find(line => /^(?:组六|组三)\s*(?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)?$/.test(line));
+  if (!dantuo.length || !sharedPlay) return null;
+  const remaining = body.filter(line => !dantuo.includes(line) && line !== sharedPlay);
+  if (!remaining.length) return null;
+  const factor = lotteryTargets(lottery).length;
+  const dantuoResult = calculateDanTuoBet(`${lottery} ${dantuo.join(' ')} ${sharedPlay}`, '', factor);
+  if (!dantuoResult?.confident || dantuoResult.amount === '') return null;
+  const parts = [{ line: `${dantuo.join('、')} ${sharedPlay}`, amount: Number(dantuoResult.amount) }];
+  for (const line of remaining) {
+    const result = autoCalculateBet(`${lottery} ${line}`, false);
+    if (!result.confident || result.amount === '') return null;
+    parts.push({ line, amount: Number(result.amount) });
+  }
+  return { amount: Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`胆拖共享额度及后续玩法逐行计算：${parts.map(part => `${part.line}=${money(part.amount)}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
-  text = normalizeChineseClaimedTotals(text);
+  text = normalizeChineseClaimedTotals(text)
+    // “拖码”常被写成同音的“托码”；仅在数字夹着该字时统一，避免改动普通文本。
+    .replace(/(?<=\d)\s*托\s*(?=\d)/g, '拖')
+    // 两位重复号的“对”是“对子”的常用简写，如“55对10元”。
+    .replace(/(?<!\d)(\d)\1\s*对(?=\s*(?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块))/g, '$1$1对子');
+  const mixedDanTuoMultiline = allowCompound ? calculateMixedDanTuoMultiline(text, extractClaimedAmount(text)) : null;
+  if (mixedDanTuoMultiline) return mixedDanTuoMultiline;
   const lotterySeparatedBasicLines = calculateLotterySeparatedBasicLines(text, extractClaimedAmount(text));
   if (lotterySeparatedBasicLines) return lotterySeparatedBasicLines;
   const prefixedGroupDirectNumbers = calculatePrefixedGroupDirectNumbers(text, extractClaimedAmount(text));
