@@ -4231,7 +4231,7 @@ function autoCalculateBet(text, allowCompound = true) {
     '$1$6$3$2$5$4');
   text = text.replace(/((?:福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])?\s*)(直|单)\s*([一二两三四五六七八九十]+|\d+)\s*(组|组选)\s*([一二两三四五六七八九十]+|\d+)\s*(\d{3})(?!\d)/gi,
     '$1$6$2$3$4$5');
-  text = text.replace(/(?:两定|二定)/g, '两码定位');
+  text = text.replace(/(?:两|二|2)\s*定(?:码)?/g, '两码定位');
   // Some copied lists put the stated note count after the unit price
   // (“直各0.5元267注”). Move that count before the price so it remains
   // metadata and the decimal is still read as the per-note stake.
