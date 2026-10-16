@@ -124,6 +124,15 @@ function activeBetBatch() {
   return betBatches.find(batch => batch.id === activeBetBatchId) || null;
 }
 function entryBatchId(entry) { return entry.batchId || activeBetBatchId; }
+function batchRecordNumber(entry) {
+  const batchId = entryBatchId(entry);
+  const index = betEntries
+    .filter(candidate => entryBatchId(candidate) === batchId)
+    .sort((first, second) => Number(first.record) - Number(second.record)
+      || String(first.id || '').localeCompare(String(second.id || '')))
+    .findIndex(candidate => candidate.id === entry.id);
+  return index + 1;
+}
 function entriesForBetBatch(filter = currentBetBatchFilter) {
   if (filter === 'all') return betEntries;
   const batchId = filter === 'active' ? activeBetBatchId : filter;
@@ -232,13 +241,17 @@ function renderBetLedger() {
   const anomalyOnly = $('onlyAnomalies').checked;
   const visible = selectedEntries.filter(e => {
     const anomaly = anomalyFor(e);
-    return (!anomalyOnly || anomaly) && (!q || `${e.record} ${e.original || ''} ${e.sender || ''} ${e.messageTime || ''} ${anomaly}`.toLowerCase().includes(q));
+    return (!anomalyOnly || anomaly) && (!q || `${e.record} ${batchRecordNumber(e)} ${e.original || ''} ${e.sender || ''} ${e.messageTime || ''} ${anomaly}`.toLowerCase().includes(q));
   }).sort((a, b) => Number(b.record) - Number(a.record));
   $('betLedgerBody').innerHTML = visible.length ? visible.map(e => {
     const anomaly = anomalyFor(e);
     const targets = entryLotteryTargets(e);
+    const batchNumber = batchRecordNumber(e);
+    const displayNumber = currentBetBatchFilter === 'all'
+      ? `${batchLabel(entryBatchId(e))}-${batchNumber}`
+      : String(batchNumber);
     return `<tr>
-      <td>第${e.record}条</td>
+      <td>第${displayNumber}条</td>
       <td><span class="tag ${targets.length > 1 ? 'mixed' : targets[0] === '体彩' ? 'sports' : 'welfare'}">${targets.length > 1 ? '福+体' : targets[0]}</span></td>
       <td>${e.sender || e.messageTime ? `<small class="chat-source">${escapeHtml([e.sender, e.messageTime].filter(Boolean).join(' · '))}</small>` : ''}${e.original ? escapeHtml(e.original) : '<span class="muted">历史金额记录</span>'}</td>
       <td><span class="readonly-amount">${money(Number(e.amount) || 0)}</span></td>
