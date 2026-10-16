@@ -4551,6 +4551,7 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
+    .replace(/(?:打\s*)?([零〇一二两三四五六七八九十]+|\d+)\s*个\s*单/g, ' $1直')
     .replace(/((?<!\d)\d{3}(?!\d)(?:[ \t、,，.。\-]+\d{3}(?!\d))*)[ \t]*各[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)/g,
       (match, numbers, first, firstUnit, firstPlay, second, secondUnit, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
         ? `${numbers} ${firstPlay}${first}${firstUnit} ${secondPlay}${second}${secondUnit}` : match)
