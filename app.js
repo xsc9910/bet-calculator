@@ -4516,6 +4516,9 @@ function playStake(text, kind) {
   text = text.replace(/排列三|排三/g, '体彩');
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
   const decimal = '((?:0|[1-9]\\d?)\\.\\d{1,2})';
+  const eachUnitTimes = [...text.matchAll(/(?:各|每)\s*(?:打\s*)?([一二两三四五六七八九十]|\d+)\s*(单|直|组)/g)]
+    .find(match => kind === 'direct' ? match[2] !== '组' : match[2] === '组');
+  if (eachUnitTimes) return numericValue(eachUnitTimes[1]) * 2;
   const pairedAfter = text.match(new RegExp(`(?:直选|直|单)\\s*${decimal}\\s*(?:组选|组)\\s*${decimal}`));
   if (pairedAfter) return Number(pairedAfter[kind === 'direct' ? 1 : 2]);
   const pairedBefore = text.match(new RegExp(`${decimal}\\s*(?:直选|直|单)\\s*${decimal}\\s*(?:组选|组)`));
@@ -4733,14 +4736,15 @@ function scanEntryForDraw(entry, lottery, draw) {
   const positionIndexes = { 百: 0, 百位: 0, 十: 1, 十位: 1, 个: 2, 个位: 2 };
   const positionBets = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
     .map(match => ({ label: match[1], index: positionIndexes[match[1]], digits: [...new Set(match[2].split(''))] }));
-  if (positionBets.length === 1) {
+  const hasDuplicatePosition = positionBets.length !== new Set(positionBets.map(bet => bet.index)).size;
+  if (!hasDuplicatePosition && positionBets.length === 1) {
     const bet = positionBets[0];
     const stake = specialStake(text, plays.pos1.base, entry, bet.digits.length);
     bet.digits.filter(digit => drawDigits[bet.index] === digit).forEach(digit => {
       wins.push(makeWinningEntry(entry, lottery, plays.pos1.name, `${bet.label}${digit}`, stake,
         plays.pos1.prize / plays.pos1.base, winIndex++));
     });
-  } else if (positionBets.length === 2) {
+  } else if (!hasDuplicatePosition && positionBets.length === 2) {
     const stake = specialStake(text, plays.pos2.base, entry, 1);
     if (positionBets.every(bet => bet.digits.includes(drawDigits[bet.index]))) {
       const hit = positionBets.map(bet => `${bet.label}${drawDigits[bet.index]}`).join('、');

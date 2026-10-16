@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
 const element = () => ({ value: '', checked: false, options: [], style: {}, classList: { toggle() {}, add() {}, remove() {} }, replaceChildren() {}, append() {}, setAttribute() {} });
-const app = Function('localStorage', 'document', 'confirm', 'navigator', `${fs.readFileSync('app.js', 'utf8')}; return { scanEntryForDraw, plays };`)(
+const app = Function('localStorage', 'document', 'confirm', 'navigator', `${fs.readFileSync('app.js', 'utf8')}; return { scanEntryForDraw, playStake, plays };`)(
   { getItem() { return null; }, setItem() {} },
   { getElementById: element, querySelectorAll() { return []; }, createElement: element },
   () => false,
@@ -40,4 +40,24 @@ for (const [name, win, prize] of cases) {
   assert.equal(Number((win.stake * win.odds).toFixed(2)), prize, `${name} odds mismatch`);
 }
 
-console.log(`WINNING_ODDS_SUMMARY passed=${cases.length} failed=0`);
+assert.equal(app.playStake('体136 246各一组120米', 'group'), 2);
+const eachGroupWins = app.scanEntryForDraw(
+  entry('体136 246各一组120米', 120),
+  '体彩',
+  '361'
+);
+assert.equal(eachGroupWins.length, 1, JSON.stringify(eachGroupWins));
+assert.equal(eachGroupWins[0].stake, 2, JSON.stringify(eachGroupWins));
+assert.equal(eachGroupWins[0].prize, app.plays.group6.prize, JSON.stringify(eachGroupWins));
+
+const duplicatePositionWins = app.scanEntryForDraw(entry(`福
+百位定4
+十位定3
+个位0123456789打1倍
+百位定3
+十位定4
+个位0123456789打1倍
+3和4双飞1倍，全包组三打5倍`), '福彩', '823');
+assert.equal(duplicatePositionWins.length, 0, JSON.stringify(duplicatePositionWins));
+
+console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 2} failed=0`);
