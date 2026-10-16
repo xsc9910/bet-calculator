@@ -3969,6 +3969,23 @@ function calculateSharedBasicHeaderLists(text, claimed) {
     reasons: groups.map(group => `${group.lottery}${group.play}共${group.count}注 × 每注${group.stake}元${lotteryTargets(group.lottery).length === 2 ? ' × 福体两边' : ''}；中途小计不终止标题作用范围，也不重复计入金额`) };
 }
 
+function calculateLeadingBasicHeaderNumberList(text, claimed) {
+  if (/\r?\n/.test(text)) return null;
+  const match = text.match(/^\s*(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])?\s*(直组|单组|一直一组|一单一组|直选|组选|直|组)\s*(?:各\s*)?([一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍\s*((?:\d{3}\s*[、，,。./-]\s*)*\d{3}(?:\s*[、，,。./-]\s*\d{3})*)\s*$/i);
+  if (!match) return null;
+  const count = match[4].match(/\d{3}/g)?.length || 0;
+  if (!count) return null;
+  const times = chineseAmount(match[3]);
+  const both = /直组|单组|一直一组|一单一组/.test(match[2]);
+  const factor = /福体|福彩体彩/.test(match[1] || '') ? 2 : 1;
+  const amount = count * times * 2 * (both ? 2 : 1) * factor;
+  const lotteryLabel = match[1] || '福';
+  return {
+    amount: Number(amount.toFixed(2)), claimed, confident: true,
+    reasons: [`${lotteryLabel}${match[2]}${times}倍在号码列表前：${count}注 × ${both ? '（直2元 + 组2元）' : '每注2元'}${factor === 2 ? ' × 福彩体彩两边' : ''}`]
+  };
+}
+
 function calculateScopedGroupHeaderLists(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const lotteryPattern = /^(福彩|福|褔|体彩|体|體|排列三|排三|3\s*[Dd])$/i;
@@ -4252,6 +4269,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (countedDirectGroupLines) return countedDirectGroupLines;
   text = normalizeBetAliases(text);
   const singleNumberValidationSource = text;
+  const leadingBasicHeaderNumberList = calculateLeadingBasicHeaderNumberList(text, '');
+  if (leadingBasicHeaderNumberList) return leadingBasicHeaderNumberList;
   const rawClaimed = extractClaimedAmount(text);
   const recordedGroupFixedMoney = calculateRecordedGroupFixedMoney(text, rawClaimed);
   if (recordedGroupFixedMoney) return recordedGroupFixedMoney;
