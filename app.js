@@ -131,7 +131,24 @@ function batchRecordNumber(entry) {
     .sort((first, second) => Number(first.record) - Number(second.record)
       || String(first.id || '').localeCompare(String(second.id || '')))
     .findIndex(candidate => candidate.id === entry.id);
-  return index + 1;
+  return index >= 0 ? index + 1 : Number(entry.record) || 1;
+}
+function sourceBetForWinningEntry(entry) {
+  const id = String(entry.id || '');
+  return betEntries.find(candidate => id.startsWith(`auto-win-${candidate.id}-`)) || null;
+}
+function winningEntryBatchId(entry) {
+  return entry.batchId || sourceBetForWinningEntry(entry)?.batchId || activeBetBatchId;
+}
+function winningEntryRecordNumber(entry) {
+  const source = sourceBetForWinningEntry(entry);
+  return source ? batchRecordNumber(source) : Number(entry.batchRecord) || Number(entry.record) || 1;
+}
+function winningEntryDisplayRecord(entry) {
+  const number = winningEntryRecordNumber(entry);
+  return currentBetBatchFilter === 'all'
+    ? `${batchLabel(winningEntryBatchId(entry))}-${number}`
+    : String(number);
 }
 function entriesForBetBatch(filter = currentBetBatchFilter) {
   if (filter === 'all') return betEntries;
@@ -141,7 +158,7 @@ function entriesForBetBatch(filter = currentBetBatchFilter) {
 function matchesBetBatch(entry, filter = currentBetBatchFilter) {
   if (filter === 'all') return true;
   const batchId = filter === 'active' ? activeBetBatchId : filter;
-  return !entry.batchId || entry.batchId === batchId;
+  return winningEntryBatchId(entry) === batchId;
 }
 function batchSummary(batchId) {
   const rows = betEntries.filter(entry => entryBatchId(entry) === batchId);
@@ -191,7 +208,7 @@ function render() {
     (!q || `${e.record} ${e.lottery} ${e.match}`.toLowerCase().includes(q)));
   $('ledgerBody').innerHTML = visible.length ? visible.map(e => `
     <tr>
-      <td>第${escapeHtml(e.record)}条</td>
+      <td>第${escapeHtml(winningEntryDisplayRecord(e))}条</td>
       <td><span class="tag ${e.lottery === '福彩' ? 'welfare' : 'sports'}">${e.lottery}</span></td>
       <td>${escapeHtml(e.match)}</td>
       <td class="win-number">${money(Number(e.stake) || 0)}</td>
@@ -4679,6 +4696,7 @@ function makeWinningEntry(entry, lottery, playName, hit, stake, odds, index) {
     id: `auto-win-${entry.id}-${lottery}-${playName}-${index}`,
     record: entry.record,
     batchId: entryBatchId(entry),
+    batchRecord: batchRecordNumber(entry),
     lottery,
     match: `${playName}：${hit}`,
     stake: Number(stake.toFixed(2)),
