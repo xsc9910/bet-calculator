@@ -1508,7 +1508,7 @@ function calculatePositionWithInheritedUnpositioned(text, claimed, lotteryFactor
 }
 
 function normalizePositionSelectionLists(text) {
-  return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*[,，、.。][ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
+  return text.replace(/((?:百|十|个)位?\s*[:：]?\s*)([0-9](?:[ \t]*(?:[,，、.。]|[ \t]+)[ \t]*[0-9](?!\d|\s*(?:元|米|块|毛|角|倍)))+)/g,
     (match, label, digits) => `${label}${digits.replace(/\D/g, '')}`);
 }
 
@@ -4237,6 +4237,8 @@ function autoCalculateBet(text, allowCompound = true) {
   // metadata and the decimal is still read as the per-note stake.
   text = text.replace(/((?:各(?:打)?|每注)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块))\s*(\d+)\s*注/g, '$2注$1');
   text = normalizePositionSelectionLists(text);
+  // 定位数字常用空格分隔；“个位0 8五倍100”末尾的整数是本段合计，不是第三个选码。
+  text = text.replace(/((?:百|十|个)位?\s*\d+(?:\s*\d+)*)\s*([一二两三四五六七八九十]+|\d+)\s*倍\s*(\d+(?:\.\d+)?)\s*$/gm, '$1 $2倍 合计$3元');
   text = text.replace(/(直选|直|组选|组(?!三|六)|双?飞\s*\d{2})\s*[（(]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*[）)]/g, '$1 $2$3');
   text = text.replace(/(^|\n)(\s*(?:直选|直|组选|组)\s*各?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角))\s*(\d+(?:\.\d+)?)\s*(?=$|\n)/g, '$1$2 合计$3元');
   text = text.replace(/(百位?|十位?|个位?)\s*(\d+)\s*[（(]\s*(\d+(?:\.\d+)?)\s*[）)]/g, '$1$2各$3元')
