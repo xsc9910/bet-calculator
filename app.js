@@ -4022,8 +4022,48 @@ function calculateExplicitGroupSelectionMoney(text, claimed) {
     reasons: [`${match[1] || lotteryTargets(source)[0]}组选${selections.join('、')}，明确每注${stake}元：${selections.length}注=${amount}元`] };
 }
 
+function calculateLotterySeparatedBasicLines(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const marker = /^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])$/i;
+  const prefix = /^(福体|福彩体彩|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])\s*[，,、:：]?\s*/i;
+  if (!lines.some(line => marker.test(line))) return null;
+
+  let lottery = '';
+  const parts = [];
+  for (const line of lines) {
+    if (/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
+    if (marker.test(line)) {
+      lottery = line === '排' ? '体' : line;
+      continue;
+    }
+    const marked = line.match(prefix);
+    if (marked) {
+      lottery = marked[1] === '排' ? '体' : marked[1];
+      const rest = line.slice(marked[0].length).trim();
+      if (!rest) continue;
+      const result = autoCalculateBet(`${lottery} ${rest}`, false);
+      if (!result.confident || result.amount === '') return null;
+      parts.push({ line, amount: Number(result.amount), reasons: result.reasons });
+      continue;
+    }
+    if (!lottery) return null;
+    const result = autoCalculateBet(`${lottery} ${line}`, false);
+    if (!result.confident || result.amount === '') return null;
+    parts.push({ line, amount: Number(result.amount), reasons: result.reasons });
+  }
+  if (!parts.length) return null;
+  return {
+    amount: Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)),
+    claimed,
+    confident: true,
+    reasons: [`按福体分段逐行计算：${parts.map(part => `${part.line}=${part.amount}元`).join('；')}`]
+  };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text);
+  const lotterySeparatedBasicLines = calculateLotterySeparatedBasicLines(text, extractClaimedAmount(text));
+  if (lotterySeparatedBasicLines) return lotterySeparatedBasicLines;
   const prefixedGroupDirectNumbers = calculatePrefixedGroupDirectNumbers(text, extractClaimedAmount(text));
   if (prefixedGroupDirectNumbers) return prefixedGroupDirectNumbers;
   const trailingGroupDirectNumbers = calculateTrailingGroupDirectNumbers(text, extractClaimedAmount(text));
