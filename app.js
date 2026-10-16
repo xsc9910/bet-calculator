@@ -914,6 +914,18 @@ function calculateFlyingBet(text, claimed, lotteryFactor = 1) {
     };
   }
 
+  const unitlessClauses = [...text.matchAll(/(?<!\d)(\d{2})(?!\d)\s*双?飞\s*(?:各(?:打)?|打)?\s*(\d+(?:\.\d+)?)(?![\d.]|\s*(?:倍|毛|角|元|米|块))/g)];
+  if (unitlessClauses.length) {
+    const details = unitlessClauses.map(match => ({ pair: match[1], stake: Number(match[2]) }));
+    const amount = details.reduce((sum, item) => sum + item.stake, 0) * lotteryFactor;
+    return {
+      amount: Number(amount.toFixed(2)),
+      claimed,
+      confident: true,
+      reasons: [`飞号逐项固定金额：${details.map(item => `${item.pair}飞${money(item.stake)}元`).join(' + ')}${lotteryFactor === 2 ? '；福彩体彩两边' : ''}`]
+    };
+  }
+
   const withoutMetadata = text
     .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
     .replace(/(?:合计|总计|共计|一共|共)\s*[：:]?\s*\d+(?:\.\d+)?\s*(?:元|米)?/g, ' ')
@@ -2007,6 +2019,14 @@ function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
       return { amount: Number((pairs.length * stake * lotteryFactor).toFixed(2)), claimed, confident: true,
         reasons: [`两码${complete[2]}${pairs.length}组（${pairs.join('、')}） × 每组${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；明写倍数按每倍10元，未写单位的额度按金额`] };
     }
+  }
+  // 两码组三未另写金额时，按约定默认一倍（每组10元）；不扩展到组六，避免混淆。
+  const defaultGroup3 = ordered.match(/^(\d{2}(?:[ \t、,，.\/\-]+\d{2})*)\s*组三$/);
+  if (defaultGroup3) {
+    const pairs = defaultGroup3[1].match(/\d{2}/g) || [];
+    const stake = 10;
+    return { amount: Number((pairs.length * stake * lotteryFactor).toFixed(2)), claimed, confident: true,
+      reasons: [`两码组三${pairs.length}组（${pairs.join('、')}） × 默认一倍${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
   }
   const listed = text.match(/(?<!\d)(\d{2}(?:[\s、,，.\/\-]+\d{2})*)\s*(?:组三\s*(?:两码|二码)?|(?:两码|二码)\s*组三)\s*各?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角|倍)/);
   if (listed && !/直|单|飞|拖|组六/.test(text)) {
@@ -4321,6 +4341,11 @@ function autoCalculateBet(text, allowCompound = true) {
   if (multiPairPositionBet) return multiPairPositionBet;
   const bareMultiGroupMoneyBet = calculateBareMultiGroupMoneyBet(clean, claimed, lotteryFactor);
   if (bareMultiGroupMoneyBet) return bareMultiGroupMoneyBet;
+  // 两位双飞后直接写整数，按用户约定是该双飞的固定金额；“倍”才是倍率。
+  const bareFixedDoubleFlyBet = /(?<!\d)\d{2}(?!\d)\s*双?飞\s*(?:各(?:打)?|打)?\s*\d+(?:\.\d+)?(?![\d.]|\s*(?:倍|毛|角|元|米|块))/.test(clean)
+    ? calculateFlyingBet(clean, claimed, lotteryFactor)
+    : null;
+  if (bareFixedDoubleFlyBet) return bareFixedDoubleFlyBet;
   const originalAmbiguity = ambiguousOriginalStake(text);
   if (originalAmbiguity) return { amount: '', claimed, confident: false,
     reasons: ['原文有未确认的额度或玩法，不能只计算部分项目后自动录入。'], needs: originalAmbiguity.split('\n') };

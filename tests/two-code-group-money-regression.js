@@ -12,6 +12,7 @@ for (const code of ['47', '58', '02']) {
   }
 }
 cases.push(['福47 58组三各10', 20], ['体47 58组六各2倍', 40], ['福47组三10\n体58组六20\n共30', 30]);
+cases.push(['体18双飞20', 20], ['体18组三', 10]);
 for (const [text, amount] of cases) {
   const result = api.autoCalculateBet(text);
   assert.deepEqual([result.amount, result.confident], [amount, true], JSON.stringify({text, result}));
