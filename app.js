@@ -4698,7 +4698,9 @@ function extractMultiSets(text, label) {
   const values = [];
   const before = new RegExp(`(?<!\\d)(\\d{4,10})(?!\\d)\\s*${label}`, 'g');
   const after = new RegExp(`${label}\\s*[:：]?\\s*(\\d{4,10})`, 'g');
-  values.push(...[...text.matchAll(before)].map(match => match[1]));
+  for (const match of text.matchAll(before)) {
+    if (!/拖\s*$/.test(text.slice(0, match.index))) values.push(match[1]);
+  }
   values.push(...[...text.matchAll(after)].map(match => match[1]));
   return values;
 }
@@ -4860,8 +4862,8 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
   }
 
-  if (/胆\s*\d+\s*拖\s*\d+/.test(text)) {
-    const danMatch = text.match(/胆\s*(\d+)\s*拖\s*(\d+)/);
+  if (/(?:胆\s*)?\d+\s*拖\s*\d+/.test(text)) {
+    const danMatch = text.match(/(?:胆\s*)?(\d+)\s*拖\s*(\d+)/);
     const danDigits = [...new Set((danMatch?.[1] || '').split(''))];
     const dragDigits = [...new Set((danMatch?.[2] || '').split(''))];
     const allDigits = [...new Set([...danDigits, ...dragDigits])];
