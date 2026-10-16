@@ -1362,6 +1362,16 @@ function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   if (!selection) return null;
   const sets = selection[1].match(/\d{3,10}/g) || [];
   remainder = remainder.slice(selection[0].length).replace(/^\s*[四五六七八九十]?码\s*/, '').trim();
+  const combinedBareGroups = remainder.replace(/^[\s、，,.。;；:：-]+/, '')
+    .match(/^(?:组三\s*组六|组六\s*组三)\s*(\d+)$/);
+  if (combinedBareGroups) {
+    const stake = Number(combinedBareGroups[1]);
+    if (Number.isInteger(stake) && stake > 0) {
+      const amount = sets.length * stake * 2 * lotteryFactor;
+      return { amount: Number(amount.toFixed(2)), claimed, confident: true,
+        reasons: [`${sets.length}组完整复式选码（${sets.join('、')}）×（组三${stake}元 + 组六${stake}元）${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}；未写单位的共同额度按两种玩法各计`] };
+    }
+  }
   let perSet = 0;
   let hasBareMoney = false;
   const details = [];
