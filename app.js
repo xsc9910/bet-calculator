@@ -4602,6 +4602,16 @@ function specialStake(text, base, entry, itemCount = 1) {
   return base;
 }
 
+function positionStake(text, bet, base, entry) {
+  const nearby = text.slice(bet.end, bet.end + 32);
+  const prefix = '[\\s，,、:：()（）]*(?:都)?(?:各)?(?:打)?\\s*';
+  const money = nearby.match(new RegExp(`^${prefix}(\\d+(?:\\.\\d+)?)\\s*(毛|角|元|米|块)`));
+  if (money) return Number(money[1]) * (['毛', '角'].includes(money[2]) ? 0.1 : 1);
+  const times = nearby.match(new RegExp(`^${prefix}([一二两三四五六七八九十]|\\d+(?:\\.\\d+)?)\\s*倍`));
+  if (times) return base * numericValue(times[1]);
+  return specialStake(nearby, base, entry, bet.digits.length);
+}
+
 function lotteryTargets(text) {
   text = normalizeBetAliases(text);
   const welfare = /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
@@ -4782,13 +4792,18 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   const positionIndexes = { 百: 0, 百位: 0, 十: 1, 十位: 1, 个: 2, 个位: 2 };
   const positionBets = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
-    .filter(match => !(match[1] === '个'
+    .filter(match => !(/^[百十个]$/.test(match[1])
       && /^\s*(?:毛|角|元|米|块)/.test(text.slice(match.index + match[0].length))))
-    .map(match => ({ label: match[1], index: positionIndexes[match[1]], digits: [...new Set(match[2].split(''))] }));
+    .map(match => ({
+      label: match[1],
+      index: positionIndexes[match[1]],
+      digits: [...new Set(match[2].split(''))],
+      end: match.index + match[0].length
+    }));
   const hasDuplicatePosition = positionBets.length !== new Set(positionBets.map(bet => bet.index)).size;
   if (!hasDuplicatePosition && positionBets.length === 1) {
     const bet = positionBets[0];
-    const stake = specialStake(text, plays.pos1.base, entry, bet.digits.length);
+    const stake = positionStake(text, bet, plays.pos1.base, entry);
     bet.digits.filter(digit => drawDigits[bet.index] === digit).forEach(digit => {
       wins.push(makeWinningEntry(entry, lottery, plays.pos1.name, `${bet.label}${digit}`, stake,
         plays.pos1.prize / plays.pos1.base, winIndex++));

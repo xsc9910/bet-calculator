@@ -63,4 +63,11 @@ assert.equal(duplicatePositionWins.length, 0, JSON.stringify(duplicatePositionWi
 const eachUnitGroupWins = app.scanEntryForDraw(entry('通组选 个3元共192元', 192), '福彩', '823');
 assert.equal(eachUnitGroupWins.length, 0, JSON.stringify(eachUnitGroupWins));
 
-console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 3} failed=0`);
+const bareTensMoneyWins = app.scanEntryForDraw(entry('964福3十2米合计5', 5), '福彩', '823');
+assert.equal(bareTensMoneyWins.length, 0, JSON.stringify(bareTensMoneyWins));
+
+const scopedPositionWins = app.scanEntryForDraw(entry('胆3 3倍 十位2 2倍 3D合计50', 50), '福彩', '823');
+const scopedPositionWin = scopedPositionWins.find(win => win.match.startsWith('一码定位：'));
+assert.equal(scopedPositionWin?.stake, 20, JSON.stringify(scopedPositionWins));
+
+console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 5} failed=0`);
