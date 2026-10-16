@@ -4782,6 +4782,8 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   const positionIndexes = { 百: 0, 百位: 0, 十: 1, 十位: 1, 个: 2, 个位: 2 };
   const positionBets = [...text.matchAll(/(百位?|十位?|个位?)\s*[:：]?\s*(\d+)/g)]
+    .filter(match => !(match[1] === '个'
+      && /^\s*(?:毛|角|元|米|块)/.test(text.slice(match.index + match[0].length))))
     .map(match => ({ label: match[1], index: positionIndexes[match[1]], digits: [...new Set(match[2].split(''))] }));
   const hasDuplicatePosition = positionBets.length !== new Set(positionBets.map(bet => bet.index)).size;
   if (!hasDuplicatePosition && positionBets.length === 1) {

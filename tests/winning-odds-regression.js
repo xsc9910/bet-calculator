@@ -60,4 +60,7 @@ const duplicatePositionWins = app.scanEntryForDraw(entry(`福
 3和4双飞1倍，全包组三打5倍`), '福彩', '823');
 assert.equal(duplicatePositionWins.length, 0, JSON.stringify(duplicatePositionWins));
 
-console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 2} failed=0`);
+const eachUnitGroupWins = app.scanEntryForDraw(entry('通组选 个3元共192元', 192), '福彩', '823');
+assert.equal(eachUnitGroupWins.length, 0, JSON.stringify(eachUnitGroupWins));
+
+console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 3} failed=0`);
