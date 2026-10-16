@@ -4651,6 +4651,8 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
+    // “福3十2米”是“福直3米组2米”的紧凑写法，其中“十”是“直”的录入误写。
+    .replace(/([福褔体體])\s*(\d+(?:\.\d+)?)\s*十\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1直$2$4组$3$4')
     .replace(/(?:打\s*)?([零〇一二两三四五六七八九十]+|\d+)\s*个\s*单/g, ' $1直')
     .replace(/((?<!\d)\d{3}(?!\d)(?:[ \t、,，.。\-]+\d{3}(?!\d))*)[ \t]*各[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)[ \t]*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)[ \t]*(毛|角|元|米|块)[ \t]*(直选|组选|直|组)/g,
       (match, numbers, first, firstUnit, firstPlay, second, secondUnit, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
@@ -4725,7 +4727,7 @@ function scanEntryForDraw(entry, lottery, draw) {
   const threeDigitNumbers = extractThreeDigitNumbers(text);
   const both = hasExplicitDirectAndGroup(text);
   const wantsDirect = both || /直选|直|单挑|\d单/.test(text);
-  const wantsGroup = both || /组选|组六|组三|\d组|一组|两组|三组|四组|五组/.test(text);
+  const wantsGroup = both || /组选|组六|组三|\d组|组\s*(?:\d|[一二两三四五六七八九十])|一组|两组|三组|四组|五组/.test(text);
   const directStake = playStake(text, 'direct');
   const groupStake = playStake(text, 'group');
   let winIndex = 0;

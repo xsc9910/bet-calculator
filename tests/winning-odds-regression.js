@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
 const element = () => ({ value: '', checked: false, options: [], style: {}, classList: { toggle() {}, add() {}, remove() {} }, replaceChildren() {}, append() {}, setAttribute() {} });
-const app = Function('localStorage', 'document', 'confirm', 'navigator', `${fs.readFileSync('app.js', 'utf8')}; return { scanEntryForDraw, playStake, plays };`)(
+const app = Function('localStorage', 'document', 'confirm', 'navigator', `${fs.readFileSync('app.js', 'utf8')}; return { autoCalculateBet, scanEntryForDraw, playStake, plays };`)(
   { getItem() { return null; }, setItem() {} },
   { getElementById: element, querySelectorAll() { return []; }, createElement: element },
   () => false,
@@ -63,11 +63,17 @@ assert.equal(duplicatePositionWins.length, 0, JSON.stringify(duplicatePositionWi
 const eachUnitGroupWins = app.scanEntryForDraw(entry('通组选 个3元共192元', 192), '福彩', '823');
 assert.equal(eachUnitGroupWins.length, 0, JSON.stringify(eachUnitGroupWins));
 
-const bareTensMoneyWins = app.scanEntryForDraw(entry('964福3十2米合计5', 5), '福彩', '823');
-assert.equal(bareTensMoneyWins.length, 0, JSON.stringify(bareTensMoneyWins));
+const compactDirectGroup = app.autoCalculateBet('964福3十2米合计5');
+assert.equal(compactDirectGroup.amount, 5, JSON.stringify(compactDirectGroup));
+const compactDirectWins = app.scanEntryForDraw(entry('964福3十2米合计5', 5), '福彩', '964');
+assert.equal(compactDirectWins.find(win => win.match === '直选：964')?.stake, 3, JSON.stringify(compactDirectWins));
+assert.equal(compactDirectWins.find(win => win.match === '组六单式：964')?.stake, 2, JSON.stringify(compactDirectWins));
+const compactGroupWins = app.scanEntryForDraw(entry('964福3十2米合计5', 5), '福彩', '946');
+assert.equal(compactGroupWins.length, 1, JSON.stringify(compactGroupWins));
+assert.equal(compactGroupWins[0].stake, 2, JSON.stringify(compactGroupWins));
 
 const scopedPositionWins = app.scanEntryForDraw(entry('胆3 3倍 十位2 2倍 3D合计50', 50), '福彩', '823');
 const scopedPositionWin = scopedPositionWins.find(win => win.match.startsWith('一码定位：'));
 assert.equal(scopedPositionWin?.stake, 20, JSON.stringify(scopedPositionWins));
 
-console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 5} failed=0`);
+console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 8} failed=0`);
