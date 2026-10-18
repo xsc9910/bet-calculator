@@ -2189,13 +2189,17 @@ function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
     ?? multiplierStake(text, isLeopard && !isLeopardFullPack ? 1 : 10)
     ?? explicitMoney(text);
   if (stake == null) return null;
+  const recordedLeopardMoney = text.match(/豹子\s*(?:记|买|打)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
   const fixedLeopardMoney = isLeopard && !isSum && !isLeopardFullPack && !listedLeopards.length
-    && stake >= 10
+    && (stake >= 10 || recordedLeopardMoney)
     && !/(?:各|每注|每个|一倍|两倍|三倍|\d+\s*倍)/.test(text)
-    && /豹子\s*\d+(?:\.\d+)?\s*(?:元|米|块)/.test(text);
-  const amount = (fixedLeopardMoney ? stake : count * stake) * lotteryFactor;
+    && (recordedLeopardMoney || /豹子\s*\d+(?:\.\d+)?\s*(?:元|米|块)/.test(text));
+  const fixedStake = recordedLeopardMoney
+    ? chineseAmount(recordedLeopardMoney[1]) * (['毛', '角'].includes(recordedLeopardMoney[2]) ? 0.1 : 1)
+    : stake;
+  const amount = (fixedLeopardMoney ? fixedStake : count * stake) * lotteryFactor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [fixedLeopardMoney ? `豹子整项固定${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}` : `${isSum ? `和值${count}项` : isLeopardFullPack ? '豹子全包' : `豹子${count}项`} × ${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [fixedLeopardMoney ? `豹子整项固定${fixedStake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}` : `${isSum ? `和值${count}项` : isLeopardFullPack ? '豹子全包' : `豹子${count}项`} × ${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculateSumSpanAndLeopardBlocks(text, claimed) {
