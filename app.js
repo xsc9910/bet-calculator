@@ -3610,8 +3610,8 @@ function calculateMixedSpecialMultilineBets(text, claimed) {
       const numbers = directGroup[1].match(/(?<!\d)\d{3}(?!\d)/g) || [];
       if (!numbers.length) return null;
       const factor = lotteryTargets(carriedLottery).length;
-      result = { amount: numbers.length * 2 * factor, confident: true,
-        reasons: [`${numbers.length}注 ×（直1元 + 组1元）`] };
+      result = { amount: numbers.length * 4 * factor, confident: true,
+        reasons: [`${numbers.length}注 ×（直2元 + 组2元）`] };
     } else {
       result = autoCalculateBet(`${carriedLottery} ${line}`, false);
     }
@@ -3910,6 +3910,37 @@ function calculateExclamationCompound(text, claimed) {
   if (!parts.length) return null;
   return { amount: Number(parts.reduce((total, part) => total + part.amount, 0).toFixed(2)), claimed, confident: true,
     reasons: [`逐段计算：${parts.map(part => `${part.segment} = ${part.amount}元`).join('；')}`] };
+}
+
+function calculateTrailingGroupMultiplierLists(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const summary = lines.findIndex(line => /^(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d/.test(line));
+  const bettingLines = lines.slice(0, summary < 0 ? lines.length : summary);
+  if (bettingLines.length < 3 || (summary >= 0 && lines.slice(summary).some(line => !/^(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)))) return null;
+  const tail = bettingLines.at(-1).match(/^(组六|组三)\s*([零〇一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍$/);
+  if (!tail) return null;
+  const marker = /福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd]/gi;
+  const prefixes = [...bettingLines[0].matchAll(marker)].map(match => match[0]);
+  if (!prefixes.length) return null;
+  const lottery = lotteryTargets(prefixes.join('')).includes('体彩') ? '体' : '福';
+  bettingLines[0] = bettingLines[0].replace(marker, '').trim();
+  const selections = bettingLines.slice(0, -1);
+  if (!selections.every(line => /^\d{3,10}$/.test(line) && new Set(line).size === line.length)) return null;
+  const times = chineseAmount(tail[2]);
+  const stake = times * 2;
+  const parts = selections.map(selection => {
+    const count = tail[1] === '组六'
+      ? selection.length * (selection.length - 1) * (selection.length - 2) / 6
+      : selection.length * (selection.length - 1);
+    return { selection, count, amount: count * stake };
+  });
+  const amount = Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2));
+  if (claimed !== '' && amount !== Number(claimed)) return { amount: '', claimed, confident: false,
+    reasons: [`末行“${tail[1]}${times}倍”共用于前面${selections.length}组号码，逐项计算为${amount}元，但与原文合计${claimed}元不符。`],
+    needs: ['请核对末行玩法倍率或原文合计；不一致时不自动记录。'] };
+  return { amount, claimed, confident: true,
+    reasons: [`跨行号码共用末行${tail[1]}${times}倍：${parts.map(part => `${part.selection}${part.count}注=${part.amount}元`).join('；')}`] };
 }
 
 function calculateExclamationHeaderNumbers(text, claimed) {
@@ -4235,12 +4266,46 @@ function calculateBareFixedDanAndSumLines(text, claimed) {
     reasons: [`独立固定金额逐项计算：${parts.map(part => `${part.label}${money(part.amount)}元`).join(' + ')}`] };
 }
 
+function calculateExplicitInheritedMultilineBets(text, claimed) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2 || !/(?:🈴|合计|总计|共计|一共|共)\s*[:：]?\s*\d/.test(text)) return null;
+  const lotteryMarker = /^(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|排|3\s*[Dd])/i;
+  const summaryLine = /^(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  let lottery = '';
+  const parts = [];
+  for (const source of lines) {
+    if (summaryLine.test(source)) continue;
+    let line = source.replace(/🈴\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+    const marked = line.match(lotteryMarker);
+    if (marked) {
+      lottery = marked[1];
+      line = line.slice(marked[0].length).trim();
+    }
+    if (!lottery || !line) return null;
+    const supported = /(直|组|飞|豹子|和值|胆|定位|跨)/.test(line)
+      || /^(?:\d{3}[\s、，,.。/-]+)+\d{3}\s*[一二两三四五六七八九十\d]+倍$/.test(line);
+    if (!supported) return null;
+    const result = autoCalculateBet(`${lottery} ${line}`, false);
+    if (!result.confident || result.amount === '') return null;
+    parts.push({ line: source, amount: Number(result.amount) });
+  }
+  if (parts.length < 2) return null;
+  const amount = Number(parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2));
+  if (claimed !== '' && amount !== Number(claimed)) return { amount: '', claimed, confident: false,
+    reasons: [`按跨行继承盘别逐项计算为${amount}元，与原文合计${claimed}元不符。`],
+    needs: ['请核对每一行玩法/金额与原文合计；不一致时不自动记录。'] };
+  return { amount, claimed, confident: true,
+    reasons: [`跨行继承盘别逐项计算：${parts.map(part => `${part.line}=${part.amount}元`).join('；')}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeChineseClaimedTotals(text)
     // “拖码”常被写成同音的“托码”；仅在数字夹着该字时统一，避免改动普通文本。
     .replace(/(?<=\d)\s*托\s*(?=\d)/g, '拖')
     // 两位重复号的“对”是“对子”的常用简写，如“55对10元”。
     .replace(/(?<!\d)(\d)\1\s*对(?=\s*(?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块))/g, '$1$1对子');
+  const explicitInheritedMultilineBets = calculateExplicitInheritedMultilineBets(text, extractClaimedAmount(text));
+  if (explicitInheritedMultilineBets) return explicitInheritedMultilineBets;
   const mixedDanTuoMultiline = allowCompound ? calculateMixedDanTuoMultiline(text, extractClaimedAmount(text)) : null;
   if (mixedDanTuoMultiline) return mixedDanTuoMultiline;
   const bareFixedDanAndSumLines = calculateBareFixedDanAndSumLines(text, extractClaimedAmount(text));
@@ -4290,6 +4355,8 @@ function autoCalculateBet(text, allowCompound = true) {
   if (listedGroupThreeDirectTotal) return listedGroupThreeDirectTotal;
   const trailingLotteryBlocks = calculateTrailingLotteryBlocks(text, rawClaimed);
   if (trailingLotteryBlocks) return trailingLotteryBlocks;
+  const trailingGroupMultiplierLists = calculateTrailingGroupMultiplierLists(text, rawClaimed);
+  if (trailingGroupMultiplierLists) return trailingGroupMultiplierLists;
   const sharedBasicHeaderLists = calculateSharedBasicHeaderLists(text, rawClaimed);
   if (sharedBasicHeaderLists) return sharedBasicHeaderLists;
   const structuredDanTuo = calculateStructuredDanTuo(text, rawClaimed);
