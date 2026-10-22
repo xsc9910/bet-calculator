@@ -1164,6 +1164,11 @@ function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   return null;
 }
 
+function isWelfareGroup3FullPack(text, lottery) {
+  return lottery === '福彩' && /(?:全包\s*组三|组三\s*全包)/.test(text)
+    && !/打包|[粘沾]边/.test(text);
+}
+
 function calculateStickyBet(text, claimed, lotteryFactor) {
   const combinedSticky = text.match(/[沾粘]边赖\s*(?:组三组六|组六组三)\s*(?:胆\s*)?([0-9]{1,7})/);
   if (combinedSticky) {
@@ -4700,9 +4705,12 @@ function autoCalculateBet(text, allowCompound = true) {
   // “全包组三 / 组三全包 / 打包组三”写了金额时，金额就是整项投注额，
   // 必须在通用组三、定位等规则之前优先返回，避免被不完整玩法识别拦截。
   const isFullPackGroup3 = /(?:全包\s*组三|组三\s*全包|打包\s*组三)/.test(clean);
-  const fullPackGroup3Times = isFullPackGroup3 ? multiplierStake(clean, 180) : null;
-  if (fullPackGroup3Times != null) return { amount: Number((fullPackGroup3Times * lotteryFactor).toFixed(2)),
-    claimed, confident: true, reasons: [`组三全包每倍180元，按明确倍率计算${fullPackGroup3Times}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  const fullPackBases = isFullPackGroup3 ? lotteryTargets(clean).map(lottery => ({
+    lottery, base: isWelfareGroup3FullPack(clean, lottery) ? plays.group3Multi.base : plays.group3Pack.base
+  })) : [];
+  const fullPackGroup3Times = isFullPackGroup3 ? multiplierStake(clean, 1) : null;
+  if (fullPackGroup3Times != null) return { amount: Number(fullPackBases.reduce((total, part) => total + part.base * fullPackGroup3Times, 0).toFixed(2)),
+    claimed, confident: true, reasons: fullPackBases.map(part => `${part.lottery}组三全包每倍${part.base}元 × ${fullPackGroup3Times}倍 = ${part.base * fullPackGroup3Times}元`) };
   const fullPackGroup3Amount = isFullPackGroup3
     ? (claimed !== '' ? claimed : explicitMoney(clean))
     : null;
@@ -5137,9 +5145,12 @@ function scanEntryForDraw(entry, lottery, draw) {
     });
   }
 
-  if (/打包组三|组三全包/.test(text) && drawSet.size === 2) {
-    const stake = specialStake(text, 180, entry, 1);
-    wins.push(makeWinningEntry(entry, lottery, plays.group3Pack.name, draw, stake, plays.group3Pack.prize / plays.group3Pack.base, winIndex++));
+  if (/(?:打包\s*组三|组三\s*全包|全包\s*组三)/.test(text) && drawSet.size === 2) {
+    const welfareFullPack = isWelfareGroup3FullPack(text, lottery);
+    const base = welfareFullPack ? plays.group3Multi.base : plays.group3Pack.base;
+    const prize = welfareFullPack ? plays.group3Multi.prizeBySize[10] : plays.group3Pack.prize;
+    const stake = specialStake(text, base, entry, 1);
+    wins.push(makeWinningEntry(entry, lottery, welfareFullPack ? '组三复式全包' : plays.group3Pack.name, draw, stake, prize / base, winIndex++));
   }
 
   if (/和值/.test(text)) {

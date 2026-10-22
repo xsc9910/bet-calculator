@@ -87,4 +87,28 @@ assert.equal(scopedPositionWin?.stake, 20, JSON.stringify(scopedPositionWins));
 const scopedSingleWin = scopedPositionWins.find(win => win.match.startsWith('独胆：'));
 assert.equal(scopedSingleWin?.stake, 30, JSON.stringify(scopedPositionWins));
 
-console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 8} failed=0`);
+for (const [original, expected] of [
+  ['福组三全包一倍', 10],
+  ['福彩全包组三两倍', 20],
+  ['3D组三 全包3倍', 30],
+  ['福组三全包记50米', 50],
+  ['福组三全包一倍合计180', 10],
+  ['体打包组三一倍', 180],
+  ['福打包组三一倍', 180]
+]) {
+  const result = app.autoCalculateBet(original);
+  assert.equal(result.confident, true, JSON.stringify({ original, result }));
+  assert.equal(result.amount, expected, JSON.stringify({ original, result }));
+}
+assert.equal(app.autoCalculateBet('福组三全包一倍合计180').claimed, 180);
+for (const original of ['福组三全包一倍', '福彩全包组三一倍', '3D组三 全包一倍']) {
+  const win = only(original, '福彩', '122', 10);
+  assert.equal(win.stake, 10);
+  assert.equal(win.prize, app.plays.group3Multi.prizeBySize[10]);
+  for (const draw of ['123', '111']) {
+    assert.equal(app.scanEntryForDraw(entry(original, 10), '福彩', draw).length, 0);
+  }
+}
+assert.equal(only('福组三全包记50米', '福彩', '122', 50).prize, 175);
+assert.equal(only('体打包组三一倍', '体彩', '122', 180).prize, 600);
+console.log(`WINNING_ODDS_SUMMARY passed=${cases.length + 21} failed=0`);
