@@ -4966,6 +4966,9 @@ function calculateGroupAndDirectMultiBet(text, claimed, lotteryFactor) {
 function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
+    .replace(/[—–－﹣]/g, '-')
+    .replace(/(?<![\d.])([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(?:组单|单组|组直|直组)/g, '直$1$2组$1$2')
+    .replace(/(?:组单|组直)\s*(?:各\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '直$1$2组$1$2')
     // “福3十2米”是“福直3米组2米”的紧凑写法，其中“十”是“直”的录入误写。
     .replace(/([福褔体體])\s*(\d+(?:\.\d+)?)\s*十\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1直$2$4组$3$4')
     .replace(/(?:打\s*)?([零〇一二两三四五六七八九十]+|\d+)\s*个\s*单/g, ' $1直')
