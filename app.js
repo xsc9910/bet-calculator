@@ -1067,6 +1067,45 @@ function calculateImplicitRotorDirectBet(text, claimed, lotteryFactor) {
     reasons: [`全倒（组六直）按全部排列直选：${parts.map(part => `${part.digits}共${part.permutations}种排列 × ${part.times}倍 × 2元${part.factor === 2 ? ' × 福彩体彩两边' : ''} = ${money(part.amount)}元`).join('；')}`] };
 }
 
+function parseCompoundSelectionBasis(text) {
+  const lotteryMarkers = text.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
+  if (lotteryMarkers.length > 1) return null;
+  const source = normalizeChineseClaimedTotals(text)
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
+    .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ');
+  const labels = source.match(/复[式试]|组三/g) || [];
+  if (labels.length !== 1) return null;
+  const label = labels[0];
+  const withoutLabel = source.replace(/复[式试]|组三/, ' ');
+  const rateMatches = [...withoutLabel.matchAll(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g)];
+  if (rateMatches.length > 1 || (!rateMatches.length && label === '组三')) return null;
+  const rateMatch = rateMatches[0];
+  const selectionsSource = withoutLabel
+    .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/, ' ')
+    .replace(/各打|各|打/g, ' ');
+  const selections = selectionsSource.match(/(?<!\d)\d{3,10}(?!\d)/g) || [];
+  if (!selections.length || /[^\s、，,.。\/\-:：!！]/.test(selectionsSource.replace(/(?<!\d)\d{3,10}(?!\d)/g, ''))) return null;
+  if (label === '组三' && selections.some(selection => selection.length !== 3 || new Set(selection).size < 2)) return null;
+  const unit = rateMatch?.[2] || '倍';
+  const rate = rateMatch ? chineseAmount(rateMatch[1]) : 1;
+  return selections.map(selection => {
+    const unique = new Set(selection).size;
+    const rotor = label !== '组三' && selection.length === 3;
+    const count = rotor ? unique === 3 ? 6 : unique === 2 ? 3 : 1 : 1;
+    const base = rotor || (label === '组三' && unique === 2) ? 2 : 10;
+    const stake = rate * (unit === '倍' ? base : /毛|角/.test(unit) ? 0.1 : 1);
+    return { selection, label, rotor, count, stake, unique };
+  });
+}
+
+function calculateCompoundSelectionBasis(text, claimed) {
+  const selections = parseCompoundSelectionBasis(text);
+  if (!selections) return null;
+  const lotteryFactor = lotteryTargets(text).length;
+  return { amount: Number((selections.reduce((total, selection) => total + selection.count * selection.stake, 0) * lotteryFactor).toFixed(2)), claimed, confident: true,
+    reasons: selections.map(selection => `${selection.selection}${selection.rotor ? '全倒' : selection.label}：${selection.count}注 × ${selection.stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`) };
+}
+
 function calculateFixedAmountPlay(text, claimed, lotteryFactor) {
   const fixedMatch = text.match(/(复式|复试|转一?圈|转子|打包组三|组三全包|组三包)/);
   if (!fixedMatch) return null;
@@ -4308,6 +4347,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const compoundSelectionBasis = calculateCompoundSelectionBasis(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (compoundSelectionBasis) return compoundSelectionBasis;
   text = normalizeChineseClaimedTotals(text)
     // “拖码”常被写成同音的“托码”；仅在数字夹着该字时统一，避免改动普通文本。
     .replace(/(?<=\d)\s*托\s*(?=\d)/g, '拖')
@@ -5044,6 +5085,31 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const compoundSelections = parseCompoundSelectionBasis(text);
+  if (compoundSelections) {
+    for (const selection of compoundSelections) {
+      let play;
+      let multiplier;
+      let hit = false;
+      if (selection.rotor) {
+        hit = [...selection.selection].sort().join('') === sortedDraw;
+        play = '全倒直选';
+        multiplier = plays.direct.prize / plays.direct.base;
+      } else if (selection.label === '组三' && selection.unique === 2) {
+        hit = [...selection.selection].sort().join('') === sortedDraw;
+        play = plays.group3.name;
+        multiplier = plays.group3.prize / plays.group3.base;
+      } else {
+        const group3 = selection.label === '组三';
+        hit = drawSet.size === (group3 ? 2 : 3) && drawDigits.every(digit => selection.selection.includes(digit));
+        const compoundPlay = group3 ? plays.group3Multi : plays.directMulti;
+        play = `${selection.unique}码${compoundPlay.name}`;
+        multiplier = compoundPlay.prizeBySize[selection.unique] / compoundPlay.base;
+      }
+      if (hit && Number.isFinite(multiplier)) wins.push(makeWinningEntry(entry, lottery, play, selection.selection, selection.stake, multiplier, wins.length));
+    }
+    return wins;
+  }
   const threeDigitNumbers = extractThreeDigitNumbers(text);
   const both = hasExplicitDirectAndGroup(text);
   const wantsDirect = both || /直选|直|单挑|\d单/.test(text);
