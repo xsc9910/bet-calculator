@@ -2947,26 +2947,35 @@ function calculateCountHeaderWithNumberList(text, claimed) {
   if (lines.length < 2) return null;
   const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
   const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
-  const header = lines[0].match(new RegExp(`^${lottery}.*?(\\d+)\\s*注.*?${value}\\s*(?:单|直选|直)\\s*${value}\\s*(?:组选|组)\\s*$`, 'i'));
-  if (!header) return null;
+  const lotteryMatches = [...lines[0].matchAll(new RegExp(lottery, 'gi'))];
+  const countMatches = [...lines[0].matchAll(/(\d+)\s*注/g)];
+  if (lotteryMatches.length !== 1 || countMatches.length !== 1) return null;
+  const playHeader = lines[0].replace(new RegExp(lottery, 'gi'), ' ')
+    .replace(/\d+\s*注/g, ' ').replace(/精选|通用|幸运|[✅✔☑\uFE0F]/g, ' ')
+    .replace(/[，,、:：!！]/g, ' ').trim();
+  const directFirst = playHeader.match(new RegExp(`^${value}\\s*(?:单|直选|直)\\s*${value}\\s*(?:组选|组)\\s*$`));
+  const groupFirst = playHeader.match(new RegExp(`^${value}\\s*(?:组选|组)\\s*${value}\\s*(?:单|直选|直)\\s*$`));
+  if (!directFirst && !groupFirst) return null;
   const selections = [];
   for (const line of lines.slice(1)) {
     const source = line.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ').trim();
     if (!source) continue;
-    if (!/^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/.test(source)) return null;
+    if (!/^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/.test(source)) return { amount: '', claimed, confident: false,
+      reasons: ['注数标题后的内容并非完整三位号码列表，不能跳过异常内容计算。'],
+      needs: [`请检查号码或将其他玩法单独录入：${source}`] };
     selections.push(...(source.match(/\d{3}/g) || []));
   }
-  const statedCount = Number(header[2]);
+  const statedCount = Number(countMatches[0][1]);
   if (!selections.length) return null;
   if (selections.length !== statedCount) return { amount: '', claimed, confident: false,
     reasons: [`标题写${statedCount}注，实际列出${selections.length}个三位号码，不能按其中一方推定金额。`],
     needs: ['请核对注数标题或补齐/删除号码后再计算。'] };
-  const directTimes = chineseAmount(header[3]);
-  const groupTimes = chineseAmount(header[4]);
-  const factor = lotteryTargets(header[1]).length;
+  const directTimes = chineseAmount(directFirst ? directFirst[1] : groupFirst[2]);
+  const groupTimes = chineseAmount(directFirst ? directFirst[2] : groupFirst[1]);
+  const factor = lotteryTargets(lotteryMatches[0][1]).length;
   const amount = statedCount * (directTimes + groupTimes) * 2 * factor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${header[1]}标题${statedCount}注与号码列表一致：直${directTimes}倍 + 组${groupTimes}倍，每注${(directTimes + groupTimes) * 2}元`] };
+    reasons: [`${lotteryMatches[0][1]}标题${statedCount}注与号码列表一致：直${directTimes}倍 + 组${groupTimes}倍，每注${(directTimes + groupTimes) * 2}元`] };
 }
 
 function calculatePositionAndMultiGroupLines(text, claimed) {
