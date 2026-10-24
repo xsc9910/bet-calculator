@@ -1462,6 +1462,27 @@ function calculateListedLeopardSingles(text, claimed) {
     reasons: [`列出${numbers.length}个豹子号码 × 直选${times}倍 × 2元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseDefaultGroup3ListMoney(text) {
+  const normalized = normalizeBetAliases(normalizeChineseClaimedTotals(text));
+  const marker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  if ((normalized.match(marker) || []).length !== 1) return null;
+  const body = normalized.replace(marker, ' ')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const match = body.match(/^(\d{4,10}(?:[\s、，,.。/\-]+\d{4,10})*)\s*各(?:打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角)$/);
+  if (!match) return null;
+  const selections = match[1].match(/\d{4,10}/g);
+  const stake = chineseAmount(match[2]) * (/毛|角/.test(match[3]) ? 0.1 : 1);
+  return { selections, stake, factor: lotteryTargets(normalized).length };
+}
+
+function calculateDefaultGroup3ListMoney(text, claimed) {
+  const parsed = parseDefaultGroup3ListMoney(text);
+  if (!parsed) return null;
+  const { selections, stake, factor } = parsed;
+  return { amount: Number((selections.length * stake * factor).toFixed(2)), claimed, confident: true,
+    reasons: [`复式号码列表未写玩法，按约定默认组三：${selections.length}组（${selections.join('、')}）× 每组${stake}元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculateBareMultiGroupMoneyBet(text, claimed, lotteryFactor) {
   // 完整选码后的“组六20、组三10”是整项固定金额；只有明写“倍”才换算倍率。
   // 必须确认整段只含这组复式玩法，避免在混合原文中只算出部分投注。
@@ -4427,6 +4448,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const defaultGroup3ListMoney = calculateDefaultGroup3ListMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (defaultGroup3ListMoney) return defaultGroup3ListMoney;
   const sharedMixedGroupRates = calculateSharedMixedGroupRates(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
   if (sharedMixedGroupRates) return sharedMixedGroupRates;
   const sharedSingleAndGroup3 = calculateSharedSingleAndGroup3(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
@@ -5178,6 +5201,17 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const defaultGroup3ListMoney = parseDefaultGroup3ListMoney(text);
+  if (defaultGroup3ListMoney) {
+    for (const selection of defaultGroup3ListMoney.selections) {
+      const unique = [...new Set(selection)];
+      const prize = plays.group3Multi.prizeBySize[unique.length];
+      if (prize && drawSet.size === 2 && drawDigits.every(digit => unique.includes(digit))) {
+        wins.push(makeWinningEntry(entry, lottery, `${unique.length}码组三`, selection, defaultGroup3ListMoney.stake, prize / plays.group3Multi.base, wins.length));
+      }
+    }
+    return wins;
+  }
   const sharedMixedGroups = parseSharedMixedGroupRates(text);
   if (sharedMixedGroups) {
     for (const part of sharedMixedGroups.parts) {
