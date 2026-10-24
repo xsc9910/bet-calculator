@@ -3998,6 +3998,41 @@ function calculateExclamationCompound(text, claimed) {
     reasons: [`逐段计算：${parts.map(part => `${part.segment} = ${part.amount}元`).join('；')}`] };
 }
 
+function parseSharedMixedGroupRates(text) {
+  const lines = normalizeChineseClaimedTotals(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  while (lines.length && /^(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(lines.at(-1))) lines.pop();
+  const tail = lines.at(-1) || '';
+  const ratePattern = /(组三|组六)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
+  const rates = [...tail.matchAll(ratePattern)];
+  if (rates.length !== 2 || new Set(rates.map(rate => rate[1])).size !== 2
+    || /[^\s、，,。;；]/.test(tail.replace(ratePattern, ''))) return null;
+  let lottery = '';
+  const parts = [];
+  const marker = /^(?:(?:福彩体彩|福体|福彩|褔|福|体彩|體|体|排列三|排三|排|3\s*[Dd])\s*)+/i;
+  for (const line of lines.slice(0, -1)) {
+    const prefix = line.match(marker);
+    if (prefix) lottery = prefix[0];
+    const selection = prefix ? line.slice(prefix[0].length).trim() : line;
+    if (!lottery) return null;
+    if (!selection && prefix) continue;
+    if (!/^\d{4,10}(?:[\s、，,.。/\-]+\d{4,10})*[\s、，,.。/\-]*$/.test(selection)) return null;
+    const result = calculateMultiGroupBet(`${selection} ${tail}`, '', lotteryTargets(lottery).length);
+    if (!result?.confident) return null;
+    parts.push({ selection, lottery: lottery.trim(), amount: result.amount });
+  }
+  if (!parts.length) return null;
+  return { parts, rates: rates.map(rate => ({ label: rate[1], stake: chineseAmount(rate[2]) * (rate[3] === '倍' ? 10 : /毛|角/.test(rate[3]) ? 0.1 : 1) })) };
+}
+
+function calculateSharedMixedGroupRates(text, claimed) {
+  const parsed = parseSharedMixedGroupRates(text);
+  if (!parsed) return null;
+  const { parts } = parsed;
+  return { amount: Number(parts.reduce((total, part) => total + part.amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`前面所有选码共用末行两种玩法，倍率与金额分别计算：${parts.map(part => `${part.lottery}${part.selection}=${part.amount}元`).join('；')}`] };
+}
+
 function calculateTrailingGroupMultiplierLists(text, claimed) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 3) return null;
@@ -4239,21 +4274,28 @@ function calculateTrailingGroupDirectNumbers(text, claimed) {
     reasons: [`后置组直倍率：${selections.length}注 ×（组${groupTimes}倍 + 直${directTimes}倍）=${amount}元`] };
 }
 
-function calculateExplicitGroupSelectionMoney(text, claimed) {
+function parseExplicitGroupSelectionMoney(text) {
   const source = text.replace(/\s*(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const lottery = '(福彩体彩|福体|福彩|福|褔|体彩|体|體|排列三|排三|3\\s*[Dd])';
   const value = '([零〇一二两三四五六七八九十]+|\\d+(?:\\.\\d+)?)';
   const unit = '(毛|角|元|米|块)?';
-  const pattern = new RegExp(`^${lottery}?\\s*(?:组选|组)\\s*((?:\\d{3}\\s*(?:---|[、，,。\\s-]+)\\s*)*\\d{3})\\s*(?:(各打|每注|打)\\s*)?(?:一(?:注|组|码)?\\s*)?${value}\\s*${unit}$`, 'i');
+  const pattern = new RegExp(`^${lottery}?\\s*(?:组选|组六|组三|组)\\s*((?:\\d{3}\\s*(?:---|[、，,。\\s-]+)\\s*)*\\d{3})\\s*(?:(各打|每注|打|各)\\s*)?(?:一(?:注|组|码)?\\s*)?${value}\\s*${unit}$`, 'i');
   const match = source.match(pattern);
   if (!match || (!match[3] && !match[5])) return null;
   const selections = match[2].match(/\d{3}/g) || [];
   if (!selections.length) return null;
   const stake = chineseAmount(match[4]) * (['毛', '角'].includes(match[5]) ? 0.1 : 1);
   const factor = lotteryTargets(match[1] || source).length;
+  return { selections, stake, factor, lottery: match[1] || lotteryTargets(source)[0] };
+}
+
+function calculateExplicitGroupSelectionMoney(text, claimed) {
+  const parsed = parseExplicitGroupSelectionMoney(text);
+  if (!parsed) return null;
+  const { selections, stake, factor, lottery } = parsed;
   const amount = selections.length * stake * factor;
   return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${match[1] || lotteryTargets(source)[0]}组选${selections.join('、')}，明确每注${stake}元：${selections.length}注=${amount}元`] };
+    reasons: [`${lottery}组选${selections.join('、')}，明确每注${stake}元：${selections.length}注=${amount}元`] };
 }
 
 function calculateLotterySeparatedBasicLines(text, claimed) {
@@ -4385,6 +4427,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const sharedMixedGroupRates = calculateSharedMixedGroupRates(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (sharedMixedGroupRates) return sharedMixedGroupRates;
   const sharedSingleAndGroup3 = calculateSharedSingleAndGroup3(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
   if (sharedSingleAndGroup3) return sharedSingleAndGroup3;
   const compoundSelectionBasis = calculateCompoundSelectionBasis(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
@@ -4952,6 +4996,8 @@ function numericValue(value) {
 
 function playStake(text, kind) {
   text = normalizeEachStakeWording(text);
+  const explicitGroupSelection = kind === 'group' ? parseExplicitGroupSelectionMoney(text) : null;
+  if (explicitGroupSelection) return explicitGroupSelection.stake;
   // “排列三/排三”是彩票名称，其中的“三”不能被当成“直选三倍”。
   text = text.replace(/排列三|排三/g, '体彩');
   const keyword = kind === 'direct' ? '(?:直选|直|单)' : '(?:组选|组六|组三|组)';
@@ -5129,6 +5175,24 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const sharedMixedGroups = parseSharedMixedGroupRates(text);
+  if (sharedMixedGroups) {
+    for (const part of sharedMixedGroups.parts) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      for (const selection of part.selection.match(/\d{4,10}/g) || []) {
+        const unique = [...new Set(selection)];
+        for (const rate of sharedMixedGroups.rates) {
+          const group3 = rate.label === '组三';
+          const play = plays[group3 ? 'group3Multi' : 'group6Multi'];
+          const prize = play.prizeBySize[unique.length];
+          if (prize && drawSet.size === (group3 ? 2 : 3) && drawDigits.every(digit => unique.includes(digit))) {
+            wins.push(makeWinningEntry(entry, lottery, `${unique.length}码${rate.label}`, selection, rate.stake, prize / play.base, wins.length));
+          }
+        }
+      }
+    }
+    return wins;
+  }
   const sharedSingleAndGroup3 = parseSharedSingleAndGroup3(text);
   if (sharedSingleAndGroup3) {
     for (const number of sharedSingleAndGroup3.numbers) {
