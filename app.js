@@ -2197,7 +2197,7 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
 }
 
 function calculateTwoCodeGroupBet(text, claimed, lotteryFactor) {
-  if (/转圈|转子|全倒/.test(text)) return null;
+  if (/转圈|转子|全倒|[沾粘]边/.test(text)) return null;
   const body = text.replace(/^\s*(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*[:：]?\s*/i, '')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const leading = body.match(/^(组三|组六)\s*((?:\d{2}[ \t、,，.\/\-]+)*\d{2})[ \t]+((?:各(?:打)?|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍)?)$/);
@@ -5460,10 +5460,14 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
   }
 
-  const stickyType = /粘边赖组三/.test(text) ? 'sticky3' : /粘边赖组六/.test(text) ? 'sticky6' : '';
+  const sharedStickyDigits = text.match(/([0-9]{1,7})\s*[沾粘]边(?:赖)?/)?.[1]
+    || text.match(/[沾粘]边(?:赖)?\s*(?:胆)?\s*([0-9]{1,7})/)?.[1];
+  const stickyType = sharedStickyDigits && /组三/.test(text) && !/组六/.test(text) ? 'sticky3'
+    : sharedStickyDigits && /组六/.test(text) && !/组三/.test(text) ? 'sticky6'
+      : /粘边赖组三/.test(text) ? 'sticky3' : /粘边赖组六/.test(text) ? 'sticky6' : '';
   if (stickyType) {
     const selectedMatch = text.match(/(?:胆|组三|组六)\s*([0-9]+)/);
-    const selectedDigits = [...new Set((selectedMatch?.[1] || '').split('').filter(Boolean))];
+    const selectedDigits = [...new Set((sharedStickyDigits || selectedMatch?.[1] || '').split('').filter(Boolean))];
     const stickyPlay = plays[stickyType];
     const correctType = stickyType === 'sticky6' ? drawSet.size === 3 : drawSet.size === 2;
     const stickyBase = stickyPlay.baseByCount[selectedDigits.length];
