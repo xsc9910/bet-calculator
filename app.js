@@ -5146,6 +5146,8 @@ function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
     .replace(/[—–－﹣]/g, '-')
+    .replace(/(?<!\d)([0-9])\s*(?:独码|独胆)\s*(?:各打|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)?(?=\s*(?:$|[，,、。;；\r\n]|合计|总计|共计|共|福彩|福|体彩|体))/g,
+      (_, digit, amount, unit) => `独胆${digit} ${amount}${unit || '元'}`)
     .replace(/[【\[［（(]\s*(\d+)\s*[】\]］）)]\s*(?=注)/g, '$1')
     .replace(/(^|\n)\s*(\d{2}(?:[ \t、，,.\/-]+\d{2})*)\s*(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*(?=组三|组六)/gi, '$1$3 $2')
     .replace(/((?:组三|组六)\s*(?:各打|各|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*倍)\s*(\d+(?:\.\d+)?)\s*(元|米|块)(?=[ \t]*(?:$|\r?\n))/g, '$1 合计$2$3')
