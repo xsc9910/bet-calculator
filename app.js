@@ -1737,6 +1737,34 @@ function calculateLeadingDigitSharedPositions(text, claimed, lotteryFactor) {
     reasons: [`数字集合${[...digits].join('、')}用于${positions.join('、')}：${digits.size}^${positions.length}=${combinations}注 × 每注${perCombination}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseThreePositionTrailingMoney(text) {
+  const normalized = normalizeChineseClaimedTotals(text);
+  const marker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  if ((normalized.match(marker) || []).length !== 1) return null;
+  const source = normalized.replace(marker, ' ')
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const price = source.match(/(?<![\d.])(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?$/);
+  if (!price || (!price[2] && !price[1].includes('.'))) return null;
+  const body = source.slice(0, price.index).trim();
+  const positionPattern = /(百|十|个)位?\s*[:：]?\s*(\d{1,10})(?!\d)/g;
+  const positions = [...body.matchAll(positionPattern)];
+  if (positions.length !== 3 || new Set(positions.map(position => position[1])).size !== 3
+    || /[^\s、，,。;；]/.test(body.replace(positionPattern, '').replace(/直选|直|各/g, ''))) return null;
+  if (positions.filter(position => position[2].length === 1).length >= 2 && !/直选|直/.test(body)) return null;
+  const indexes = { 百: 0, 十: 1, 个: 2 };
+  return { positions: positions.map(position => ({ index: indexes[position[1]], digits: position[2] })),
+    stake: Number(price[1]) * (/毛|角/.test(price[2] || '') ? 0.1 : 1), factor: lotteryTargets(normalized).length };
+}
+
+function calculateThreePositionTrailingMoney(text, claimed) {
+  const parsed = parseThreePositionTrailingMoney(text);
+  if (!parsed) return null;
+  const counts = parsed.positions.map(position => position.digits.length);
+  const count = counts.reduce((total, size) => total * size, 1);
+  return { amount: Number((count * parsed.stake * parsed.factor).toFixed(2)), claimed, confident: true,
+    reasons: [`百十个完整定位共${counts.join(' × ')}=${count}注，末尾金额按直选每注${parsed.stake}元${parsed.factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function calculatePositionBet(text, claimed, lotteryFactor) {
   if (!/(?:定位|百位?|十位?|个位?|个)/.test(text)) return null;
   const positionNames = { 百: '百位', 百位: '百位', 十: '十位', 十位: '十位', 个: '个位', 个位: '个位' };
@@ -4448,6 +4476,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const threePositionTrailingMoney = calculateThreePositionTrailingMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (threePositionTrailingMoney) return threePositionTrailingMoney;
   const defaultGroup3ListMoney = calculateDefaultGroup3ListMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
   if (defaultGroup3ListMoney) return defaultGroup3ListMoney;
   const sharedMixedGroupRates = calculateSharedMixedGroupRates(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
@@ -5202,6 +5232,14 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const threePositionTrailingMoney = parseThreePositionTrailingMoney(text);
+  if (threePositionTrailingMoney) {
+    if (threePositionTrailingMoney.positions.every(position => position.digits.includes(drawDigits[position.index]))) {
+      const copies = threePositionTrailingMoney.positions.reduce((total, position) => total * [...position.digits].filter(digit => digit === drawDigits[position.index]).length, 1);
+      wins.push(makeWinningEntry(entry, lottery, '定位直选', draw, threePositionTrailingMoney.stake * copies, plays.direct.prize / plays.direct.base, 0));
+    }
+    return wins;
+  }
   const defaultGroup3ListMoney = parseDefaultGroup3ListMoney(text);
   if (defaultGroup3ListMoney) {
     for (const selection of defaultGroup3ListMoney.selections) {
