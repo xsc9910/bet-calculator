@@ -1743,7 +1743,8 @@ function parseThreePositionTrailingMoney(text) {
   if ((normalized.match(marker) || []).length !== 1) return null;
   const source = normalized.replace(marker, ' ')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
-  const price = source.match(/(?<![\d.])(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?$/);
+  const price = source.match(/([零〇一二两三四五六七八九十百]+|(?<![\d.])\d+(?:\.\d+)?)\s*(毛|角|元|米|块)(?:\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?)?$/)
+    || source.match(/(?<![\d.])(\d+\.\d+)$/);
   if (!price || (!price[2] && !price[1].includes('.'))) return null;
   const body = source.slice(0, price.index).trim();
   const positionPattern = /(百|十|个)位?\s*[:：]?\s*(\d{1,10})(?!\d)/g;
@@ -1753,7 +1754,8 @@ function parseThreePositionTrailingMoney(text) {
   if (positions.filter(position => position[2].length === 1).length >= 2 && !/直选|直/.test(body)) return null;
   const indexes = { 百: 0, 十: 1, 个: 2 };
   return { positions: positions.map(position => ({ index: indexes[position[1]], digits: position[2] })),
-    stake: Number(price[1]) * (/毛|角/.test(price[2] || '') ? 0.1 : 1), factor: lotteryTargets(normalized).length };
+    stake: chineseAmount(price[1]) * (/毛|角/.test(price[2] || '') ? 0.1 : 1), factor: lotteryTargets(normalized).length,
+    subtotal: price[3] == null ? '' : Number(price[3]) };
 }
 
 function calculateThreePositionTrailingMoney(text, claimed) {
@@ -1761,7 +1763,7 @@ function calculateThreePositionTrailingMoney(text, claimed) {
   if (!parsed) return null;
   const counts = parsed.positions.map(position => position.digits.length);
   const count = counts.reduce((total, size) => total * size, 1);
-  return { amount: Number((count * parsed.stake * parsed.factor).toFixed(2)), claimed, confident: true,
+  return { amount: Number((count * parsed.stake * parsed.factor).toFixed(2)), claimed: claimed === '' ? parsed.subtotal : claimed, confident: true,
     reasons: [`百十个完整定位共${counts.join(' × ')}=${count}注，末尾金额按直选每注${parsed.stake}元${parsed.factor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
