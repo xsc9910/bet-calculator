@@ -1070,30 +1070,33 @@ function calculateImplicitRotorDirectBet(text, claimed, lotteryFactor) {
 function parseSharedSingleAndGroup3(text) {
   const lotteries = text.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
   if (lotteries.length > 1) return null;
-  const source = normalizeChineseClaimedTotals(text)
+  const source = normalizeChineseClaimedTotals(normalizeBetAliases(text.replace(/组([36])(?=\s*(?:毛|角|元|米|块))/g, '组选$1')))
+    .replace(/(?:直选组选|组选直选|直组|单组|组直|组单)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g, '直$1$2组$1$2')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
     .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ');
-  const termPattern = /((?:三码\s*)?组三|组选|组六|组(?![三六]))\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
+  const termPattern = /((?:三码\s*)?组三|组选|组六|组(?![三六])|直选|直)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
   const terms = [...source.matchAll(termPattern)];
   const group3 = terms.filter(term => /组三/.test(term[1]));
-  if (terms.length !== 2 || group3.length !== 1) return null;
+  const direct = terms.filter(term => /直/.test(term[1]));
+  const group = terms.filter(term => !/组三|直/.test(term[1]));
+  if (group3.length !== 1 || group.length !== 1 || direct.length > 1 || terms.length !== 2 + direct.length) return null;
   const numberSource = source.replace(termPattern, match => ' '.repeat(match.length));
   const numberMatches = [...numberSource.matchAll(/(?<!\d)\d{3}(?!\d)/g)];
   if (!numberMatches.length || /[^\s、，,.。\/\-:：!！]/.test(numberSource.replace(/(?<!\d)\d{3}(?!\d)/g, ''))) return null;
   if (!(numberMatches[numberMatches.length - 1].index + 3 <= terms[0].index
-    || numberMatches[0].index >= terms[1].index + terms[1][0].length)) return null;
+    || numberMatches[0].index >= terms[terms.length - 1].index + terms[terms.length - 1][0].length)) return null;
   const numbers = numberMatches.map(match => match[0]);
   if (numbers.some(number => new Set(number).size !== 3)) return null;
   const stake = term => chineseAmount(term[2]) * (term[3] === '倍' ? /组三/.test(term[1]) ? 10 : 2 : /毛|角/.test(term[3]) ? 0.1 : 1);
-  return { numbers, groupStake: stake(terms.find(term => !/组三/.test(term[1]))), group3Stake: stake(group3[0]) };
+  return { numbers, directStake: direct.length ? stake(direct[0]) : 0, groupStake: stake(group[0]), group3Stake: stake(group3[0]) };
 }
 
 function calculateSharedSingleAndGroup3(text, claimed) {
   const bet = parseSharedSingleAndGroup3(text);
   if (!bet) return null;
   const factor = lotteryTargets(text).length;
-  return { amount: Number((bet.numbers.length * (bet.groupStake + bet.group3Stake) * factor).toFixed(2)), claimed, confident: true,
-    reasons: [`共用${bet.numbers.length}组号码：组选每组${bet.groupStake}元 + 三码组三每组${bet.group3Stake}元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+  return { amount: Number((bet.numbers.length * (bet.directStake + bet.groupStake + bet.group3Stake) * factor).toFixed(2)), claimed, confident: true,
+    reasons: [`共用${bet.numbers.length}组号码：${bet.directStake ? `直选每组${bet.directStake}元 + ` : ''}组选每组${bet.groupStake}元 + 三码组三每组${bet.group3Stake}元${factor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function parseCompoundSelectionBasis(text) {
@@ -5159,7 +5162,7 @@ function normalizeBetAliases(text) {
     .replace(/一码\s*([0-9])\s*[沾粘]边(?:赖)?\s*(组三|组六)/g, '粘边赖$2 $1 ')
     .replace(/一码\s*[沾粘]边(?:赖)?\s*([0-9])\s*(组三|组六)/g, '粘边赖$2 $1 ')
     .replace(/(?<!\d)((?:[一二两三四五六七八九十]+|\d{1,2})\s*(?:直选|直|单)\s*(?:[一二两三四五六七八九十]+|\d{1,2})\s*(?:组选|组)|(?:[一二两三四五六七八九十]+|\d{1,2})\s*(?:组选|组)\s*(?:[一二两三四五六七八九十]+|\d{1,2})\s*(?:直选|直|单))\s*(\d+(?:\.\d+)?)\s*(元|米|块)(?=\s*(?:合计|总计|共计|一共|共))/g, '$1 合计$2$3')
-    .replace(/(?<![\d.])([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(?:组单|单组|组直|直组)/g, '直$1$2组$1$2')
+    .replace(/([零〇一二两三四五六七八九十百]+|(?<![\d.])\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*(?:组单|单组|组直|直组)/g, '直$1$2组$1$2')
     .replace(/(?:组单|组直)\s*(?:各\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '直$1$2组$1$2')
     // “福3十2米”是“福直3米组2米”的紧凑写法，其中“十”是“直”的录入误写。
     .replace(/([福褔体體])\s*(\d+(?:\.\d+)?)\s*十\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '$1直$2$4组$3$4')
@@ -5273,9 +5276,12 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
     return wins;
   }
-  const sharedSingleAndGroup3 = parseSharedSingleAndGroup3(text);
+  const sharedSingleAndGroup3 = parseSharedSingleAndGroup3(String(entry.original || '')) || parseSharedSingleAndGroup3(text);
   if (sharedSingleAndGroup3) {
     for (const number of sharedSingleAndGroup3.numbers) {
+      if (number === draw && sharedSingleAndGroup3.directStake > 0) {
+        wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, sharedSingleAndGroup3.directStake, plays.direct.prize / plays.direct.base, wins.length));
+      }
       if (drawSet.size === 3 && [...number].sort().join('') === sortedDraw) {
         wins.push(makeWinningEntry(entry, lottery, plays.group6.name, number, sharedSingleAndGroup3.groupStake, plays.group6.prize / plays.group6.base, wins.length));
       } else if (drawSet.size === 2 && drawDigits.every(digit => number.includes(digit))) {
