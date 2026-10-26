@@ -21,6 +21,9 @@ for (const [draw, expected] of [['024', [[0.5, 475]]], ['975', [[0.5, 475]]], ['
   const wins = api.scanEntryForDraw({ id: 'position-price', original, amount: 62.5 }, '福彩', draw);
   assert.deepEqual(wins.map(win => [win.stake, win.prize]), expected, JSON.stringify({ draw, wins }));
 }
-for (const text of ['百01 十23 个45 福1', '百01 十23 个45 福0.5倍', '百01 十23 福0.5', '百01 十23 个45 福0.5 双飞', '百01 十23 个45 福\n百67 十89 个01 体0.5']) assert.equal(api.parseThreePositionTrailingMoney(text), null, text);
+// 倍数与裸小数金额分别解释：0.5倍为每注1元，0.5为每注0.5元。
+assert.equal(api.parseThreePositionTrailingMoney('百01 十23 个45 福0.5倍').stake, 1);
+assert.equal(api.autoCalculateBet('百01 十23 个45 福0.5倍').amount, 8);
+for (const text of ['百01 十23 个45 福1', '百01 十23 福0.5', '百01 十23 个45 福0.5 双飞', '百01 十23 个45 福\n百67 十89 个01 体0.5']) assert.equal(api.parseThreePositionTrailingMoney(text), null, text);
 assert.equal(api.parseThreePositionTrailingMoney('福百位9 十位0 个位0123456789各0.5元'), null);
 console.log(`POSTFIXED_POSITION_DECIMAL passed=${cases.length} plus payout checks`);

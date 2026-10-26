@@ -1744,20 +1744,22 @@ function parseThreePositionTrailingMoney(text) {
   const normalized = normalizeChineseClaimedTotals(text);
   const marker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
   if ((normalized.match(marker) || []).length !== 1) return null;
-  const source = normalized.replace(marker, ' ')
+  const source = normalized.replace(marker, ' ').replace(/[\s、，,。;；!！]+$/, '')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
-  const price = source.match(/([零〇一二两三四五六七八九十百]+|(?<![\d.])\d+(?:\.\d+)?)\s*(毛|角|元|米|块)(?:\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?)?$/)
-    || source.match(/(?<![\d.])(\d+\.\d+)$/);
-  if (!price || (!price[2] && !price[1].includes('.'))) return null;
-  const body = source.slice(0, price.index).trim();
   const positionPattern = /(百|十|个)位?\s*[:：]?\s*(\d{1,10})(?!\d)/g;
-  const positions = [...body.matchAll(positionPattern)];
-  if (positions.length !== 3 || new Set(positions.map(position => position[1])).size !== 3
-    || /[^\s、，,。;；]/.test(body.replace(positionPattern, '').replace(/直选|直|各/g, ''))) return null;
-  if (positions.filter(position => position[2].length === 1).length >= 2 && !/直选|直/.test(body)) return null;
+  const positions = [...source.matchAll(positionPattern)];
+  if (positions.length !== 3 || new Set(positions.map(position => position[1])).size !== 3) return null;
+  // 先取完整百十个号码，再读取共用单价；单价可在号码前、中间或末尾。
+  const rateSource = source.replace(positionPattern, ' ')
+    .replace(/直选|直|每注|各打|各记|各买|各|打|记|买/g, ' ')
+    .replace(/[\s、，,。;；:：!！]+/g, ' ').trim();
+  const price = rateSource.match(/^([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)钱?(?:\s*(\d+(?:\.\d+)?)\s*(?:元|米|块)?)?$/)
+    || rateSource.match(/^(\d+\.\d+)$/);
+  if (!price) return null;
+  if (positions.filter(position => position[2].length === 1).length >= 2 && !/直选|直/.test(source)) return null;
   const indexes = { 百: 0, 十: 1, 个: 2 };
   return { positions: positions.map(position => ({ index: indexes[position[1]], digits: position[2] })),
-    stake: chineseAmount(price[1]) * (/毛|角/.test(price[2] || '') ? 0.1 : 1), factor: lotteryTargets(normalized).length,
+    stake: chineseAmount(price[1]) * (price[2] === '倍' ? 2 : /毛|角/.test(price[2] || '') ? 0.1 : 1), factor: lotteryTargets(normalized).length,
     subtotal: price[3] == null ? '' : Number(price[3]) };
 }
 
@@ -1767,7 +1769,7 @@ function calculateThreePositionTrailingMoney(text, claimed) {
   const counts = parsed.positions.map(position => position.digits.length);
   const count = counts.reduce((total, size) => total * size, 1);
   return { amount: Number((count * parsed.stake * parsed.factor).toFixed(2)), claimed: claimed === '' ? parsed.subtotal : claimed, confident: true,
-    reasons: [`百十个完整定位共${counts.join(' × ')}=${count}注，末尾金额按直选每注${parsed.stake}元${parsed.factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+    reasons: [`百十个完整定位共${counts.join(' × ')}=${count}注，按直选每注${parsed.stake}元${parsed.factor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
 function calculatePositionBet(text, claimed, lotteryFactor) {
