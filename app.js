@@ -1074,7 +1074,7 @@ function parseSharedSingleAndGroup3(text) {
     .replace(/(?:直选组选|组选直选|直组|单组|组直|组单)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g, '直$1$2组$1$2')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
     .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ');
-  const termPattern = /((?:三码\s*)?组三|组选|组六|组(?![三六])|直选|直)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
+  const termPattern = /((?:三码\s*)?组三|组选|组六|组(?![三六])|直选|直)\s*(?:各打|各记|各买|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
   const terms = [...source.matchAll(termPattern)];
   const group3 = terms.filter(term => /组三/.test(term[1]));
   const direct = terms.filter(term => /直/.test(term[1]));
@@ -1105,16 +1105,16 @@ function parseCompoundSelectionBasis(text) {
   const source = normalizeChineseClaimedTotals(text)
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ')
     .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ');
-  const labels = source.match(/复[式试]|组三/g) || [];
+  const labels = source.match(/复[式试]|(?:三码\s*)?组三/g) || [];
   if (labels.length !== 1) return null;
-  const label = labels[0];
-  const withoutLabel = source.replace(/复[式试]|组三/, ' ');
+  const label = /组三/.test(labels[0]) ? '组三' : labels[0];
+  const withoutLabel = source.replace(/复[式试]|(?:三码\s*)?组三/, ' ');
   const rateMatches = [...withoutLabel.matchAll(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g)];
   if (rateMatches.length > 1 || (!rateMatches.length && label === '组三')) return null;
   const rateMatch = rateMatches[0];
   const selectionsSource = withoutLabel
     .replace(/([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/, ' ')
-    .replace(/各打|各|打/g, ' ');
+    .replace(/各打|各记|各买|要打|各|打|记|买/g, ' ');
   const selections = selectionsSource.match(/(?<!\d)\d{3,10}(?!\d)/g) || [];
   if (!selections.length || /[^\s、，,.。\/\-:：!！]/.test(selectionsSource.replace(/(?<!\d)\d{3,10}(?!\d)/g, ''))) return null;
   if (label === '组三' && selections.some(selection => selection.length !== 3 || new Set(selection).size < 2)) return null;
