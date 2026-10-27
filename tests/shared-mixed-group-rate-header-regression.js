@@ -7,6 +7,19 @@ const cases = [
   ['体彩3589组六1倍组三5块', 15],
   ['体彩13589组六1倍组三5块', 15]
 ];
+const current = '体彩排列三14579\n01256\n23489\n13679\n组六2倍组三1倍';
+cases.push([current, 120]);
+console.log('CURRENT', JSON.stringify(api.autoCalculateBet(current)));
+for (const header of ['体彩排列三14579', '体彩排列三\n14579', '体彩14579', '排三14579']) {
+  cases.push([`${header}\n01256\n23489\n13679\n组三一倍组六两倍`, 120]);
+}
+const currentParts = api.parseSharedMixedGroupRates(current).parts;
+assert.deepEqual(currentParts.map(part => [part.selection, part.amount]), [['14579',30],['01256',30],['23489',30],['13679',30]]);
+for (const [draw, stake, prize] of [['145',20,310], ['114',10,155], ['012',20,310]]) {
+  const wins = api.scanEntryForDraw({id:'four-shared-pools',original:current,amount:120},'体彩',draw);
+  assert.deepEqual(wins.map(win=>[win.stake,win.prize]),[[stake,prize]],JSON.stringify({draw,wins}));
+}
+assert.equal(api.scanEntryForDraw({id:'four-shared-pools',original:current,amount:120},'福彩','145').length,0);
 for (const lottery of ['体彩排列三', '体彩', '福彩3D', '福体']) {
   for (const tail of ['组六1倍组三5块', '组三5米，组六一倍', '组六各10元 组三各5元']) {
     const amount = lottery === '福体' ? 60 : 30;

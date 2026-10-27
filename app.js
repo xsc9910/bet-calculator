@@ -1963,6 +1963,55 @@ function calculateImplicitTwoDigitFlyBet(text, claimed, lotteryFactor) {
     reasons: [`未定位两位码${pairs.join('、')}按双飞${pairs.length}项计算：${each}元${amount != null && !explicitEach ? '（单项金额）' : `× ${pairs.length}项`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseAdjacentNumberPlaySegments(text) {
+  let rest = normalizeChineseClaimedTotals(text).replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const separator = /^[\s、，,.。;；:：!！/\-]+/;
+  const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*/i;
+  const numbers = /^(\d{3}(?!\d)(?:[\s、，,.。/\-]+\d{3}(?!\d))*)/;
+  const countTerm = /^([零〇一二两三四五六七八九十百]+|\d{1,2}(?!\d))\s*(?:个\s*)?(直选|组选|单|直|组(?![三六]))(?:\s*倍)?/;
+  const moneyTerm = /^(直选|组选|单|直|组(?![三六]))\s*(?:各打|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/;
+  let lottery = '福';
+  const parts = [];
+  let hasCountedPlay = false;
+  let hasMoneyPlay = false;
+  while (rest) {
+    rest = rest.replace(separator, '');
+    if (!rest) break;
+    const prefix = rest.match(marker);
+    if (prefix) { lottery = prefix[1]; rest = rest.slice(prefix[0].length).replace(separator, ''); }
+    const selection = rest.match(numbers);
+    if (!selection) return null;
+    rest = rest.slice(selection[0].length).trimStart().replace(/^各(?:打)?\s*/, '');
+    const stakes = {};
+    while (rest) {
+      const monetary = rest.match(moneyTerm);
+      const counted = monetary ? null : rest.match(countTerm);
+      if (!monetary && !counted) break;
+      if (counted) hasCountedPlay = true;
+      const match = monetary || counted;
+      const label = monetary ? match[1] : match[2];
+      const kind = /组/.test(label) ? 'group' : 'direct';
+      if (stakes[kind] != null) return null;
+      const amount = chineseAmount(monetary ? match[2] : match[1]);
+      const unit = monetary ? match[3] : '倍';
+      if (unit !== '倍') hasMoneyPlay = true;
+      stakes[kind] = amount * (unit === '倍' ? 2 : /毛|角/.test(unit) ? 0.1 : 1);
+      rest = rest.slice(match[0].length).trimStart();
+    }
+    if (!Object.keys(stakes).length) return null;
+    parts.push({ lottery, numbers: selection[1].match(/\d{3}/g), direct: stakes.direct || 0, group: stakes.group || 0 });
+  }
+  return parts.length >= 2 && (hasCountedPlay || hasMoneyPlay || parts.some(part => part.direct && part.group)) ? parts : null;
+}
+
+function calculateAdjacentNumberPlaySegments(text, claimed) {
+  const parts = parseAdjacentNumberPlaySegments(text);
+  if (!parts) return null;
+  const amounts = parts.map(part => Number((part.numbers.length * (part.direct + part.group) * lotteryTargets(part.lottery).length).toFixed(2)));
+  return { amount: Number(amounts.reduce((sum, amount) => sum + amount, 0).toFixed(2)), claimed, confident: true,
+    reasons: [`号码与其后玩法逐段对应：${parts.map((part, index) => `${part.lottery}${part.numbers.join('、')}（${[part.direct ? `直${part.direct}元` : '', part.group ? `组${part.group}元` : ''].filter(Boolean).join(' + ')}）=${amounts[index]}元`).join('；')}`] };
+}
+
 function calculateOrderedBasicPlaySegments(text, claimed, lotteryFactor) {
   // Resolve only a clearly separated one-code direct/group pair here. More
   // involved text stays with the established parsers (notably totals and buys).
@@ -4483,6 +4532,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const adjacentNumberPlays = calculateAdjacentNumberPlaySegments(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (adjacentNumberPlays) return adjacentNumberPlays;
   const threePositionTrailingMoney = calculateThreePositionTrailingMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
   if (threePositionTrailingMoney) return threePositionTrailingMoney;
   const defaultGroup3ListMoney = calculateDefaultGroup3ListMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
@@ -5241,6 +5292,20 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const adjacentNumberPlays = parseAdjacentNumberPlaySegments(String(entry.original || ''));
+  if (adjacentNumberPlays) {
+    for (const part of adjacentNumberPlays) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      for (const number of part.numbers) {
+        if (part.direct && number === draw) wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, part.direct, plays.direct.prize / plays.direct.base, wins.length));
+        if (part.group && drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+          const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+          wins.push(makeWinningEntry(entry, lottery, play.name, number, part.group, play.prize / play.base, wins.length));
+        }
+      }
+    }
+    return wins;
+  }
   const threePositionTrailingMoney = parseThreePositionTrailingMoney(text);
   if (threePositionTrailingMoney) {
     if (threePositionTrailingMoney.positions.every(position => position.digits.includes(drawDigits[position.index]))) {
