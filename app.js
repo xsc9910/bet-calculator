@@ -2636,7 +2636,8 @@ function calculateMultilineCompound(text, claimed) {
     line.replace(/^(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, ''));
   const isDanTuoOnlyLine = line => /^(?:胆)?\s*\d+\s*拖\s*\d+\s*$/.test(
     line.replace(/^\s*(?:福彩|[福褔]|体彩|[体體]|排列三|排三|3\s*[Dd])\s*/i, ''));
-  const isWildcardFixedLine = line => /(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])\s*[=＝]\s*\d/.test(line);
+  const isWildcardFixedLine = line => /(?<![0-9Xx])[0-9Xx]{3}(?![0-9Xx])\s*[=＝]\s*\d/.test(line)
+    || (line.match(/(?<![0-9Xx*])[0-9Xx*]{3}(?![0-9Xx*])/g) || []).some(code => /\d/.test(code) && /[Xx*]/.test(code));
   // 号码可先发一行、玩法和金额写在下一行。将连续的纯号码行并入
   // 紧随的玩法行，避免遗漏前一行号码（也保留重复号码）。
   const normalizedLines = [];
