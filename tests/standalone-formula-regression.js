@@ -117,6 +117,7 @@ const claimEnd = source.indexOf('function normalizedSingleBetNumberSource', clai
 assert.ok(claimStart >= 0 && claimEnd > claimStart);
 const extractClaimedAmount = vm.runInNewContext(`${source.slice(claimStart, claimEnd)}\nextractClaimedAmount`, {
   normalizeStatedArithmeticTotals: value => value,
+  normalizeChineseClaimedTotals: value => value,
 });
 assert.equal(extractClaimedAmount('双58一倍 合计10元。985一单一组，共18元'), 18);
 assert.equal(extractClaimedAmount('合计10元；共18元；计20元'), 20);

@@ -25,7 +25,8 @@ assert.deepEqual([result.amount, result.claimed, result.confident], [498, 498, t
 for (const [text, amount] of [
   ['体458组三三倍', 30],
   ['体458组三 3倍', 30],
-  ['体458 548组三各三倍', 12],
+  // Distinct three-digit 组三 uses the later agreed 10 yuan per multiplier.
+  ['体458 548组三各三倍', 60],
   ['体336组三三倍', 6],
   ['福458组三三倍', 30],
   ['福体458组三三倍', 60],
