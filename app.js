@@ -1963,6 +1963,35 @@ function calculateImplicitTwoDigitFlyBet(text, claimed, lotteryFactor) {
     reasons: [`未定位两位码${pairs.join('、')}按双飞${pairs.length}项计算：${each}元${amount != null && !explicitEach ? '（单项金额）' : `× ${pairs.length}项`}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseSharedDirectGroupRates(text) {
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(String(text).replace(/组([36])(?=\s*(?:毛|角|元|米|块))/g, '组选$1')));
+  const markers = normalized.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
+  if (markers.length > 1) return null;
+  const value = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)';
+  const pair = '(?:(?:直选|直|单)\\s*(?:[、，,和与及+＋]\\s*)?(?:组选|组)(?![三六])|(?:组选|组)(?![三六])\\s*(?:[、，,和与及+＋]\\s*)?(?:直选|直|单))';
+  const source = normalized
+    .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, ' ')
+    .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ')
+    .replace(/一直一组|一单一组|一组一直|一组一单/g, '直1倍 组选1倍')
+    .replace(new RegExp(`${pair}\\s*(?:各打|各记|各买|各|打|记|买)?\\s*${value}`, 'g'), '直$1$2 组选$1$2');
+  const pattern = /(直选|组选|直|单|组(?![三六]))\s*(?:各打|各记|各买|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
+  const rates = [...source.matchAll(pattern)];
+  if (rates.length !== 2 || new Set(rates.map(rate => /组/.test(rate[1]))).size !== 2) return null;
+  const numberSource = source.replace(pattern, match => ' '.repeat(match.length));
+  const numbers = [...numberSource.matchAll(/(?<!\d)\d{3}(?!\d)/g)];
+  if (!numbers.length || /[^\s、，,.。;；!！:：/\-]/.test(numberSource.replace(/(?<!\d)\d{3}(?!\d)/g, ''))) return null;
+  if (!(numbers.at(-1).index + 3 <= rates[0].index || numbers[0].index >= rates.at(-1).index + rates.at(-1)[0].length)) return null;
+  const stake = rate => chineseAmount(rate[2]) * (rate[3] === '倍' ? 2 : /毛|角/.test(rate[3]) ? 0.1 : 1);
+  return { numbers: numbers.map(number => number[0]), direct: stake(rates.find(rate => !/组/.test(rate[1]))), group: stake(rates.find(rate => /组/.test(rate[1]))), factor: lotteryTargets(normalized).length };
+}
+
+function calculateSharedDirectGroupRates(text, claimed) {
+  const parsed = parseSharedDirectGroupRates(text);
+  if (!parsed) return null;
+  return { amount: Number((parsed.numbers.length * (parsed.direct + parsed.group) * parsed.factor).toFixed(2)), claimed, confident: true,
+    reasons: [`${parsed.numbers.length}个号码共用直选、组选：每个直${parsed.direct}元 + 组${parsed.group}元${parsed.factor === 2 ? ' × 福彩体彩两边' : ''}`] };
+}
+
 function parseAdjacentNumberPlaySegments(text) {
   let rest = normalizeChineseClaimedTotals(text).replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const separator = /^[\s、，,.。;；:：!！/\-]+/;
@@ -4533,6 +4562,8 @@ function calculateExplicitInheritedMultilineBets(text, claimed) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const sharedDirectGroupRates = calculateSharedDirectGroupRates(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
+  if (sharedDirectGroupRates) return sharedDirectGroupRates;
   const adjacentNumberPlays = calculateAdjacentNumberPlaySegments(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
   if (adjacentNumberPlays) return adjacentNumberPlays;
   const threePositionTrailingMoney = calculateThreePositionTrailingMoney(text, extractClaimedAmount(normalizeChineseClaimedTotals(text)));
@@ -5293,6 +5324,17 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const sharedDirectGroupRates = parseSharedDirectGroupRates(String(entry.original || ''));
+  if (sharedDirectGroupRates) {
+    for (const number of sharedDirectGroupRates.numbers) {
+      if (number === draw) wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, sharedDirectGroupRates.direct, plays.direct.prize / plays.direct.base, wins.length));
+      if (drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+        const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+        wins.push(makeWinningEntry(entry, lottery, play.name, number, sharedDirectGroupRates.group, play.prize / play.base, wins.length));
+      }
+    }
+    return wins;
+  }
   const adjacentNumberPlays = parseAdjacentNumberPlaySegments(String(entry.original || ''));
   if (adjacentNumberPlays) {
     for (const part of adjacentNumberPlays) {
