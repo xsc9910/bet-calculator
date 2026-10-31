@@ -2020,14 +2020,13 @@ function parseAdjacentNumberPlaySegments(text) {
     .replace(/(?:直选组选|组选直选|直组|单组|组直|组单)\s*(?:各打|各记|各买|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g, '直$1$2组选$1$2')
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
   const separator = /^[\s、，,.。;；:：!！/\-]+/;
-  const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*/i;
+  const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]|[福褔体體排])\s*/i;
   const numbers = /^(\d{3}(?!\d)(?:[\s、，,.。/\-]+\d{3}(?!\d))*)/;
   const countTerm = /^([零〇一二两三四五六七八九十百]+|\d{1,2}(?!\d))\s*(?:个\s*)?(直选|组选|单|直|组(?![三六]))(?:\s*倍)?/;
   const moneyTerm = /^(直选|组选|单|直|组(?![三六]))\s*(?:各打|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/;
   let lottery = '福';
   const parts = [];
   let hasCountedPlay = false;
-  let hasMoneyPlay = false;
   while (rest) {
     rest = rest.replace(separator, '');
     if (!rest) break;
@@ -2048,14 +2047,13 @@ function parseAdjacentNumberPlaySegments(text) {
       if (stakes[kind] != null) return null;
       const amount = chineseAmount(monetary ? match[2] : match[1]);
       const unit = monetary ? match[3] : '倍';
-      if (unit !== '倍') hasMoneyPlay = true;
       stakes[kind] = amount * (unit === '倍' ? 2 : /毛|角/.test(unit) ? 0.1 : 1);
       rest = rest.slice(match[0].length).trimStart();
     }
     if (!Object.keys(stakes).length) return null;
     parts.push({ lottery, numbers: selection[1].match(/\d{3}/g), direct: stakes.direct || 0, group: stakes.group || 0 });
   }
-  return (parts.length >= 2 || (parts.length === 1 && hasCountedPlay)) && (hasCountedPlay || hasMoneyPlay || parts.some(part => part.direct && part.group)) ? parts : null;
+  return parts.length >= 2 || (parts.length === 1 && hasCountedPlay) ? parts : null;
 }
 
 function calculateAdjacentNumberPlaySegments(text, claimed) {
