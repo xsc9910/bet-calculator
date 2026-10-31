@@ -4691,7 +4691,43 @@ function parseSharedTailGroupAmount(text) {
   return { parts, stake, group3: tail[1] === '组三', claimed: extractClaimedAmount(normalized) };
 }
 
+function parseCompleteGroupMoneyBlocks(text) {
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text));
+  const marker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  if ((normalized.match(marker) || []).length > 1 || !/[\r\n]/.test(normalized)) return null;
+  const body = normalized.replace(marker, ' ').replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
+  const parts = [];
+  let pending = '';
+  for (const line of body.split(/\r?\n/).map(line => line.trim()).filter(Boolean)) {
+    pending = `${pending} ${line}`.trim();
+    if (/^\d{3}(?:[\s、，,.。/\-]+\d{3})*$/.test(pending)) continue;
+    const basic = parseSharedDirectGroupRates(pending);
+    if (basic) { parts.push({ type: 'basic', ...basic }); pending = ''; continue; }
+    const selection = pending.match(/^(\d{4,10})\s*/);
+    if (!selection) return null;
+    let rest = pending.slice(selection[0].length);
+    const rates = [];
+    while (rest) {
+      rest = rest.replace(/^[\s、，,.。]+/, '');
+      if (!rest) break;
+      const rate = rest.match(/^(组三|组六)\s*(?:各打|各|打|记|买)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/);
+      if (!rate) return null;
+      rates.push({ label: rate[1], stake: chineseAmount(rate[2]) * (/毛|角/.test(rate[3]) ? 0.1 : 1) });
+      rest = rest.slice(rate[0].length);
+    }
+    if (!rates.length) return null;
+    parts.push({ type: 'pool', selection: selection[1], rates }); pending = '';
+  }
+  return !pending && parts.length >= 2 ? { parts, factor: lotteryTargets(normalized).length, claimed: extractClaimedAmount(normalized) } : null;
+}
+
 function autoCalculateBet(text, allowCompound = true) {
+  const completeGroupMoneyBlocks = parseCompleteGroupMoneyBlocks(text);
+  if (completeGroupMoneyBlocks) {
+    const amounts = completeGroupMoneyBlocks.parts.map(part => part.type === 'basic' ? part.numbers.length * (part.direct + part.group) : part.rates.reduce((sum, rate) => sum + rate.stake, 0));
+    return { amount: Number((amounts.reduce((sum, amount) => sum + amount, 0) * completeGroupMoneyBlocks.factor).toFixed(2)), claimed: completeGroupMoneyBlocks.claimed, confident: true,
+      reasons: [`按完整号码及各段单价计算：${amounts.map(amount => Number((amount * completeGroupMoneyBlocks.factor).toFixed(2))).join(' + ')}元`] };
+  }
   const sharedTailGroupAmount = parseSharedTailGroupAmount(text);
   if (sharedTailGroupAmount) return { amount: Number(sharedTailGroupAmount.parts.reduce((sum, part) => sum + part.selections.length * sharedTailGroupAmount.stake * lotteryTargets(part.lottery).length, 0).toFixed(2)), claimed: sharedTailGroupAmount.claimed, confident: true,
     reasons: [`按各行彩票归属共用${sharedTailGroupAmount.group3 ? '组三' : '组六'}金额：${sharedTailGroupAmount.parts.map(part => `${part.lottery}${part.selections.join('、')}各${sharedTailGroupAmount.stake}元`).join('；')}`] };
@@ -5380,6 +5416,7 @@ function normalizeBetAliases(text) {
   // Full play names (直选/组选) already route to direct/group parsers; normalize common circle synonyms globally.
   let normalized = String(text || '')
     .replace(/[—–－﹣]/g, '-')
+    .replace(/组\s*([36])(?=\s*(?:毛|角|元|米|块))/g, '组选$1')
     .replace(/(?<!独)(?:胆|胆码)\s*(\d)(?!\d)(?=\s*(?:打|记|买)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:元|米|块|毛|角|倍))/g, '独胆$1')
     .replace(/(?<!\d)(\d(?:[、，,./\-]\d)+)\s*胆\s*各(?:打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?:\s*(倍|毛|角|元|米|块))?(?!\d)/g,
       (_, digits, amount, unit) => `独胆${digits}各${amount}${unit || '元'}`)
@@ -5475,6 +5512,27 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const completeGroupMoneyBlocks = parseCompleteGroupMoneyBlocks(String(entry.original || ''));
+  if (completeGroupMoneyBlocks) {
+    for (const part of completeGroupMoneyBlocks.parts) {
+      if (part.type === 'basic') {
+        for (const number of part.numbers) {
+          if (number === draw) wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, part.direct, plays.direct.prize / plays.direct.base, wins.length));
+          if (drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+            const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+            wins.push(makeWinningEntry(entry, lottery, play.name, number, part.group, play.prize / play.base, wins.length));
+          }
+        }
+      } else {
+        const digits = [...new Set(part.selection)];
+        for (const rate of part.rates) {
+          const group3 = rate.label === '组三', play = group3 ? plays.group3Multi : plays.group6Multi;
+          if (drawSet.size === (group3 ? 2 : 3) && drawDigits.every(digit => digits.includes(digit)) && play.prizeBySize[digits.length]) wins.push(makeWinningEntry(entry, lottery, `${digits.length}码${rate.label}`, part.selection, rate.stake, play.prizeBySize[digits.length] / play.base, wins.length));
+        }
+      }
+    }
+    return wins;
+  }
   const sharedTailGroupAmount = parseSharedTailGroupAmount(String(entry.original || ''));
   if (sharedTailGroupAmount) {
     const play = sharedTailGroupAmount.group3 ? plays.group3Multi : plays.group6Multi;
