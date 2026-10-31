@@ -4692,15 +4692,24 @@ function parseSharedTailGroupAmount(text) {
 }
 
 function parseCompleteGroupMoneyBlocks(text) {
-  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text));
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text))
+    .replace(/((?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块))\s*(\d+(?:\.\d+)?)\s*(元|米|块)(?=\s*(?:$|\r?\n|合计|总计|共计|共))/g, '$1 合计$2$3')
+    .replace(/(一直一组|一单一组|一组一直|一组一单)\s*(\d+(?:\.\d+)?)\s*(元|米|块)(?=\s*(?:$|\r?\n|合计|总计|共计|共))/g, '$1 合计$2$3');
   const marker = /福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
-  if ((normalized.match(marker) || []).length > 1 || !/[\r\n]/.test(normalized)) return null;
+  if ((normalized.match(marker) || []).length > 1 || (!/[\r\n]/.test(normalized) && !/转圈|转子|全倒/.test(normalized))) return null;
   const body = normalized.replace(marker, ' ').replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?/g, ' ');
   const parts = [];
   let pending = '';
   for (const line of body.split(/\r?\n/).map(line => line.trim()).filter(Boolean)) {
     pending = `${pending} ${line}`.trim();
     if (/^\d{3}(?:[\s、，,.。/\-]+\d{3})*$/.test(pending)) continue;
+    const rotor = pending.match(/^(\d{3}(?:[\s、，,.。/\-]+\d{3})*)\s*(?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)$/);
+    if (rotor) {
+      const numbers = rotor[1].match(/\d{3}/g);
+      const stake = chineseAmount(rotor[2]) * (/毛|角/.test(rotor[3]) ? 0.1 : 1);
+      const count = numbers.reduce((sum, number) => sum + (new Set(number).size === 3 ? 6 : new Set(number).size === 2 ? 3 : 1), 0);
+      parts.push({ type: 'rotor', numbers, stake, count }); pending = ''; continue;
+    }
     const basic = parseSharedDirectGroupRates(pending);
     if (basic) { parts.push({ type: 'basic', ...basic }); pending = ''; continue; }
     const selection = pending.match(/^(\d{4,10})\s*/);
@@ -4718,13 +4727,13 @@ function parseCompleteGroupMoneyBlocks(text) {
     if (!rates.length) return null;
     parts.push({ type: 'pool', selection: selection[1], rates }); pending = '';
   }
-  return !pending && parts.length >= 2 ? { parts, factor: lotteryTargets(normalized).length, claimed: extractClaimedAmount(normalized) } : null;
+  return !pending && (parts.length >= 2 || (parts.length === 1 && parts[0].type === 'rotor')) ? { parts, factor: lotteryTargets(normalized).length, claimed: extractClaimedAmount(normalized) } : null;
 }
 
 function autoCalculateBet(text, allowCompound = true) {
   const completeGroupMoneyBlocks = parseCompleteGroupMoneyBlocks(text);
   if (completeGroupMoneyBlocks) {
-    const amounts = completeGroupMoneyBlocks.parts.map(part => part.type === 'basic' ? part.numbers.length * (part.direct + part.group) : part.rates.reduce((sum, rate) => sum + rate.stake, 0));
+    const amounts = completeGroupMoneyBlocks.parts.map(part => part.type === 'basic' ? part.numbers.length * (part.direct + part.group) : part.type === 'rotor' ? part.count * part.stake : part.rates.reduce((sum, rate) => sum + rate.stake, 0));
     return { amount: Number((amounts.reduce((sum, amount) => sum + amount, 0) * completeGroupMoneyBlocks.factor).toFixed(2)), claimed: completeGroupMoneyBlocks.claimed, confident: true,
       reasons: [`按完整号码及各段单价计算：${amounts.map(amount => Number((amount * completeGroupMoneyBlocks.factor).toFixed(2))).join(' + ')}元`] };
   }
@@ -5523,6 +5532,8 @@ function scanEntryForDraw(entry, lottery, draw) {
             wins.push(makeWinningEntry(entry, lottery, play.name, number, part.group, play.prize / play.base, wins.length));
           }
         }
+      } else if (part.type === 'rotor') {
+        for (const number of part.numbers) if ([...number].sort().join('') === sortedDraw) wins.push(makeWinningEntry(entry, lottery, '转圈直选', number, part.stake, plays.direct.prize / plays.direct.base, wins.length));
       } else {
         const digits = [...new Set(part.selection)];
         for (const rate of part.rates) {
