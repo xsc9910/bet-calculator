@@ -4730,7 +4730,39 @@ function parseCompleteGroupMoneyBlocks(text) {
   return !pending && (parts.length >= 2 || (parts.length === 1 && parts[0].type === 'rotor')) ? { parts, factor: lotteryTargets(normalized).length, claimed: extractClaimedAmount(normalized) } : null;
 }
 
+function parseScopedBasicHeaderLists(text) {
+  const normalized = normalizeChineseClaimedTotals(String(text));
+  if (!/[\r\n]/.test(normalized)) return null;
+  const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*[,，:：]?\s*/i;
+  const parts = [];
+  let lottery = '福', active = null;
+  for (let line of normalized.split(/\r?\n/).map(line => line.trim()).filter(Boolean)) {
+    if (/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line)) continue;
+    const tag = line.match(marker);
+    if (tag) { lottery = tag[1]; line = line.slice(tag[0].length); active = null; }
+    if (!line) continue;
+    if (/^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/.test(line)) {
+      if (!active) return null;
+      active.numbers.push(...line.match(/\d{3}/g));
+      continue;
+    }
+    // Parse a complete rate-only header independently, before legacy number rewriting.
+    const rates = parseSharedDirectGroupRates(`000 ${line}`);
+    if (!rates || rates.numbers.length !== 1 || rates.numbers[0] !== '000') return null;
+    active = { lottery, direct: rates.direct, group: rates.group, numbers: [] };
+    parts.push(active);
+  }
+  if (!parts.length || parts.some(part => !part.numbers.length)) return null;
+  return { parts, claimed: extractClaimedAmount(normalized) };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
+  const scopedHeaders = parseScopedBasicHeaderLists(text);
+  if (scopedHeaders) return {
+    amount: Number(scopedHeaders.parts.reduce((sum, part) => sum + part.numbers.length * (part.direct + part.group) * lotteryTargets(part.lottery).length, 0).toFixed(2)),
+    claimed: scopedHeaders.claimed, confident: true,
+    reasons: scopedHeaders.parts.map(part => `${part.lottery}标题下${part.numbers.length}个号码 ×（直${part.direct}元 + 组${part.group}元）${lotteryTargets(part.lottery).length === 2 ? ' × 两边' : ''}`)
+  };
   const completeGroupMoneyBlocks = parseCompleteGroupMoneyBlocks(text);
   if (completeGroupMoneyBlocks) {
     const amounts = completeGroupMoneyBlocks.parts.map(part => part.type === 'basic' ? part.numbers.length * (part.direct + part.group) : part.type === 'rotor' ? part.count * part.stake : part.rates.reduce((sum, rate) => sum + rate.stake, 0));
@@ -5521,6 +5553,20 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const scopedHeaders = parseScopedBasicHeaderLists(String(entry.original || ''));
+  if (scopedHeaders) {
+    for (const part of scopedHeaders.parts) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      for (const number of part.numbers) {
+        if (number === draw) wins.push(makeWinningEntry(entry, lottery, plays.direct.name, number, part.direct, plays.direct.prize / plays.direct.base, wins.length));
+        if (drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+          const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+          wins.push(makeWinningEntry(entry, lottery, play.name, number, part.group, play.prize / play.base, wins.length));
+        }
+      }
+    }
+    return wins;
+  }
   const completeGroupMoneyBlocks = parseCompleteGroupMoneyBlocks(String(entry.original || ''));
   if (completeGroupMoneyBlocks) {
     for (const part of completeGroupMoneyBlocks.parts) {
