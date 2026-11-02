@@ -1964,7 +1964,11 @@ function calculateImplicitTwoDigitFlyBet(text, claimed, lotteryFactor) {
 }
 
 function parseSharedDirectGroupRates(text) {
-  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(String(text).replace(/组([36])(?=\s*(?:毛|角|元|米|块))/g, '组选$1')));
+  const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(String(text)
+    .replace(/((?:直组|单组|组直|组单)\s*(?:各打|各|打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块))\s*(\d+(?:\.\d+)?)\s*(元|米|块)(?=[ \t]*(?:$|\r?\n))/g, '$1 合计$2$3')
+    .replace(/组([36])(?=\s*(?:毛|角|元|米|块))/g, '组选$1')))
+    // A cross between complete three-digit selections separates picks, not stakes.
+    .replace(/(?<!\d)(\d{3})\s*×\s*(?=\d{3}(?!\d))/g, '$1 ');
   const markers = normalized.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
   if (markers.length > 1) return null;
   const value = '([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)';
