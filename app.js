@@ -2009,6 +2009,7 @@ function calculateSharedDirectGroupRates(text, claimed) {
 }
 
 function parseAdjacentNumberPlaySegments(text) {
+  text = String(text).replace(/(?<!\d)(\d{3})\s*[+＋×]\s*(?=\d{3}(?!\d))/g, '$1 ');
   const lines = normalizeChineseClaimedTotals(text).split(/[\r\n;；]+/).map(line => line.trim()).filter(line => line && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(line));
   if (lines.length > 1) {
     let inherited = '福';
