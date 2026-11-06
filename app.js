@@ -1976,7 +1976,7 @@ function parseSharedDirectGroupRates(text) {
   const source = normalized
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, ' ')
     .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ')
-    .replace(/(?<![\d.])([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(直选|组选|直|单|组)\s*([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(直选|组选|直|单|组)(?!\s*(?:倍|毛|角|元|米|块))/g,
+    .replace(/(?<![\d.])([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(?:个\s*)?(直选|组选|直|单|组)\s*(?:[、，,+＋]\s*)?([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(?:个\s*)?(直选|组选|直|单|组)(?!\s*(?:倍|毛|角|元|米|块))/g,
       (match, firstCount, firstPlay, secondCount, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
         ? `${firstPlay}${firstCount}倍 ${secondPlay}${secondCount}倍` : match)
     .replace(/一直一组|一单一组|一组一直|一组一单/g, '直1倍 组选1倍')
@@ -4757,6 +4757,17 @@ function parsePrefixedBasicTrailingRates(text) {
 
 function parseScopedBasicHeaderLists(text) {
   const normalized = normalizeChineseClaimedTotals(String(text));
+  const markers = [...normalized.matchAll(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi)];
+  if (markers.length > 1 && !normalized.slice(0, markers[0].index).trim()) {
+    const scoped = [];
+    for (let index = 0; index < markers.length; index++) {
+      const segment = normalized.slice(markers[index].index, markers[index + 1]?.index ?? normalized.length);
+      const rates = parseSharedDirectGroupRates(segment);
+      if (!rates) break;
+      scoped.push({ lottery: markers[index][0], numbers: rates.numbers, direct: rates.direct, group: rates.group });
+    }
+    if (scoped.length === markers.length) return { parts: scoped, claimed: extractClaimedAmount(normalized) };
+  }
   if (!/[\r\n]/.test(normalized)) return null;
   const marker = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*[,，:：]?\s*/i;
   const parts = [];
