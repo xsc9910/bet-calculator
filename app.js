@@ -4792,7 +4792,40 @@ function parseScopedBasicHeaderLists(text) {
   return { parts, claimed: extractClaimedAmount(normalized) };
 }
 
+function parseExplicitLotterySections(text) {
+  const normalized = normalizeChineseClaimedTotals(String(text));
+  const markers = [...normalized.matchAll(/福彩体彩|福体|福彩(?:\s*3\s*[Dd])?|体彩(?:排列三)?|排列三|排三|3\s*[Dd]|[福褔体體排]/gi)];
+  if (!markers.length || normalized.slice(0, markers[0].index).trim()) return null;
+  const sections = markers.map((marker, index) => {
+    const original = normalized.slice(marker.index, markers[index + 1]?.index ?? normalized.length).trim();
+    return { original, lottery: marker[0], body: original.slice(marker[0].length) };
+  });
+  // Only self-contained play sections qualify. Shared trailing play headers use their dedicated parser.
+  if (sections.some(section => !/直|组|单|胆|飞|定位|百位|十位|个位|跨度|跨|和值|合值|豹子|转圈|转子/.test(section.body))) return null;
+  let incompleteSection = false;
+  const parts = sections.flatMap(section => {
+    const statements = section.body.split(/[\r\n;；]+|(?<=[组单直倍元米块])\s+(?=\d{3}(?!\d))/)
+      .map(statement => statement.trim()).filter(statement => statement && !/^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(statement));
+    if (statements.length < 2) return [section];
+    if (statements.some(statement => !/直|组|单|胆|飞|定位|百位|十位|个位|跨度|跨|和值|合值|豹子|转圈|转子/.test(statement))) {
+      incompleteSection = true;
+      return [];
+    }
+    const candidates = statements.map(body => ({ body, lottery: section.lottery, original: `${section.lottery} ${body}` }));
+    if (candidates.some(candidate => !autoCalculateBet(candidate.original, false).confident)) {
+      incompleteSection = true;
+      return [];
+    }
+    return candidates;
+  });
+  if (incompleteSection || parts.length < 2) return null;
+  const results = parts.map(section => autoCalculateBet(section.original, false));
+  if (results.some(result => !result.confident || result.amount === '')) return null;
+  return parts.map((section, index) => ({ ...section, amount: results[index].amount }));
+}
+
 function autoCalculateBet(text, allowCompound = true) {
+  const lotterySectionSource = text;
   const scopedHeaders = parsePrefixedBasicTrailingRates(text) || parseScopedBasicHeaderLists(text);
   if (scopedHeaders) return {
     amount: Number(scopedHeaders.parts.reduce((sum, part) => sum + part.numbers.length * (part.direct + part.group) * lotteryTargets(part.lottery).length, 0).toFixed(2)),
@@ -5203,6 +5236,12 @@ function autoCalculateBet(text, allowCompound = true) {
     if (postfixedLotteryCompound) return postfixedLotteryCompound;
     const delimitedCompound = calculateDelimitedCompound(clean, claimed);
     if (delimitedCompound) return delimitedCompound;
+    const lotterySections = parseExplicitLotterySections(lotterySectionSource);
+    if (lotterySections) return {
+      amount: Number(lotterySections.reduce((sum, section) => sum + Number(section.amount), 0).toFixed(2)),
+      claimed, confident: true,
+      reasons: lotterySections.map(section => `${section.original}=${section.amount}元`)
+    };
     const inlineLotteryCompound = calculateInlineLotteryCompound(clean, claimed);
     if (inlineLotteryCompound) return inlineLotteryCompound;
     const multilineCompound = calculateMultilineCompound(clean, claimed);
@@ -5773,6 +5812,14 @@ function scanEntryForDraw(entry, lottery, draw) {
       if (hit && Number.isFinite(multiplier)) wins.push(makeWinningEntry(entry, lottery, play, selection.selection, selection.stake, multiplier, wins.length));
     }
     return wins;
+  }
+  const lotterySections = parseExplicitLotterySections(entry.original || '');
+  if (lotterySections) {
+    return lotterySections.flatMap((section, index) => {
+      if (!lotteryTargets(section.lottery).includes(lottery)) return [];
+      const scopedEntry = { ...entry, original: section.original, amount: section.amount, lotteries: lotteryTargets(section.lottery) };
+      return scanEntryForDraw(scopedEntry, lottery, draw).map(win => ({ ...win, id: `${win.id}-section-${index}` }));
+    });
   }
   const threeDigitNumbers = extractThreeDigitNumbers(text);
   const both = hasExplicitDirectAndGroup(text);
