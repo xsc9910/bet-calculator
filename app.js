@@ -1976,6 +1976,9 @@ function parseSharedDirectGroupRates(text) {
   const source = normalized
     .replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, ' ')
     .replace(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi, ' ')
+    .replace(/(?<![\d.])([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(直选|组选|直|单|组)\s*([零〇一二两三四五六七八九十百]+|\d{1,2})\s*(直选|组选|直|单|组)(?!\s*(?:倍|毛|角|元|米|块))/g,
+      (match, firstCount, firstPlay, secondCount, secondPlay) => /组/.test(firstPlay) !== /组/.test(secondPlay)
+        ? `${firstPlay}${firstCount}倍 ${secondPlay}${secondCount}倍` : match)
     .replace(/一直一组|一单一组|一组一直|一组一单/g, '直1倍 组选1倍')
     .replace(new RegExp(`${pair}\\s*(?:各打|各记|各买|各|打|记|买)?\\s*${value}`, 'g'), '直$1$2 组选$1$2');
   const patterns = [
