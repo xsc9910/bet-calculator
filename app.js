@@ -2035,6 +2035,7 @@ function parseAdjacentNumberPlaySegments(text) {
   let lottery = '福';
   const parts = [];
   let hasCountedPlay = false;
+  let hasMultiplier = false;
   while (rest) {
     rest = rest.replace(separator, '');
     if (!rest) break;
@@ -2055,13 +2056,14 @@ function parseAdjacentNumberPlaySegments(text) {
       if (stakes[kind] != null) return null;
       const amount = chineseAmount(monetary ? match[2] : match[1]);
       const unit = monetary ? match[3] : '倍';
+      if (unit === '倍') hasMultiplier = true;
       stakes[kind] = amount * (unit === '倍' ? 2 : /毛|角/.test(unit) ? 0.1 : 1);
       rest = rest.slice(match[0].length).trimStart();
     }
     if (!Object.keys(stakes).length) return null;
     parts.push({ lottery, numbers: selection[1].match(/\d{3}/g), direct: stakes.direct || 0, group: stakes.group || 0 });
   }
-  return parts.length >= 2 || (parts.length === 1 && hasCountedPlay) ? parts : null;
+  return parts.length >= 2 || (parts.length === 1 && (hasCountedPlay || (hasMultiplier && parts[0].numbers.length > 1))) ? parts : null;
 }
 
 function calculateAdjacentNumberPlaySegments(text, claimed) {
@@ -4842,6 +4844,7 @@ function parseExplicitLotterySections(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  text = String(text).replace(/半\s*倍/g, ' 0.5倍');
   const lotterySections = parseExplicitLotterySections(text);
   if (lotterySections) return {
     amount: Number(lotterySections.reduce((sum, section) => sum + Number(section.amount), 0).toFixed(2)),
@@ -5638,6 +5641,11 @@ function makeWinningEntry(entry, lottery, playName, hit, stake, odds, index) {
 }
 
 function scanEntryForDraw(entry, lottery, draw) {
+  let original = String(entry.original || '').replace(/半\s*倍/g, ' 0.5倍');
+  if (!/组三|组六/.test(original)) {
+    original = original.replace(/((?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?)\s*0\.5\s*倍/g, '$1 1元');
+  }
+  entry = { ...entry, original };
   const text = normalizePositionSelectionLists(normalizeBetAliases(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖')));
   if (!entryLotteryTargets(entry).includes(lottery) || !/^\d{3}$/.test(draw)) return [];
   const lotterySections = parseExplicitLotterySections(entry.original || '');
