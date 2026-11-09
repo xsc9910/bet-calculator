@@ -4948,6 +4948,7 @@ function parseTrailingBasicLotteryLists(text) {
 
 function normalizeAuditNotation(value) {
   return String(value).replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
+    .replace(/(?:一直一组|一单一组|一组一直|一组一单)\s*(?:1|一)\s*(元|米|块)(?=\s*(?:$|[\r\n，,；;]|合计|总计|共计|一共|共))/g, '直组各1$1')
     .replace(/(?<!\d)(\d{2})\s*[,，]\s*(?=双?飞)/g, '$1 ')
     .replace(/(?<!独)(?:胆|胆码)\s*(\d)\s*[,，]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '独胆$1 $2$3')
     .replace(/(?<!独)(?:胆|胆码)\s*(\d)\s*[-－—]\s*([1-9]\d+(?:\.\d+)?)(?=\s*(?:$|[\r\n]|合计|总计|共))/g, '独胆$1 $2元')
