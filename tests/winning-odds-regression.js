@@ -26,7 +26,7 @@ const cases = [
   ['和值', only('福和值6一倍', '福彩', '123'), app.plays.sum.prizes[6]],
   ['跨度', only('体跨度4一倍', '体彩', '024'), app.plays.span.prizes[4]],
   ['一码定位', only('福百位1一倍', '福彩', '123'), app.plays.pos1.prize],
-  ['二码定位', only('体百位1十位2一倍', '体彩', '123'), app.plays.pos2.prize],
+  ['二码定位', only('体两码定位百位1十位2一倍', '体彩', '123'), app.plays.pos2.prize],
   ['直选半元', only('福123直0.5元', '福彩', '123', 0.5), app.plays.direct.prize / 4],
   ['双飞', only('福12双飞一倍', '福彩', '123'), app.plays.doubleFly.prize],
   ['对子', only('体2对子一倍', '体彩', '122'), app.plays.pair.prize],
