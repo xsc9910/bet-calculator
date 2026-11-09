@@ -4843,8 +4843,54 @@ function parseExplicitLotterySections(text) {
   return parts.map((section, index) => ({ ...section, amount: results[index].amount }));
 }
 
+function parseTrailingBasicLotteryLists(text) {
+  const normalized = normalizeChineseClaimedTotals(String(text));
+  let claimed = extractClaimedAmount(normalizeBetAliases(normalized));
+  const lines = normalized.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const playLine = /^(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*[,，:：]?\s*(.+)$/i;
+  const numberLine = /^\d{3}(?:[\s、，,.。/\-]+\d{3})*[\s、，,.。/\-]*$/;
+  const totalLine = /^(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/;
+  const parts = [];
+  let numbers = [];
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    if (totalLine.test(line)) continue;
+    if (numberLine.test(line)) {
+      numbers.push(...line.match(/\d{3}/g));
+      continue;
+    }
+    const marker = line.match(playLine);
+    if (!marker || !numbers.length) return parts.length ? { parts, incomplete: true, claimed } : null;
+    let lottery = marker[1];
+    let playText = marker[2];
+    const rateOnly = /^(?:(?:[零〇一二两三四五六七八九十百]+|\d{1,2})\s*(?:直选|组选|直|单|组)|(?:直选|组选|直|单|组)\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块))$/;
+    while (lineIndex + 1 < lines.length && rateOnly.test(lines[lineIndex + 1])) playText += ` ${lines[++lineIndex]}`;
+    let example = `000 001 ${playText}`;
+    let rates = parseSharedDirectGroupRates(example) || parseAdjacentNumberPlaySegments(example)?.[0];
+    if (!rates && lottery === '排三') {
+      lottery = '排';
+      example = `000 001 三${playText}`;
+      rates = parseSharedDirectGroupRates(example) || parseAdjacentNumberPlaySegments(example)?.[0];
+    }
+    if (!rates || rates.numbers.join(' ') !== '000 001') return parts.length ? { parts, incomplete: true, claimed } : null;
+    if (claimed === '' && rates.claimed !== undefined && rates.claimed !== '') claimed = rates.claimed;
+    lottery = lottery === '排' ? '体' : lottery;
+    parts.push({ lottery, numbers, direct: rates.direct, group: rates.group });
+    numbers = [];
+  }
+  return parts.length ? { parts, incomplete: numbers.length > 0, claimed } : null;
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = String(text).replace(/半\s*倍/g, ' 0.5倍');
+  const trailingBasicLists = parseTrailingBasicLotteryLists(text);
+  if (trailingBasicLists?.incomplete) return { amount: '', claimed: trailingBasicLists.claimed, confident: false,
+    reasons: ['后续内容无法确定号码、玩法或彩种，不能只计算前面的部分。'] };
+  if (trailingBasicLists) return {
+    amount: Number(trailingBasicLists.parts.reduce((sum, part) => sum + part.numbers.length * (part.direct + part.group) * lotteryTargets(part.lottery).length, 0).toFixed(2)),
+    claimed: trailingBasicLists.claimed, confident: true,
+    reasons: trailingBasicLists.parts.map(part => `${part.lottery}${part.numbers.length}个号码 ×（直${part.direct}元＋组${part.group}元）${lotteryTargets(part.lottery).length === 2 ? ' × 两边' : ''}`)
+  };
   const lotterySections = parseExplicitLotterySections(text);
   if (lotterySections) return {
     amount: Number(lotterySections.reduce((sum, section) => sum + Number(section.amount), 0).toFixed(2)),
@@ -5647,6 +5693,24 @@ function scanEntryForDraw(entry, lottery, draw) {
   }
   entry = { ...entry, original };
   const text = normalizePositionSelectionLists(normalizeBetAliases(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖')));
+  const trailingBasicLists = parseTrailingBasicLotteryLists(entry.original);
+  if (trailingBasicLists?.incomplete) return [];
+  if (trailingBasicLists && /^\d{3}$/.test(draw)) {
+    const results = [];
+    const drawSet = new Set(draw);
+    const sortedDraw = [...draw].sort().join('');
+    for (const part of trailingBasicLists.parts) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      for (const number of part.numbers) {
+        if (part.direct > 0 && number === draw) results.push(makeWinningEntry(entry, lottery, plays.direct.name, number, part.direct, plays.direct.prize / plays.direct.base, results.length));
+        if (part.group > 0 && drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+          const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+          results.push(makeWinningEntry(entry, lottery, play.name, number, part.group, play.prize / play.base, results.length));
+        }
+      }
+    }
+    return results;
+  }
   if (!entryLotteryTargets(entry).includes(lottery) || !/^\d{3}$/.test(draw)) return [];
   const lotterySections = parseExplicitLotterySections(entry.original || '');
   if (lotterySections && !parseScopedDanAndGroupAmounts(text)) {
