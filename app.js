@@ -4972,8 +4972,32 @@ function parseBareSingleSumMoney(text) {
   return { sum: Number(match[1]), stake: Number(match[2]) };
 }
 
+function parseSharedSingleDanDrag(text) {
+  const marker = '(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\\s*[Dd]|[福褔体體排])';
+  const pattern = new RegExp(`^\\s*(${marker})?\\s*(?:胆码?|胆)?\\s*(\\d(?:[ \\t]*[~～至-][ \\t]*\\d|(?:[ \\t]*[、，,./][ \\t]*|[ \\t]+)\\d)+)\\s*[拖托]\\s*(\\d{2,10})\\s*(组三|组六)?\\s*各(?:打|买|记)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(元|米|块|毛|角|倍)(?:\\s*(?:合计|总计|共计|共)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:元|米|块)?)?\\s*$`, 'i');
+  const match = String(text).match(pattern);
+  if (!match) return null;
+  const raw = match[2], range = raw.match(/^(\d)\s*[~～至-]\s*(\d)$/);
+  let digits;
+  if (range) {
+    const start = Number(range[1]), end = Number(range[2]);
+    if (start > end) return null;
+    digits = Array.from({length:end - start + 1}, (_, index) => String(start + index));
+  } else {
+    if (/[~～至-]/.test(raw)) return null;
+    digits = raw.match(/\d/g);
+  }
+  const stake = chineseAmount(match[5]) * (match[6] === '倍' ? 10 : /毛|角/.test(match[6]) ? 0.1 : 1);
+  const targets = lotteryTargets(match[1] || '福');
+  return { amount: Number((digits.length * stake * targets.length).toFixed(2)), claimed: match[7] ? Number(match[7]) : '', confident: true,
+    danTuoParts: match[4] ? digits.map(digit => ({lottery: match[1] || '福', selection: `${digit}拖${match[3]}`, play: match[4], stake})) : [],
+    reasons: [`${digits.map(digit => `${digit}拖${match[3]}`).join('、')}各${stake}元${match[4] ? `，${match[4]}` : '；未注明组三或组六，中奖玩法待确认'}`] };
+}
+
 function autoCalculateBet(text, allowCompound = true) {
   text = normalizeAuditNotation(text);
+  const sharedDanDrag = parseSharedSingleDanDrag(text);
+  if (sharedDanDrag) return sharedDanDrag;
   const bareSum = parseBareSingleSumMoney(text);
   if (bareSum) return { amount: Number((bareSum.stake * lotteryTargets(text).length).toFixed(2)),
     claimed: extractClaimedAmount(text), confident: true, reasons: [`和值${bareSum.sum}按${bareSum.stake}元计算`] };
@@ -5972,7 +5996,8 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
-  const structuredDanTuo = calculateStructuredDanTuo(entry.original, '');
+  const structuredDanTuo = parseSharedSingleDanDrag(entry.original) || calculateStructuredDanTuo(entry.original, '');
+  if (structuredDanTuo?.confident && structuredDanTuo.danTuoParts && !structuredDanTuo.danTuoParts.length) return [];
   if (structuredDanTuo?.confident && structuredDanTuo.danTuoParts?.length) {
     for (const part of structuredDanTuo.danTuoParts) {
       if (!lotteryTargets(part.lottery).includes(lottery)) continue;
