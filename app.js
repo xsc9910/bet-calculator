@@ -2451,7 +2451,8 @@ function calculateSumOrLeopardBet(text, claimed, lotteryFactor) {
   if (sumCategory) return { amount: Number(sumCategory[2]) * lotteryFactor, claimed, confident: true,
     reasons: [`和值${sumCategory[1]}按明确金额${sumCategory[2]}元`] };
   const listedLeopards = isLeopard ? (text.match(/(?<!\d)([0-9])\1\1(?!\d)/g) || []) : [];
-  let count = isLeopard ? (isLeopardFullPack && /(?:[一二两三四五六七八九十]+|\d+(?:\.\d+)?)\s*倍/.test(text) ? 1 : listedLeopards.length || 10) : 1;
+  const packEachMoney = isLeopardFullPack && /豹子全包\s*各(?:打)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:毛|角|元|米|块)/.test(text);
+  let count = isLeopard ? (isLeopardFullPack ? (packEachMoney ? 10 : 1) : listedLeopards.length || 10) : 1;
   if (isSum) {
     const scrubbed = text
       .replace(/\d{4}年\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}/g, ' ')
@@ -6400,8 +6401,10 @@ function scanEntryForDraw(entry, lottery, draw) {
     }
   }
 
-  if (/豹子全包/.test(text) && drawSet.size === 1) {
-    const stake = specialStake(text, 10, entry, 1);
+  if ((/豹子全包/.test(text) || (/豹子\s*各/.test(text) && !/(?<!\d)([0-9])\1\1(?!\d)/.test(text))) && drawSet.size === 1) {
+    const packSegment = text.match(/豹子(?:全包)?\s*(?:各(?:打)?|打|记|买)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/);
+    const packAmount = packSegment && calculateSumOrLeopardBet(packSegment[0], '', 1);
+    const stake = packAmount?.confident ? packAmount.amount : specialStake(text, 10, entry, 1);
     wins.push(makeWinningEntry(entry, lottery, plays.leopardPack.name, draw, stake, plays.leopardPack.prize / plays.leopardPack.base, winIndex++));
   }
 
