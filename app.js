@@ -6748,7 +6748,7 @@ function updateRawNumberHighlights() {
     html += escapeHtml(text.slice(cursor, item.start)) + `<mark>${escapeHtml(item.value)}</mark>`;
     cursor = item.end;
   }
-  overlay.innerHTML = html + escapeHtml(text.slice(cursor)) + (text.endsWith('\n') ? '\n' : '');
+  overlay.innerHTML = matches.length ? html + escapeHtml(text.slice(cursor)) + (text.endsWith('\n') ? '\n' : '') : '';
   overlay.style.width = `${input.clientWidth || 0}px`;
   overlay.scrollTop = input.scrollTop; overlay.scrollLeft = input.scrollLeft;
   wrapper.classList.toggle('has-highlights', matches.length > 0);
@@ -6867,6 +6867,7 @@ function runAutoBetCalculation({ record = false, allowMismatch = false } = {}) {
       autoClearInputTimer = setTimeout(() => {
         if (rawInputVersion !== recordedVersion || $('rawBetText').value.trim() !== recordedText) return;
         $('rawBetText').value = '';
+        updateRawNumberHighlights();
         $('actualNoteCountDisplay').textContent = calculateActualNoteCount(recordedText) ?? '--';
         lastAutoRecordedText = '';
       }, 1000);

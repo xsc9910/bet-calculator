@@ -227,7 +227,8 @@ td:nth-child(5) { width: 48px; }
 #singleRawTextWrapper { background: white; border-radius: 5px; }
 #singleRawTextWrapper textarea { position: relative; display: block; background: transparent; line-height: 1.5; overflow-wrap: break-word; }
 #singleRawTextWrapper.has-highlights textarea { color: transparent; caret-color: var(--ink); }
-.raw-bet-highlights { position: absolute; inset: 0; padding: 10px 11px; border: 1px solid transparent; color: var(--ink); font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; pointer-events: none; }
+.raw-bet-highlights { position: absolute; inset: 0; padding: 10px 11px; border: 1px solid transparent; color: var(--ink); font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; pointer-events: none; visibility: hidden; }
+#singleRawTextWrapper.has-highlights .raw-bet-highlights { visibility: visible; }
 .raw-bet-highlights mark { color: #a11616; background: #ffd9d6; border-radius: 2px; }
 .raw-bet-number-warning { margin-top: 8px; color: #9d201b; font-size: 13px; line-height: 1.5; }
 .entry-mode-panel.hidden { display: none; }
