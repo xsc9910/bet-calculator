@@ -763,8 +763,10 @@ function calculate({ playKey, draw, pickText, stake, customBase, customPrize, cu
   } else if (playKey === 'group6Dan' || playKey === 'group3Dan') {
     for (const item of items) {
       const ds = [...new Set(item.replace(/\D/g, ''))];
+      const explicitDan = item.match(/(?:胆)?(\d+)\s*[拖托]\s*(\d+)/);
+      const dan = explicitDan ? [...new Set(explicitDan[1])] : ds.slice(0, 1);
       const correctType = playKey === 'group6Dan' ? drawSet.size === 3 : drawSet.size === 2;
-      if (correctType && drawDigits.every(d => ds.includes(d)) && play.prizeBySize[ds.length]) {
+      if (correctType && dan.every(d => drawDigits.includes(d)) && drawDigits.every(d => ds.includes(d)) && play.prizeBySize[ds.length]) {
         hits.push(item);
         prize += scaled(play.prizeBySize[ds.length]);
       }
@@ -2192,12 +2194,13 @@ function calculateStructuredDanTuo(text, claimed) {
       if (!token.unit && token.value < 10 && tokens.filter(item => item.type === 'play').length < 2) return null;
       const perPlay = token.value * (token.unit === '倍' ? 10 : ['毛', '角'].includes(token.unit) ? 0.1 : 1);
       const combinedMoney = plays.length > 1 && token.unit && token.unit !== '倍' && !token.each;
-      stakes.push({ amount: perPlay * (combinedMoney ? 1 : plays.length), detail: `${plays.join('、')}${combinedMoney ? '合并' : '各'}${perPlay}元` });
+      stakes.push({ amount: perPlay * (combinedMoney ? 1 : plays.length), detail: `${plays.join('、')}${combinedMoney ? '合并' : '各'}${perPlay}元`, plays: [...plays], perPlay: combinedMoney ? null : perPlay });
       plays = [];
     }
     return plays.length || !stakes.length ? null : stakes;
   };
   const details = [];
+  const danTuoParts = [];
   let total = 0;
   for (const block of scopes) {
     const first = block.tokens.findIndex(token => token.type === 'selection');
@@ -2215,12 +2218,15 @@ function calculateStructuredDanTuo(text, claimed) {
       if (!stakes) return blocked();
       const amount = pending.length * stakes.reduce((sum, stake) => sum + stake.amount, 0) * (block.lottery === '福体' ? 2 : 1);
       total += amount;
+      for (const selection of pending) for (const stake of stakes) for (const play of stake.plays) {
+        danTuoParts.push({ lottery: block.lottery, selection, play, stake: stake.perPlay });
+      }
       details.push(`${block.lottery} ${pending.join('、')}：${stakes.map(stake => stake.detail).join(' + ')}，共${amount}元`);
       pending = [];
     }
     if (pending.length) return blocked();
   }
-  return details.length ? { amount: Number(total.toFixed(2)), claimed, confident: true, reasons: [`胆拖逐组计算：${details.join('；')}`] } : blocked();
+  return details.length ? { amount: Number(total.toFixed(2)), claimed, confident: true, danTuoParts, reasons: [`胆拖逐组计算：${details.join('；')}`] } : blocked();
 }
 
 function calculateSharedDanTuoStakes(text, claimed, lotteryFactor) {
@@ -4948,6 +4954,7 @@ function parseTrailingBasicLotteryLists(text) {
 
 function normalizeAuditNotation(value) {
   return String(value).replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
+    .replace(/(?<=\d)\s*托\s*(?=\d)/g, '拖')
     .replace(/(?:一直一组|一单一组|一组一直|一组一单)\s*(?:1|一)\s*(元|米|块)(?=\s*(?:$|[\r\n，,；;]|合计|总计|共计|一共|共))/g, '直组各1$1')
     .replace(/(?<!\d)(\d{2})\s*[,，]\s*(?=双?飞)/g, '$1 ')
     .replace(/(?<!独)(?:胆|胆码)\s*(\d)\s*[,，]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, '独胆$1 $2$3')
@@ -5966,6 +5973,20 @@ function scanEntryForDraw(entry, lottery, draw) {
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
   const sortedDraw = [...drawDigits].sort().join('');
+  const structuredDanTuo = calculateStructuredDanTuo(entry.original, '');
+  if (structuredDanTuo?.confident && structuredDanTuo.danTuoParts?.length) {
+    for (const part of structuredDanTuo.danTuoParts) {
+      if (!lotteryTargets(part.lottery).includes(lottery)) continue;
+      const [dan, drag] = part.selection.split('拖');
+      const digits = [...new Set((dan + drag).split(''))];
+      const play = part.play === '组三' ? plays.group3Dan : plays.group6Dan;
+      const correctType = drawSet.size === (part.play === '组三' ? 2 : 3);
+      if (correctType && [...new Set(dan)].every(digit => drawDigits.includes(digit)) && drawDigits.every(digit => digits.includes(digit)) && play.prizeBySize[digits.length]) {
+        wins.push(makeWinningEntry(entry, lottery, part.stake == null ? `${play.name}（金额分配待确认）` : play.name, `胆${dan}拖${drag}`, part.stake ?? 0, part.stake == null ? 0 : play.prizeBySize[digits.length] / play.base, wins.length));
+      }
+    }
+    return wins;
+  }
   const bareSum = parseBareSingleSumMoney(entry.original);
   if (bareSum) {
     if (drawDigits.reduce((total, digit) => total + Number(digit), 0) === bareSum.sum && plays.sum.prizes[bareSum.sum]) {
