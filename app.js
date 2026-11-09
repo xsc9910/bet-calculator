@@ -2003,7 +2003,19 @@ function parseFlexiblePositionMoney(text) {
   return { two, positions, count, stake, factor: lotteryTargets(original).length, claimed: extractClaimedAmount(original) };
 }
 
+function parseBareGroup3Money(text) {
+  const original = normalizeChineseClaimedTotals(String(text));
+  const marker = /福彩体彩|福体|福彩\s*3\s*[Dd]|福彩|体彩|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]|[福褔体體排]/gi;
+  if ((original.match(marker) || []).length > 1) return null;
+  const body = original.replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').replace(marker, ' ').trim();
+  const match = body.match(/^(\d{2,3})\s*组三\s*(?:打|记|买)?\s*(\d+(?:\.\d+)?)$/);
+  if (!match || Number(match[2]) < 10 || new Set(match[1]).size < 2) return null;
+  return { play: '组三', selection: match[1], stake: Number(match[2]), factor: lotteryTargets(original).length, claimed: extractClaimedAmount(original) };
+}
+
 function parseFlexibleSpecialMoney(text) {
+  const bareGroup3 = parseBareGroup3Money(text);
+  if (bareGroup3) return bareGroup3;
   const original = normalizeChineseClaimedTotals(String(text));
   const marker = /福彩体彩|福体|福彩\s*3\s*[Dd]|福彩|体彩|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]|[福褔体體排]/gi;
   if ((original.match(marker) || []).length > 1) return null;
@@ -2021,9 +2033,11 @@ function parseFlexibleSpecialMoney(text) {
     : play === '和值' ? /^\d{1,2}$/.test(body) && Number(body) <= 27
     : play === '跨度' ? /^\d$/.test(body)
     : play === '对子' ? /^\d$/.test(body) || (/^\d{2}$/.test(body) && body[0] === body[1])
+    : play === '组三' ? (/^\d{2}$/.test(body) && new Set(body).size === 2) || (/^\d{3}$/.test(body) && new Set(body).size >= 2) || (/^\d{4,9}$/.test(body) && new Set(body).size === body.length)
     : /^\d{4,9}$/.test(body) && new Set(body).size === body.length;
   if (!valid) return null;
-  const stake = chineseAmount(rate[1]) * (rate[2] === '倍' ? 10 : /毛|角/.test(rate[2]) ? 0.1 : 1);
+  const repeatedSingle = play === '组三' && body.length === 3 && new Set(body).size === 2;
+  const stake = chineseAmount(rate[1]) * (rate[2] === '倍' ? (repeatedSingle ? 2 : 10) : /毛|角/.test(rate[2]) ? 0.1 : 1);
   return { play, selection: body, stake, factor: lotteryTargets(original).length, claimed: extractClaimedAmount(original) };
 }
 
@@ -6161,9 +6175,10 @@ function scanEntryForDraw(entry, lottery, draw) {
     else if (playName === '对子') { hit = digits.filter(digit => digit === selection[0]).length >= 2; odds = plays.pair.prize / plays.pair.base; }
     else {
       const group3 = playName === '组三', play = group3 ? plays.group3Multi : plays.group6Multi;
-      hit = unique.size === (group3 ? 2 : 3) && digits.every(digit => selection.includes(digit));
-      odds = play.prizeBySize[selection.length] / play.base;
-      playName = `${selection.length}码${playName}`;
+      const repeatedSingle = group3 && selection.length === 3 && new Set(selection).size === 2;
+      hit = repeatedSingle ? [...selection].sort().join('') === [...draw].sort().join('') : unique.size === (group3 ? 2 : 3) && digits.every(digit => selection.includes(digit));
+      odds = repeatedSingle ? plays.group3.prize / plays.group3.base : play.prizeBySize[selection.length] / play.base;
+      playName = repeatedSingle ? plays.group3.name : `${selection.length}码${playName}`;
     }
     return hit && Number.isFinite(odds) ? [makeWinningEntry(entry, lottery, playName, selection, flexibleSpecial.stake, odds, 0)] : [];
   }
