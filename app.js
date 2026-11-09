@@ -2193,8 +2193,7 @@ function calculateStructuredDanTuo(text, claimed) {
       if (token.type !== 'rate' || !plays.length || !(token.value > 0)) return null;
       if (!token.unit && token.value < 10 && tokens.filter(item => item.type === 'play').length < 2) return null;
       const perPlay = token.value * (token.unit === '倍' ? 10 : ['毛', '角'].includes(token.unit) ? 0.1 : 1);
-      const combinedMoney = plays.length > 1 && token.unit && token.unit !== '倍' && !token.each;
-      stakes.push({ amount: perPlay * (combinedMoney ? 1 : plays.length), detail: `${plays.join('、')}${combinedMoney ? '合并' : '各'}${perPlay}元`, plays: [...plays], perPlay: combinedMoney ? null : perPlay });
+      stakes.push({ amount: perPlay * plays.length, detail: `${plays.join('、')}各${perPlay}元`, plays: [...plays], perPlay });
       plays = [];
     }
     return plays.length || !stakes.length ? null : stakes;

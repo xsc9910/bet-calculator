@@ -28,5 +28,8 @@ console.log(JSON.stringify({drawChecks:checked,failures:0}));
 for(const pickText of ['1拖456','1456']) for(const [draw,prize] of [['145',258],['456',0],['123',0]]) {
  const result=api.calculate({playKey:'group6Dan',draw,pickText,stake:10});assert.equal(result.prize,prize,JSON.stringify({pickText,draw,result}));
 }
-const uncertain=api.scanEntryForDraw({id:'uncertain',original:'福1拖456组三组六5元',amount:5},'福彩','145');
-assert.equal(uncertain.length,1);assert.match(uncertain[0].match,/金额分配待确认/);assert.equal(uncertain[0].prize,0);
+for(const [draw,expected] of [['145',129],['114',192.5]]) {
+ const text='福1拖456组三组六5元';const result=api.autoCalculateBet(text);
+ assert.equal(result.amount,10);const wins=api.scanEntryForDraw({id:'both-each',original:text,amount:10},'福彩',draw);
+ assert.equal(wins.reduce((sum,win)=>sum+win.prize,0),expected,JSON.stringify({draw,wins}));assert.equal(wins[0].stake,5);
+}
