@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7f8f4">
   <title>投注计算台</title>
-  <link rel="stylesheet" href="styles.css?v=20261011-compare-wrap-fix">
+  <link rel="stylesheet" href="styles.css?v=20261109-highlight-picks">
 </head>
 <body>
   <header class="topbar">
@@ -70,8 +70,10 @@
             </label>
           </div>
           <label id="singleRawTextWrapper" class="raw-text-label">
+            <span id="rawBetHighlights" class="raw-bet-highlights" aria-hidden="true"></span>
             <textarea id="rawBetText" rows="11" placeholder="把一整条投注原文粘贴到这里"></textarea>
           </label>
+          <div id="rawBetNumberWarning" class="raw-bet-number-warning" role="status" hidden></div>
           <div id="autoEntryPanel" class="entry-mode-panel">
             <div class="entry-footer">
               <div class="calc-actions">
@@ -365,6 +367,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="app.js?v=20261109-plus-multiplier"></script>
+<script src="app.js?v=20261109-highlight-picks"></script>
 </body>
 </html>

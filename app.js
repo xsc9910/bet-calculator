@@ -4951,6 +4951,29 @@ function parseTrailingBasicLotteryLists(text) {
   return parts.length ? { parts, incomplete: numbers.length > 0, claimed } : null;
 }
 
+function findConcatenatedSingleNumbers(value) {
+  const text = String(value || '');
+  if (!/(?:直选|直|单|组选|组(?![三六]))/.test(text)) return [];
+  const found = [];
+  let offset = 0;
+  const lines = text.split('\n');
+  for (const [lineIndex, line] of lines.entries()) {
+    const tokens = [...line.matchAll(/(?<!\d)\d{3,}(?!\d)/g)];
+    const numbersOnly = /^(?:(?:福彩|体彩|福|体)\s*)?[\d\s、，,.。/+＋-]+$/.test(line);
+    const hasSingles = tokens.some(token => token[0].length === 3) || (numbersOnly && [lines[lineIndex - 1], lines[lineIndex + 1]].some(neighbor => neighbor && /(?<!\d)\d{3}(?!\d)/.test(neighbor)));
+    if (hasSingles) for (const token of tokens) {
+      if (token[0].length < 4) continue;
+      const start = token.index, end = start + token[0].length;
+      const before = line.slice(Math.max(0, start - 10), start), after = line.slice(end);
+      if (/^\s*(?:年|月|日|时|分|秒|注|倍|元|米|块|毛|角|期)/.test(after) || /(?:合计|总计|共计|金额|百位|十位|个位|定位|拖|托)\s*[:：]?\s*$/.test(before)) continue;
+      if (/^\s*(?:(?:\d{4,10})[ \t、，,.。/+-]*)*(?:组六|组三|复式|复试|拖|托|定位)/.test(after) || /(?:组六|组三|复式|复试|拖|托|定位|百位|十位|个位)\s*[:：]?\s*$/.test(before)) continue;
+      found.push({ start: offset + start, end: offset + end, value: token[0], suggestion: token[0].length % 3 === 0 ? token[0].match(/\d{3}/g).join(' ') : '' });
+    }
+    offset += line.length + 1;
+  }
+  return found;
+}
+
 function normalizeAuditNotation(value) {
   return String(value).replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
     .replace(/(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*((?:\d{3}(?:[ \t、，,.。/+＋-]+\d{3})*)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*[+＋]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/gi,
@@ -5001,6 +5024,10 @@ function parseSharedSingleDanDrag(text) {
 }
 
 function autoCalculateBet(text, allowCompound = true) {
+  const concatenated = findConcatenatedSingleNumbers(text);
+  if (concatenated.length) return { amount: '', claimed: extractClaimedAmount(normalizeChineseClaimedTotals(text)), confident: false,
+    reasons: [`发现可能连写的单式号码：${concatenated.map(item => item.value).join('、')}。`],
+    needs: ['请核对红色号码，并在各个三位号码之间加空格；确认后再计算。'] };
   text = normalizeAuditNotation(text);
   const sharedDanDrag = parseSharedSingleDanDrag(text);
   if (sharedDanDrag) return sharedDanDrag;
@@ -6460,7 +6487,25 @@ function betNoteCount(entry) {
   return calculateActualNoteCount(entry.original || '');
 }
 
+function updateRawNumberHighlights() {
+  const input = $('rawBetText'), overlay = $('rawBetHighlights'), warning = $('rawBetNumberWarning'), wrapper = $('singleRawTextWrapper');
+  if (!input || !overlay || !warning || !wrapper) return;
+  const text = input.value, matches = findConcatenatedSingleNumbers(text);
+  let html = '', cursor = 0;
+  for (const item of matches) {
+    html += escapeHtml(text.slice(cursor, item.start)) + `<mark>${escapeHtml(item.value)}</mark>`;
+    cursor = item.end;
+  }
+  overlay.innerHTML = html + escapeHtml(text.slice(cursor)) + (text.endsWith('\n') ? '\n' : '');
+  overlay.style.width = `${input.clientWidth || 0}px`;
+  overlay.scrollTop = input.scrollTop; overlay.scrollLeft = input.scrollLeft;
+  wrapper.classList.toggle('has-highlights', matches.length > 0);
+  warning.hidden = matches.length === 0;
+  warning.textContent = matches.length ? `疑似连写：${matches.map(item => item.suggestion ? `${item.value}（建议核对是否为 ${item.suggestion}）` : item.value).join('；')}。请核对并用空格分开后计算。` : '';
+}
+
 function updateActualInputNoteCount() {
+  updateRawNumberHighlights();
   const text = $('rawBetText').value.trim();
   const source = normalizedSingleBetNumberSource(text);
   const unsupported = /复式|复试|转圈|转子|胆拖|拖|定位|(?:百|十|个)位?\s*[:：]?\s*\d|独胆|胆|双?飞|对子|跨度|粘边|全包|和值|组三|组六|[Xx]/.test(text)
@@ -6888,6 +6933,7 @@ $('rawBetText').oninput = event => {
   if (pastePending || event.inputType === 'insertFromPaste') return;
   autoCalcTimer = setTimeout(() => runAutoBetCalculation({ record: false }), 300);
 };
+$('rawBetText').onscroll = () => { const overlay = $('rawBetHighlights'); overlay.scrollTop = $('rawBetText').scrollTop; overlay.scrollLeft = $('rawBetText').scrollLeft; };
 $('rawBetText').onpaste = () => {
   if (currentEntryMode !== 'auto') return;
   pastePending = true;
