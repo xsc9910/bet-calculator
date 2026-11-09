@@ -4974,7 +4974,7 @@ function parseBareSingleSumMoney(text) {
 
 function parseSharedSingleDanDrag(text) {
   const marker = '(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\\s*[Dd]|[福褔体體排])';
-  const pattern = new RegExp(`^\\s*(${marker})?\\s*(?:胆码?|胆)?\\s*(\\d(?:[ \\t]*[~～至-][ \\t]*\\d|(?:[ \\t]*[、，,./][ \\t]*|[ \\t]+)\\d)+)\\s*[拖托]\\s*(\\d{2,10})\\s*(组三|组六)?\\s*各(?:打|买|记)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(元|米|块|毛|角|倍)(?:\\s*(?:合计|总计|共计|共)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:元|米|块)?)?\\s*$`, 'i');
+  const pattern = new RegExp(`^\\s*(${marker})?\\s*(?:胆码?|胆)?\\s*(\\d{2,10}|\\d(?:[ \\t]*[~～至-][ \\t]*\\d|(?:[ \\t]*[、，,./][ \\t]*|[ \\t]+)\\d)+)\\s*[拖托]\\s*(\\d{2,10})\\s*(组三|组六)?\\s*各(?:打|买|记)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(元|米|块|毛|角|倍)(?:\\s*(?:合计|总计|共计|共)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:元|米|块)?)?\\s*$`, 'i');
   const match = String(text).match(pattern);
   if (!match) return null;
   const raw = match[2], range = raw.match(/^(\d)\s*[~～至-]\s*(\d)$/);

@@ -12,6 +12,15 @@ for(const [marker,target,factor] of [['福','福彩',1],['体','体彩',1],['福
  }
 }
 for(const [text,amount] of [['福1~4拖56789组六各10元',40],['体1 2 3托4567组三各5米',15],['福体1~2拖34677各10米',40]]) assert.equal(api.autoCalculateBet(text).amount,amount,text);
+for(const [digits,drag,rate] of [['234','56789',10],['015','34678',5],['6789','01234',3],['45','0123',20]]) for(const marker of ['福','体','福体']) for(const play of ['','组三','组六']) {
+ const text=`${marker}${digits}拖${drag}${play}各${rate}元`, result=api.autoCalculateBet(text);
+ assert.equal(result.amount,digits.length*rate*(marker==='福体'?2:1),JSON.stringify({text,result}));
+ if(play){assert.equal(result.danTuoParts.length,digits.length,JSON.stringify({text,result}));assert.deepEqual(result.danTuoParts.map(part=>part.selection),[...digits].map(digit=>`${digit}拖${drag}`));}
+}
+for(const [draw,expected] of [['256',103],['356',103],['456',103],['567',0]]) {
+ const text='福234拖56789组六各10元',wins=api.scanEntryForDraw({id:'digits',original:text,amount:30},'福彩',draw);
+ assert.equal(wins.reduce((sum,win)=>sum+win.prize,0),expected,JSON.stringify({draw,wins}));
+}
 const original=api.autoCalculateBet('1~2拖34677各10米');assert.match(original.reasons.join(''),/未注明组三或组六/);
 assert.equal(api.scanEntryForDraw({id:'missing-play',original:'1~2拖34677各10米',amount:20},'福彩','137').length,0);
 console.log('MULTI_DAN_SHARED_DRAG passed');
