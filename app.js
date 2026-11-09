@@ -675,7 +675,7 @@ function populatePlays() {
   $('playType').innerHTML = Object.entries(plays).map(([key, p]) => `<option value="${key}">${p.name}</option>`).join('');
 }
 
-function calculate({ playKey, draw, pickText, stake, customBase, customPrize, customHits }) {
+function calculate({ lottery, playKey, draw, pickText, stake, customBase, customPrize, customHits }) {
   const play = plays[playKey];
   const drawDigits = draw.split('');
   const drawSet = new Set(drawDigits);
@@ -779,7 +779,7 @@ function calculate({ playKey, draw, pickText, stake, customBase, customPrize, cu
     prize = stickyBase ? hits.length * play.prize * stake / stickyBase : 0;
   } else if (playKey === 'group3Pack') {
     hits = drawSet.size === 2 ? ['组三全包'] : [];
-    prize = hits.length * scaled(play.prize);
+    prize = hits.length * (lottery === '福彩' ? plays.group3Multi.prizeBySize[10] * stake / plays.group3Multi.base : scaled(play.prize));
   } else {
     hits = Array.from({length: Number(customHits) || 0}, (_, i) => `命中${i + 1}`);
     prize = hits.length * (Number(customPrize) || 0) * stake / (Number(customBase) || 1);
@@ -1918,17 +1918,21 @@ function calculateMixedPositionAndDirectBet(text, claimed, lotteryFactor) {
     reasons: [`混合投注逐段计算：${details.join('；')}${lotteryFactor === 2 ? '；福彩体彩两边各算一次' : ''}`] };
 }
 
+function extractPairSelections(text) {
+  const [beforePair, ...afterPairParts] = String(text).split(/对子/);
+  const pairPrefix = beforePair.match(/((?<!\d)\d{1,2}(?:[\s、，,.。/+-]+\d{1,2})*)\s*$/)?.[1];
+  const pairSuffix = afterPairParts.join(' ').replace(/(?:各(?:打)?|打|记|买)?\s*(?:[零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(?:倍|毛|角|元|米|块)/g, ' ')
+    .replace(/(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?/g, ' ');
+  return (pairPrefix || pairSuffix).match(/(?<!\d)\d{1,2}(?!\d)/g) || [];
+}
+
 function calculatePairOrSpanBet(text, claimed, lotteryFactor) {
   const pair = /对子/.test(text);
   const span = /跨度|\d\s*跨/.test(text);
   if (!pair && !span) return null;
   let count = 1;
   if (pair) {
-    const pairText = text
-      .replace(/(?:各(?:打)?\s*)?([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/g, ' ')
-      .replace(/对子\s*\d+(?:\.\d+)?(?=\s*(?:$|合计|共计|共|[，,]))/g, '对子 ')
-      .replace(/对子/g, ' ');
-    count = (pairText.match(/(?<!\d)\d{2}(?!\d)/g) || []).length || 1;
+    count = extractPairSelections(text).length || 1;
   }
   if (span) {
     const sharedSpanList = text.match(/(?:跨度|跨)\s*([0-9](?:[\s.。、，,+＋/\-]+[0-9])+)\s*(?=各|每)/);
@@ -6268,7 +6272,7 @@ function scanEntryForDraw(entry, lottery, draw) {
         multiplier = plays.group3.prize / plays.group3.base;
       } else {
         const group3 = selection.label === '组三';
-        hit = drawSet.size === (group3 ? 2 : 3) && drawDigits.every(digit => selection.selection.includes(digit));
+        hit = (!group3 || drawSet.size === 2) && drawDigits.every(digit => selection.selection.includes(digit));
         const compoundPlay = group3 ? plays.group3Multi : plays.directMulti;
         play = `${selection.unique}码${compoundPlay.name}`;
         multiplier = compoundPlay.prizeBySize[selection.unique] / compoundPlay.base;
@@ -6338,8 +6342,8 @@ function scanEntryForDraw(entry, lottery, draw) {
 
   if (/对子/.test(text) && drawSet.size < 3) {
     const repeated = drawDigits.find((digit, index) => drawDigits.indexOf(digit) !== index);
-    const selected = text.match(/(?<!\d)\d{1,2}(?!\d)/g) || [];
-    const stake = specialStake(text, 10, entry, selected.length);
+    const selected = extractPairSelections(text);
+    const stake = rateFromText(text) ?? multiplierStake(text, 10) ?? explicitMoney(text) ?? specialStake(text, 10, entry, selected.length);
     selected.forEach(value => {
       if (value.includes(repeated)) wins.push(makeWinningEntry(entry, lottery, plays.pair.name, value, stake, plays.pair.prize / plays.pair.base, winIndex++));
     });
@@ -7184,7 +7188,11 @@ $('applyDraws').onclick = () => {
   toast(`核奖完成，命中${winningCount}项`);
 };
 $('lottery').onchange = () => $('drawNumber').value = $('lottery').value === '福彩' ? $('welfareDraw').value : $('sportsDraw').value;
-$('playType').onchange = () => $('customOdds').classList.toggle('hidden', $('playType').value !== 'custom');
+$('playType').onchange = () => {
+  const play = $('playType').value;
+  $('customOdds').classList.toggle('hidden', play !== 'custom');
+  $('picks').required = !['leopardPack', 'group3Pack', 'custom'].includes(play);
+};
 $('calcForm').onsubmit = e => {
   e.preventDefault();
   const values = { lottery: $('lottery').value, playKey: $('playType').value, draw: normalize3($('drawNumber').value),
