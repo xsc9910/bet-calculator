@@ -4953,6 +4953,9 @@ function parseTrailingBasicLotteryLists(text) {
 
 function normalizeAuditNotation(value) {
   return String(value).replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
+    .replace(/(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*((?:\d{3}(?:[ \t、，,.。/+＋-]+\d{3})*)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*[+＋]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/gi,
+      (match, marker, numbers, direct, directUnit, group, groupUnit, offset, source) => numbers || /(?<!\d)\d{3}\s*$/.test(source.slice(0, offset))
+        ? `${marker}${numbers ? ` ${numbers} ` : ''}直${direct}${directUnit || groupUnit}组${group}${groupUnit}` : match)
     .replace(/(?<=\d)\s*托\s*(?=\d)/g, '拖')
     .replace(/(?:一直一组|一单一组|一组一直|一组一单)\s*(?:1|一)\s*(元|米|块)(?=\s*(?:$|[\r\n，,；;]|合计|总计|共计|一共|共))/g, '直组各1$1')
     .replace(/(?<!\d)(\d{2})\s*[,，]\s*(?=双?飞)/g, '$1 ')
