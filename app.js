@@ -3077,16 +3077,22 @@ function calculateAggregateEachGroupBet(text, claimed, lotteryFactor) {
     reasons: [`${numbers.length}注各一${play}=1倍 × 2元/注 = ${money(expected)}元${match ? `；原文${match[1]}${match[2]}作为合计核对` : ''}${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
-function calculateUnitDirectGroupWithTrailingSubtotal(text, claimed, lotteryFactor) {
-  if (/[\r\n]/.test(text)) return null;
-  const match = text.match(/((?<!\d)\d{3}(?!\d)(?:[\s、，,。.\/\-]+\d{3}(?!\d))*)[\s、，,。.\/\-]*(一(?:直|单)一组|一组一(?:直|单))\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*$/);
+function parseUnitDirectGroupWithTrailingSubtotal(text) {
+  const body = String(text).replace(/\s*(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  if (/[\r\n]/.test(body)) return null;
+  const match = body.match(/^\s*(福彩体彩|福体|福彩\s*3\s*[Dd]|3\s*[Dd]\s*福彩|福彩|体彩|排列三|排三|3\s*[Dd]|三\s*[DdBb]|三[弟地]|[福褔体體排])?\s*((?<!\d)\d{3}(?!\d)(?:[\s、，,。.\/\-+＋×]+\d{3}(?!\d))*)[\s、，,。.\/\-]*(一(?:直|单)一组|一组一(?:直|单))\s*(\d+(?:\.\d+)?)\s*(毛|角|元|米|块)\s*$/i);
   if (!match) return null;
-  const numbers = match[1].match(/\d{3}/g) || [];
+  const numbers = match[2].match(/\d{3}/g) || [];
   if (!numbers.length) return null;
-  const subtotal = Number(match[3]) * (['毛', '角'].includes(match[4]) ? 0.1 : 1);
-  const amount = numbers.length * 4 * lotteryFactor;
-  return { amount: Number(amount.toFixed(2)), claimed, confident: true,
-    reasons: [`${numbers.length}个号码各一注直选、一注组选，共${amount}元；行尾${subtotal}元作为本行小计核对，不作为单注金额`] };
+  return { lottery: match[1] || '福', numbers, subtotal: Number(match[4]) * (['毛', '角'].includes(match[5]) ? 0.1 : 1) };
+}
+
+function calculateUnitDirectGroupWithTrailingSubtotal(text, claimed, lotteryFactor) {
+  const parsed = parseUnitDirectGroupWithTrailingSubtotal(text);
+  if (!parsed) return null;
+  const amount = parsed.numbers.length * 4 * lotteryFactor;
+  return { amount: Number(amount.toFixed(2)), claimed: claimed === '' ? parsed.subtotal : claimed, confident: true,
+    reasons: [`${parsed.numbers.length}个号码各一注直选、一注组选，共${amount}元；行尾${parsed.subtotal}元作为本行小计核对，不作为单注金额`] };
 }
 
 function calculateDirectGroupWithSingleDigit(text, claimed, lotteryFactor) {
@@ -5744,6 +5750,21 @@ function scanEntryForDraw(entry, lottery, draw) {
   }
   entry = { ...entry, original };
   const text = normalizePositionSelectionLists(normalizeBetAliases(String(entry.original || '').replace(/&#x20;|&nbsp;/gi, ' ').replace(/O/g, '0').replace(/[沾粘]边(?:赖)?/g, '粘边赖')));
+  const unitDirectGroup = parseUnitDirectGroupWithTrailingSubtotal(entry.original);
+  if (unitDirectGroup && /^\d{3}$/.test(draw)) {
+    if (!lotteryTargets(unitDirectGroup.lottery).includes(lottery)) return [];
+    const results = [];
+    const drawSet = new Set(draw);
+    const sortedDraw = [...draw].sort().join('');
+    for (const number of unitDirectGroup.numbers) {
+      if (number === draw) results.push(makeWinningEntry(entry, lottery, plays.direct.name, number, 2, plays.direct.prize / plays.direct.base, results.length));
+      if (drawSet.size > 1 && [...number].sort().join('') === sortedDraw) {
+        const play = drawSet.size === 2 ? plays.group3 : plays.group6;
+        results.push(makeWinningEntry(entry, lottery, play.name, number, 2, play.prize / play.base, results.length));
+      }
+    }
+    return results;
+  }
   const sharedRows = parseScopedRowsWithSharedRates(entry.original);
   if (sharedRows?.incomplete) return [];
   if (sharedRows && /^\d{3}$/.test(draw)) {
