@@ -8,6 +8,15 @@ const cases = [
   ['体彩13589组六1倍组三5块', 15]
 ];
 const current = '体彩排列三14579\n01256\n23489\n13679\n组六2倍组三1倍';
+const inlineCurrent = '体彩排列三03578\n01569\n02367\n01568组六2倍组三1倍';
+cases.push([inlineCurrent, 120]);
+assert.deepEqual(api.parseSharedMixedGroupRates(inlineCurrent).parts.map(part => part.selection), ['03578','01569','02367','01568']);
+for (const lottery of ['体', '福', '体彩排列三']) {
+  for (const rates of ['组六2倍组三1倍', '组三1倍，组六2倍']) {
+    cases.push([`${lottery}03578\n01569\n02367\n01568${rates}`, 120]);
+  }
+}
+assert.equal(api.scanEntryForDraw({id:'inline-last',original:inlineCurrent,amount:120},'体彩','378').length,1);
 cases.push([current, 120]);
 console.log('CURRENT', JSON.stringify(api.autoCalculateBet(current)));
 for (const header of ['体彩排列三14579', '体彩排列三\n14579', '体彩14579', '排三14579']) {

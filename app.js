@@ -4416,6 +4416,8 @@ function parseSharedMixedGroupRates(text) {
   const lines = normalizeChineseClaimedTotals(text).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return null;
   while (lines.length && /^(?:合计|总计|共计|一共|共)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?$/.test(lines.at(-1))) lines.pop();
+  const inlineTail = (lines.at(-1) || '').match(/^(\d{4,10}(?:[\s、，,.。/\-]+\d{4,10})*)\s*((?:组三|组六).+)$/);
+  if (inlineTail) lines.splice(lines.length - 1, 1, inlineTail[1], inlineTail[2]);
   const tail = lines.at(-1) || '';
   const ratePattern = /(组三|组六)\s*(?:各打|各|打)?\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|毛|角|元|米|块)/g;
   const rates = [...tail.matchAll(ratePattern)];
