@@ -5174,18 +5174,21 @@ function parseBareSingleSumMoney(text) {
 }
 
 function parseSharedSingleDanDrag(text) {
-  const marker = '(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\\s*[Dd]|[福褔体體排])';
-  const pattern = new RegExp(`^\\s*(${marker})?\\s*(?:胆码?|胆)?\\s*(\\d{2,10}|\\d(?:[ \\t]*[~～至-][ \\t]*\\d|(?:[ \\t]*[、，,./][ \\t]*|[ \\t]+)\\d)+)\\s*[拖托]\\s*(\\d{2,10})\\s*(组三|组六)?\\s*各(?:打|买|记)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(元|米|块|毛|角|倍)(?:\\s*(?:合计|总计|共计|共)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:元|米|块)?)?\\s*$`, 'i');
-  const match = String(text).match(pattern);
+  const marker = '(?:福彩体彩|福体|福(?:彩)?\\s*3\\s*[Dd]|福彩|体彩|排列三|排三|3\\s*[Dd]|三\\s*[DdBb]|三[弟地]|[福褔体體排])';
+  const markerRegex = new RegExp(marker, 'gi'), markerMatches = [...String(text).matchAll(markerRegex)];
+  if (markerMatches.length > 1) return null;
+  const input = markerMatches.length ? `${markerMatches[0][0]} ${String(text).slice(0, markerMatches[0].index)} ${String(text).slice(markerMatches[0].index + markerMatches[0][0].length).replace(/^\s*[:：]/, ' ')}` : String(text);
+  const pattern = new RegExp(`^\\s*(${marker})?\\s*[:：]?\\s*(?:胆码?|胆)?\\s*(\\d{2,10}|\\d(?:[ \\t]*[~～至-][ \\t]*\\d|(?:[ \\t]*[、，,./][ \\t]*|[ \\t]+)\\d)+)\\s*(?:胆[拖托]|[拖托])(?:码)?\\s*(\\d{2,10})\\s*(组三|组六)?\\s*各(?:打|买|记)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(元|米|块|毛|角|倍)(?:\\s*(?:合计|总计|共计|共)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:元|米|块)?)?\\s*$`, 'i');
+  const match = input.match(pattern);
   if (!match) return null;
-  const raw = match[2], range = raw.match(/^(\d)\s*[~～至-]\s*(\d)$/);
+  const raw = match[2], range = raw.match(/^(\d)\s*[~～至]\s*(\d)$/);
   let digits;
   if (range) {
     const start = Number(range[1]), end = Number(range[2]);
     if (start > end) return null;
     digits = Array.from({length:end - start + 1}, (_, index) => String(start + index));
   } else {
-    if (/[~～至-]/.test(raw)) return null;
+    if (/[~～至]/.test(raw)) return null;
     digits = raw.match(/\d/g);
   }
   const stake = chineseAmount(match[5]) * (match[6] === '倍' ? 10 : /毛|角/.test(match[6]) ? 0.1 : 1);
