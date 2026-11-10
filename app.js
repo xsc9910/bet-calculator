@@ -2502,6 +2502,31 @@ function calculateAllDanTuoBet(text, claimed, lotteryFactor) {
     reasons: [`全胆拖${selections.length}组（${selections.map(match => `${match[1]}拖${match[2]}`).join('、')}） × 每组${stake}元${lotteryFactor === 2 ? ' × 福彩体彩两边' : ''}`] };
 }
 
+function parseSharedTwoCodeRows(text) {
+  if (!/\r?\n/.test(text)) return null;
+  const normalized = normalizeChineseClaimedTotals(String(text));
+  const header = normalized.match(/^\s*((?:(?:福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排])\s*)+)/i);
+  if (!header) return null;
+  const lottery = header[1];
+  let body = normalized.slice(header[0].length).replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  body = body.replace(/组三\s*(?:两码|二码|2码)|(?:两码|二码|2码)\s*组三/g, '组三');
+  const pairs = '(\\d{2}(?:[\\s、，,.。/\\-]+\\d{2})*)';
+  const rate = '(?:各打|各|打|记|买)?\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|毛|角|元|米|块)?';
+  let match = body.match(new RegExp(`^${pairs}\\s*(组三|组六)\\s*${rate}$`));
+  let selection, play, value, unit;
+  if (match) [, selection, play, value, unit] = match;
+  else {
+    match = body.match(new RegExp(`^(组三|组六)\\s*${pairs}\\s*${rate}$`));
+    if (!match) return null;
+    [, play, selection, value, unit] = match;
+  }
+  const selections = selection.match(/\d{2}/g);
+  if (selections.length < 2 || selections.some(pair => pair[0] === pair[1])) return null;
+  const amount = chineseAmount(value);
+  if (!(amount > 0) || (!unit && amount < 10)) return null;
+  return {lottery, selections, play, stake: amount * (unit === '倍' ? 10 : /毛|角/.test(unit || '') ? 0.1 : 1), claimed: extractClaimedAmount(normalized)};
+}
+
 function parseTwoCodeGroup3Order(text) {
   const normalized = normalizeChineseClaimedTotals(normalizeBetAliases(text));
   const markers = normalized.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
@@ -5209,6 +5234,9 @@ function autoCalculateBet(text, allowCompound = true) {
   if (missingSeparateRate) return { amount: '', claimed: extractClaimedAmount(normalizeChineseClaimedTotals(text)), confident: false,
     reasons: ['直选和组选分别列出，但后一项没有写清金额或倍数。'], needs: ['请补充后一项的额度；若两项共用同一金额，请写“直组各×元”。'] };
   text = normalizeAuditNotation(text);
+  const sharedTwoCodeRows = parseSharedTwoCodeRows(text);
+  if (sharedTwoCodeRows) return { amount: Number((sharedTwoCodeRows.selections.length * sharedTwoCodeRows.stake * lotteryTargets(sharedTwoCodeRows.lottery).length).toFixed(2)), claimed: sharedTwoCodeRows.claimed, confident: true,
+    reasons: [`两码${sharedTwoCodeRows.play}：${sharedTwoCodeRows.selections.join('、')}，各${sharedTwoCodeRows.stake}元${lotteryTargets(sharedTwoCodeRows.lottery).length === 2 ? '，福彩体彩各算一次' : ''}`] };
   const flexibleScopes = parseFlexibleSpecialScopes(text);
   if (flexibleScopes) return { amount: Number(flexibleScopes.parts.reduce((sum, part) => sum + part.amount, 0).toFixed(2)), claimed: flexibleScopes.claimed, confident: true,
     parts: flexibleScopes.parts, reasons: [`按各段彩票与玩法分别计算：${flexibleScopes.parts.map(part => `${part.original}=${part.amount}元`).join('；')}`] };
@@ -6393,6 +6421,12 @@ function scanEntryForDraw(entry, lottery, draw) {
         if (drawSet.size === (sharedTailGroupAmount.group3 ? 2 : 3) && drawDigits.every(digit => unique.includes(digit)) && play.prizeBySize[unique.length]) wins.push(makeWinningEntry(entry, lottery, `${unique.length}码${sharedTailGroupAmount.group3 ? '组三' : '组六'}`, selection, sharedTailGroupAmount.stake, play.prizeBySize[unique.length] / play.base, wins.length));
       }
     }
+    return wins;
+  }
+  const sharedTwoCodeRows = parseSharedTwoCodeRows(String(entry.original || ''));
+  if (sharedTwoCodeRows && sharedTwoCodeRows.play === '组三') {
+    if (!lotteryTargets(sharedTwoCodeRows.lottery).includes(lottery)) return [];
+    for (const pair of sharedTwoCodeRows.selections) if (drawSet.size === 2 && drawDigits.every(digit => pair.includes(digit))) wins.push(makeWinningEntry(entry, lottery, '两码组三', pair, sharedTwoCodeRows.stake, plays.group3Multi.prizeBySize[2] / plays.group3Multi.base, wins.length));
     return wins;
   }
   const twoCodeGroup3Order = parseTwoCodeGroup3Order(String(entry.original || ''));
