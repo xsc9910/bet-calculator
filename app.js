@@ -5218,6 +5218,22 @@ function normalizeAuditNotation(value) {
     .replace(/((?:元|米|块|毛|角|倍))\s*[,，]\s*(\d+(?:\.\d+)?)\s*$/, '$1 合计$2');
 }
 
+function parseMultilineSumList(text) {
+  if (!/\r?\n/.test(text)) return null;
+  const normalized = normalizeChineseClaimedTotals(String(text)).replace(/\\(?=\s*\r?\n)/g, '');
+  const markerPattern = /福彩体彩|福体|福彩\s*3\s*[Dd]|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  const markers = normalized.match(markerPattern) || [];
+  if (markers.length > 1) return null;
+  const lottery = markers[0] || '福';
+  const body = normalized.replace(markerPattern, ' ').replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/, '').trim();
+  const match = body.match(/^和值\s*[:：]?\s*(\d{1,2}(?:[\s、，,.。/\-]+\d{1,2})*)\s*(?:各打|各|打|记|买)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(倍|元|米|块|毛|角)$/);
+  if (!match) return null;
+  const sums = match[1].match(/\d{1,2}/g).map(Number);
+  if (sums.some(sum => sum > 27)) return null;
+  const stake = chineseAmount(match[2]) * (match[3] === '倍' ? 10 : /毛|角/.test(match[3]) ? 0.1 : 1);
+  return {lottery,sums,stake,claimed:extractClaimedAmount(normalized)};
+}
+
 function parseBareSingleSumMoney(text) {
   const normalized = normalizeChineseClaimedTotals(String(text));
   const markers = normalized.match(/福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi) || [];
@@ -5263,6 +5279,9 @@ function autoCalculateBet(text, allowCompound = true) {
   if (missingSeparateRate) return { amount: '', claimed: extractClaimedAmount(normalizeChineseClaimedTotals(text)), confident: false,
     reasons: ['直选和组选分别列出，但后一项没有写清金额或倍数。'], needs: ['请补充后一项的额度；若两项共用同一金额，请写“直组各×元”。'] };
   text = normalizeAuditNotation(text);
+  const multilineSum = parseMultilineSumList(text);
+  if (multilineSum) return {amount:Number((multilineSum.sums.length*multilineSum.stake*lotteryTargets(multilineSum.lottery).length).toFixed(2)),claimed:multilineSum.claimed,confident:true,
+    reasons:[`和值${multilineSum.sums.join('、')}各${multilineSum.stake}元${lotteryTargets(multilineSum.lottery).length===2?'，福彩体彩各算一次':''}`]};
   const groupDanFly = parseGroupDanFlyCombination(text);
   if (groupDanFly) return {amount:Number(groupDanFly.parts.reduce((sum,part)=>sum+part.amount,0).toFixed(2)),claimed:groupDanFly.claimed,confident:true,parts:groupDanFly.parts,
     reasons:[`组选、独胆、双飞分别计算：${groupDanFly.parts.map(part=>`${part.original}=${part.amount}元`).join('；')}`]};
@@ -6201,6 +6220,13 @@ function scanEntryForDraw(entry, lottery, draw) {
     original = original.replace(/((?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?)\s*0\.5\s*倍/g, '$1 1元');
   }
   entry = { ...entry, original };
+  const multilineSum = parseMultilineSumList(original);
+  if (multilineSum && /^\d{3}$/.test(draw)) {
+    if (!lotteryTargets(multilineSum.lottery).includes(lottery)) return [];
+    const drawSum = [...draw].reduce((sum,digit)=>sum+Number(digit),0), result=[];
+    for (const sum of multilineSum.sums) if (sum === drawSum && plays.sum.prizes[sum]) result.push(makeWinningEntry(entry,lottery,'和值',String(sum),multilineSum.stake,plays.sum.prizes[sum]/plays.sum.base,result.length));
+    return result;
+  }
   const groupDanFly = parseGroupDanFlyCombination(original);
   if (groupDanFly && /^\d{3}$/.test(draw)) return groupDanFly.parts.flatMap((part,index) => {
     const targets = lotteryTargets(part.original);
