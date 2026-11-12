@@ -18,7 +18,8 @@ for (const [text, amount, claimed] of cases) {
   const result = api.autoCalculateBet(text);
   assert.deepEqual([result.amount, result.claimed, result.confident], [amount, claimed, true], JSON.stringify({ text, result }));
 }
-for (const [draw, expected] of [['889', [[20, 310], [20, 310]]], ['233', [[20, 310]]], ['258', []], ['888', []], ['001', []]]) {
+// 用户更新规则：四码及以上未写玩法按组六，不再按组三。
+for (const [draw, expected] of [['889', []], ['233', []], ['258', [[20, 310]]], ['289', [[20, 310], [20, 310]]], ['888', []], ['001', []]]) {
   const wins = api.scanEntryForDraw({ id: 'default-group3', original, amount: 40 }, '福彩', draw);
   assert.deepEqual(wins.map(win => [win.stake, win.prize]), expected, JSON.stringify({ draw, wins }));
 }

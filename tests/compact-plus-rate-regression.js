@@ -37,9 +37,10 @@ for(const [marker,targets] of [['福',['福彩']],['体',['体彩']],['福体',[
   assert.equal(wins.find(w=>w.match.includes('单式'))?.stake||0,own?2*group:0,JSON.stringify({text,lottery,wins}));checks++;
  }
 }
-for(const text of ['234福1+','234福+1','234福1+不详','234福1元+1']) {
+for(const text of ['234福1+','234福+1','234福1+不详']) {
  const result=api.autoCalculateBet(text);assert.ok(!result.confident || result.amount==='',JSON.stringify({text,result}));
 }
+assert.equal(api.autoCalculateBet('234福1元+1').amount,2);
 for(const [text,amount] of [['234福1+1\n567体2+3\n合计14',14],['234 235福1+1',8],['福234+235 1+1',8]]) {
  const result=api.autoCalculateBet(text);assert.equal(result.amount,amount,JSON.stringify({text,result}));
 }
