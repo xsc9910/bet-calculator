@@ -5230,6 +5230,23 @@ function normalizeAuditNotation(value) {
     .replace(/((?:元|米|块|毛|角|倍))\s*[,，]\s*(\d+(?:\.\d+)?)\s*$/, '$1 合计$2');
 }
 
+function parseSharedFlyEachAmount(text) {
+  const normalized=normalizeChineseClaimedTotals(String(text));
+  const markerPattern=/福彩体彩|福体|福彩\s*3\s*[Dd]|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  const markers=normalized.match(markerPattern)||[];if(markers.length>1)return null;
+  const lottery=markers[0]||'';
+  let body=normalized.replace(markerPattern,' ').replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/,'').trim().replace(/^[\s、，,:：]+/,'');
+  const pairList='(\\d{2}(?:[\\s、，,.。/／\\-]+\\d{2})+)';
+  const rate='(?:各(?:打)?|个打)\\s*([零〇一二两三四五六七八九十百]+|\\d+(?:\\.\\d+)?)\\s*(倍|元|米|块|毛|角)?';
+  let m=body.match(new RegExp(`^${pairList}\\s*${rate}\\s*(?:双飞|飞)$`)),pairs,value,unit;
+  if(m)[,pairs,value,unit]=m;
+  else {m=body.match(new RegExp(`^${pairList}\\s*(?:双飞|飞)\\s*${rate}$`));if(m)[,pairs,value,unit]=m;
+    else {m=body.match(new RegExp(`^(?:双飞|飞)\\s*${pairList}\\s*${rate}$`));if(!m)return null;[,pairs,value,unit]=m;}}
+  const selections=pairs.match(/\d{2}/g);if(selections.some(pair=>pair[0]===pair[1]))return null;
+  const stake=chineseAmount(value)*(unit==='倍'?10:/毛|角/.test(unit||'')?0.1:1);if(!(stake>0))return null;
+  return {lottery,selections,stake,claimed:extractClaimedAmount(normalized)};
+}
+
 function parseDanAndUnspecifiedGroup3(text) {
   if (!/\r?\n/.test(text)) return null;
   const normalized=normalizeChineseClaimedTotals(String(text)).replace(/\\(?=\s*\r?\n)/g,'');
@@ -5340,6 +5357,9 @@ function autoCalculateBet(text, allowCompound = true) {
   if (missingSeparateRate) return { amount: '', claimed: extractClaimedAmount(normalizeChineseClaimedTotals(text)), confident: false,
     reasons: ['直选和组选分别列出，但后一项没有写清金额或倍数。'], needs: ['请补充后一项的额度；若两项共用同一金额，请写“直组各×元”。'] };
   text = normalizeAuditNotation(text);
+  const sharedFly=parseSharedFlyEachAmount(text);
+  if(sharedFly)return {amount:Number((sharedFly.selections.length*sharedFly.stake*(sharedFly.lottery?lotteryTargets(sharedFly.lottery).length:1)).toFixed(2)),claimed:sharedFly.claimed,confident:Boolean(sharedFly.lottery),
+    reasons:[`双飞${sharedFly.selections.join('、')}各${sharedFly.stake}元`],...(sharedFly.lottery?{}:{needs:['请补充福彩或体彩，再记录或核奖。']})};
   const danGroup3Pack=parseDanAndUnspecifiedGroup3(text);
   if(danGroup3Pack)return {amount:Number(danGroup3Pack.parts.reduce((sum,part)=>sum+part.amount,0).toFixed(2)),claimed:danGroup3Pack.claimed,confident:true,
     reasons:[`逐项金额：${danGroup3Pack.parts.map(part=>`${part.lottery}${part.selection}${part.type}=${part.amount}元`).join('；')}`]};
@@ -6290,6 +6310,12 @@ function scanEntryForDraw(entry, lottery, draw) {
     original = original.replace(/((?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?)\s*0\.5\s*倍/g, '$1 1元');
   }
   entry = { ...entry, original };
+  const sharedFly=parseSharedFlyEachAmount(original);
+  if(sharedFly&&/^\d{3}$/.test(draw)){
+    if(!sharedFly.lottery||!lotteryTargets(sharedFly.lottery).includes(lottery))return [];
+    const result=[];for(const pair of sharedFly.selections)if([...pair].every(d=>draw.includes(d)))result.push(makeWinningEntry(entry,lottery,plays.doubleFly.name,pair,sharedFly.stake,plays.doubleFly.prize/plays.doubleFly.base,result.length));
+    return result;
+  }
   const danGroup3Pack=parseDanAndUnspecifiedGroup3(original);
   if(danGroup3Pack&&/^\d{3}$/.test(draw))return danGroup3Pack.parts.flatMap((part,index)=>{
     if(!lotteryTargets(part.lottery).includes(lottery))return [];
