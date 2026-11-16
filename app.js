@@ -5246,10 +5246,21 @@ function parseDanAndUnspecifiedGroup3(text) {
     if(!dan&&!group)return null;
     const number=dan?dan[3]:group[1],unit=dan?dan[4]:group[2],stake=chineseAmount(number)*(unit==='倍'?10:/毛|角/.test(unit||'')?0.1:1);
     if(!(stake>0))return null;
-    parts.push({lottery,type:dan?'胆':'组三（号码待补）',selection:dan?(dan[1]||dan[2]):'',stake,amount:Number((stake*lotteryTargets(lottery).length).toFixed(2))});
+    parts.push({lottery,type:dan?'胆':'组三全包',selection:dan?(dan[1]||dan[2]):'',stake,amount:Number((stake*lotteryTargets(lottery).length).toFixed(2))});
   }
-  if(!parts.some(part=>part.type==='胆')||!parts.some(part=>part.type.startsWith('组三')))return null;
+  if(!parts.some(part=>part.type==='胆')||!parts.some(part=>part.type==='组三全包'))return null;
   return {parts,claimed:extractClaimedAmount(normalized)};
+}
+
+function parseDirectNumberDashMoney(text) {
+  const normalized=normalizeChineseClaimedTotals(String(text));
+  const markerPattern=/福彩体彩|福体|福彩\s*3\s*[Dd]|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體排]/gi;
+  const markers=normalized.match(markerPattern)||[];if(markers.length!==1)return null;
+  const body=normalized.replace(markerPattern,' ').replace(/(?:合计|总计|共计|一共|共|计)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:元|米|块)?\s*$/,'').trim().replace(/^[\s、，,:：]+/,'');
+  const match=body.match(/^(?:直选|直|单)\s*(\d{3})\s*(?:一|[-—－])\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(元|米|块|毛|角)$/);
+  if(!match)return null;
+  const stake=chineseAmount(match[2])*(/毛|角/.test(match[3])?0.1:1);if(!(stake>0))return null;
+  return {lottery:markers[0],number:match[1],stake,claimed:extractClaimedAmount(normalized)};
 }
 
 function parseImplicitMultiGroup6(text) {
@@ -5329,9 +5340,12 @@ function autoCalculateBet(text, allowCompound = true) {
   if (missingSeparateRate) return { amount: '', claimed: extractClaimedAmount(normalizeChineseClaimedTotals(text)), confident: false,
     reasons: ['直选和组选分别列出，但后一项没有写清金额或倍数。'], needs: ['请补充后一项的额度；若两项共用同一金额，请写“直组各×元”。'] };
   text = normalizeAuditNotation(text);
-  const incompleteGroup3=parseDanAndUnspecifiedGroup3(text);
-  if(incompleteGroup3)return {amount:Number(incompleteGroup3.parts.reduce((sum,part)=>sum+part.amount,0).toFixed(2)),claimed:incompleteGroup3.claimed,confident:false,
-    reasons:[`逐项金额：${incompleteGroup3.parts.map(part=>`${part.lottery}${part.selection}${part.type}=${part.amount}元`).join('；')}`],needs:['组三未写号码或全包，请补充玩法范围后再记录和核奖。']};
+  const danGroup3Pack=parseDanAndUnspecifiedGroup3(text);
+  if(danGroup3Pack)return {amount:Number(danGroup3Pack.parts.reduce((sum,part)=>sum+part.amount,0).toFixed(2)),claimed:danGroup3Pack.claimed,confident:true,
+    reasons:[`逐项金额：${danGroup3Pack.parts.map(part=>`${part.lottery}${part.selection}${part.type}=${part.amount}元`).join('；')}`]};
+  const directDashMoney=parseDirectNumberDashMoney(text);
+  if(directDashMoney)return {amount:Number((directDashMoney.stake*lotteryTargets(directDashMoney.lottery).length).toFixed(2)),claimed:directDashMoney.claimed,confident:true,
+    reasons:[`${directDashMoney.lottery}${directDashMoney.number}直选${directDashMoney.stake}元`]};
   const implicitGroup6=parseImplicitMultiGroup6(text);
   if(implicitGroup6) return {amount:Number((implicitGroup6.selections.length*implicitGroup6.stake*(implicitGroup6.lottery?lotteryTargets(implicitGroup6.lottery).length:1)).toFixed(2)),claimed:implicitGroup6.claimed,confident:Boolean(implicitGroup6.lottery),
     reasons:[`${implicitGroup6.selections.join('、')}按组六各${implicitGroup6.stake}元计算`],...(implicitGroup6.lottery?{}:{needs:['请补充福彩或体彩，再记录或核奖。']})};
@@ -6276,7 +6290,17 @@ function scanEntryForDraw(entry, lottery, draw) {
     original = original.replace(/((?:转圈|转子|全倒)\s*(?:直选|直|单)?\s*(?:各打|各|打)?)\s*0\.5\s*倍/g, '$1 1元');
   }
   entry = { ...entry, original };
-  if (parseDanAndUnspecifiedGroup3(original)) return [];
+  const danGroup3Pack=parseDanAndUnspecifiedGroup3(original);
+  if(danGroup3Pack&&/^\d{3}$/.test(draw))return danGroup3Pack.parts.flatMap((part,index)=>{
+    if(!lotteryTargets(part.lottery).includes(lottery))return [];
+    const bet=part.type==='胆'?`${lottery}独胆${part.selection} ${part.stake}元`:`${lottery}组三全包${part.stake}元`;
+    return scanEntryForDraw({...entry,original:bet,amount:part.stake,lotteries:[lottery]},lottery,draw).map(win=>({...win,id:`${win.id}-dan-pack-${index}`}));
+  });
+  const directDashMoney=parseDirectNumberDashMoney(original);
+  if(directDashMoney&&/^\d{3}$/.test(draw)){
+    if(!lotteryTargets(directDashMoney.lottery).includes(lottery)||directDashMoney.number!==draw)return [];
+    return [makeWinningEntry(entry,lottery,plays.direct.name,draw,directDashMoney.stake,plays.direct.prize/plays.direct.base,0)];
+  }
   const implicitGroup6=parseImplicitMultiGroup6(original);
   if(implicitGroup6 && /^\d{3}$/.test(draw)) {
     if(!implicitGroup6.lottery || !lotteryTargets(implicitGroup6.lottery).includes(lottery))return [];

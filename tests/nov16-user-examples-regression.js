@@ -10,8 +10,7 @@ for(const [marker,target,factor] of [['福','福彩',1],['体','体彩',1],['福
 }
 for(const marker of ['福','体','福体'])for(const slash of ['', '\\']){
  const factor=marker==='福体'?2:1,text=`${marker}，1的胆，120${slash}\n${marker}，7的胆，150${slash}\n${marker}，组三，50${slash}\n合计${320*factor}`,result=api.autoCalculateBet(text);
- assert.deepEqual([result.amount,result.claimed,result.confident],[320*factor,320*factor,false],JSON.stringify({text,result}));
- assert.ok(result.needs.some(s=>s.includes('组三')),JSON.stringify(result));
- assert.equal(api.scanEntryForDraw({id:'incomplete',original:text,amount:result.amount},marker==='体'?'体彩':'福彩','123').length,0);checks++;
+ assert.deepEqual([result.amount,result.claimed,result.confident],[320*factor,320*factor,true],JSON.stringify({text,result}));
+ assert.ok(result.reasons.some(s=>s.includes('组三全包')),JSON.stringify(result));checks++;
 }
 console.log(`NOV16_EXAMPLES passed=${checks}`);
