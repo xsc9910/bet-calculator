@@ -5215,7 +5215,7 @@ function findConcatenatedSingleNumbers(value) {
 }
 
 function normalizeAuditNotation(value) {
-  return String(value).replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
+  return String(value).replace(/\\(?=\s*\r?\n)/g, '').replace(/(?:福彩|福)(?:排列三|排三|排)(?![列三])|(?:排列三|排三|排)(?:福彩|福)/g, '福体').replace(/&#(?:x0?9|x20|9|32);|&nbsp;/gi, ' ').replace(/半\s*倍/g, ' 0.5倍')
     .replace(/(福彩体彩|福体|福彩|体彩|排列三|排三|3\s*[Dd]|[福褔体體])\s*((?:\d{3}(?:[ \t、，,.。/+＋-]+\d{3})*)?)\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)?\s*[+＋]\s*([零〇一二两三四五六七八九十百]+|\d+(?:\.\d+)?)\s*(毛|角|元|米|块)/gi,
       (match, marker, numbers, direct, directUnit, group, groupUnit, offset, source) => numbers || /(?<!\d)\d{3}\s*$/.test(source.slice(0, offset))
         ? `${marker}${numbers ? ` ${numbers} ` : ''}直${direct}${directUnit || groupUnit}组${group}${groupUnit}` : match)
@@ -6112,7 +6112,7 @@ function positionStake(text, bet, base, entry) {
 }
 
 function lotteryTargets(text) {
-  text = normalizeBetAliases(text);
+  text = normalizeBetAliases(normalizeAuditNotation(text));
   const welfare = /福彩|[福褔]|3\s*[Dd]|三\s*[DdBb]|三[弟地]/i.test(text);
   const sports = /体彩|[体體]|排列三|排三|排家|(?:^|[\s,，.。:：;；])排(?=$|[\s,，.。:：;；\d]|直|组|单)/.test(text);
   const targets = [];
